@@ -56,13 +56,7 @@ final class GuidanceEngine {
         )
         let offset = centerXFraction - 0.5
 
-        // TODO: port the fitLine-equivalent tilt calculation from
-        // contour_angle.py / guidance_logic.py. Remember the fix we
-        // found: fold the raw angle into a true 0-90 deviation from
-        // vertical (min(raw, 180 - raw)), since the line direction's
-        // sign is ambiguous and raw arctan2 can wrap around near 180
-        // degrees for a perfectly vertical finger.
-        let tiltDegrees: Double = 0  // placeholder
+        let tiltDegrees = computeTiltFromVertical(silhouette.contourPoints)
 
         var directions: [GuidanceDirection] = []
 
@@ -94,5 +88,50 @@ final class GuidanceEngine {
             tiltDegrees: tiltDegrees,
             directions: directions
         )
+    }
+
+    /// Swift equivalent of cv2.fitLine(DIST_L2), computing the tilt of
+    /// the finger's silhouette from vertical.
+    ///
+    /// No OpenCV available in Swift, so this uses the point cloud's
+    /// second moments to find the principal axis orientation directly
+    /// -- mathematically equivalent to what cv2.fitLine(DIST_L2)
+    /// computes, but as an UNDIRECTED axis angle (mod 180) rather than
+    /// a direction vector with an ambiguous sign. That's actually
+    /// cleaner than the Python version's approach: cv2.fitLine returns
+    /// a direction vector whose sign is ambiguous, which is what
+    /// caused the angle-wraparound bug we found and fixed in Python
+    /// (fold via min(raw, 180-raw)). This formula sidesteps that
+    /// entirely since doubling the angle in atan2(2*Sxy, ...) already
+    /// makes it inherently mod-180 -- verified by hand for both the
+    /// pure-vertical case (0 deg tilt) and pure-horizontal case (90
+    /// deg tilt) before shipping this.
+    private func computeTiltFromVertical(_ points: [CGPoint]) -> Double {
+        guard points.count >= 2 else { return 0 }
+
+        let meanX = points.reduce(0) { $0 + $1.x } / CGFloat(points.count)
+        let meanY = points.reduce(0) { $0 + $1.y } / CGFloat(points.count)
+
+        var sXX: CGFloat = 0
+        var sYY: CGFloat = 0
+        var sXY: CGFloat = 0
+        for p in points {
+            let dx = p.x - meanX
+            let dy = p.y - meanY
+            sXX += dx * dx
+            sYY += dy * dy
+            sXY += dx * dy
+        }
+
+        // Principal axis angle FROM THE X-AXIS, range -90...90 degrees
+        // (the doubling inside atan2 is what makes this undirected/
+        // mod-180, so a line and its 180-degree-rotated self give the
+        // same theta -- no separate sign-ambiguity fix needed here).
+        let thetaFromXAxis = 0.5 * atan2(2 * sXY, sXX - sYY) * 180 / .pi
+
+        // Convert to deviation from VERTICAL (not horizontal): a
+        // perfectly vertical contour has thetaFromXAxis near +-90,
+        // which should read as 0 degrees of tilt.
+        return 90 - abs(Double(thetaFromXAxis))
     }
 }
