@@ -2,21 +2,22 @@
 //  ContentView.swift
 //  NailVitals
 //
-//  Temporary test wiring: shows CaptureGuideOverlay directly against
-//  a plain background (no camera yet) just to confirm it renders
-//  correctly on a real device, with a button to manually cycle
-//  through the three states. Once SilhouetteDetector/GuidanceEngine
-//  are wired to a real camera feed, this gets replaced with the
-//  actual camera view.
+//  First real end-to-end wiring: live camera -> SilhouetteDetector ->
+//  GuidanceEngine -> CaptureGuideOverlay, all running on-device. This
+//  replaces the manual "Simulate next frame" button test from the
+//  previous version -- now driven entirely by CameraManager's
+//  @Published captureState.
+//
+//  Includes a debug readout of the raw GuidanceDirection values on
+//  screen, since this is the first real-world test of the whole
+//  detection pipeline -- useful for seeing exactly what it's finding
+//  (or not finding) rather than guessing from the overlay color alone.
 //
 
 import SwiftUI
 
 struct ContentView: View {
-    @State private var state: CaptureState = .searching
     @StateObject private var camera = CameraManager()
-
-    private let statesInOrder: [CaptureState] = [.searching, .adjusting, .aligned]
 
     var body: some View {
         ZStack {
@@ -33,22 +34,24 @@ struct ContentView: View {
             }
 
             CaptureGuideOverlay(
-                state: state,
+                state: camera.captureState,
                 instructionText: instructionText,
-                subText: subText
+                subText: subText,
+                silhouette: camera.currentSilhouette
             )
 
             VStack {
                 Spacer()
-                Button(action: cycleState) {
-                    Text("Simulate next frame")
-                        .font(.system(size: 15, weight: .semibold))
-                        .padding()
-                        .background(Color.white.opacity(0.15))
-                        .foregroundColor(.white)
-                        .cornerRadius(10)
-                }
-                .padding(.bottom, 60)
+                // Debug readout -- remove once the pipeline is
+                // trusted; useful right now for seeing exactly what
+                // GuidanceEngine is detecting in real conditions.
+                Text(debugDirectionsText)
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.6))
+                    .padding(8)
+                    .background(Color.black.opacity(0.5))
+                    .cornerRadius(6)
+                    .padding(.bottom, 100)
             }
         }
         .onAppear {
@@ -60,24 +63,39 @@ struct ContentView: View {
     }
 
     private var instructionText: String {
-        switch state {
-        case .searching: return "Align your finger with the outline"
-        case .adjusting: return "Getting closer"
-        case .aligned: return "Perfect, hold still"
+        guard let first = camera.currentDirections.first else {
+            return "Align your finger with the outline"
+        }
+        switch first {
+        case .noFingerDetected:
+            return "Align your finger with the outline"
+        case .moveCloser:
+            return "Move closer"
+        case .moveBack:
+            return "Move back a little"
+        case .moveLeft:
+            return "Move left"
+        case .moveRight:
+            return "Move right"
+        case .straighten:
+            return "Straighten your finger"
+        case .moveHandDown:
+            return "Move your hand down slightly"
+        case .looksGood:
+            return "Perfect, hold still"
         }
     }
 
     private var subText: String {
-        switch state {
+        switch camera.captureState {
         case .searching: return "Hold your finger sideways, nail facing the camera"
         case .adjusting: return "Rotate slightly so the nail edge is visible"
         case .aligned: return "Capturing..."
         }
     }
 
-    private func cycleState() {
-        let currentIndex = statesInOrder.firstIndex(of: state) ?? 0
-        state = statesInOrder[(currentIndex + 1) % statesInOrder.count]
+    private var debugDirectionsText: String {
+        camera.currentDirections.map { "\($0)" }.joined(separator: ", ")
     }
 }
 

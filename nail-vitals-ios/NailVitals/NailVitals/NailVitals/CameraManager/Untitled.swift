@@ -20,8 +20,46 @@ final class CameraManager: NSObject, ObservableObject {
     @Published var permissionGranted = false
     @Published var permissionDenied = false
 
+    // First real wiring of SilhouetteDetector + GuidanceEngine to
+    // live camera frames -- this is the biggest untested piece in the
+    // whole project up to this point. Published so ContentView can
+    // react to it directly.
+    @Published var captureState: CaptureState = .searching
+    @Published var currentDirections: [GuidanceDirection] = [.noFingerDetected]
+    // NEW: the live detected silhouette, published so the overlay can
+    // draw the REAL detected shape instead of the fixed placeholder
+    // outline. nil when nothing's detected.
+    @Published var currentSilhouette: DetectedSilhouette?
+
     let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "camera.session.queue")
+    private let videoOutput = AVCaptureVideoDataOutput()
+    private let frameProcessingQueue = DispatchQueue(label: "camera.frame.processing")
+
+    private let silhouetteDetector = SilhouetteDetector()
+    private let guidanceEngine = GuidanceEngine()
+
+    // Throttling: running full detection on every frame (30-60fps)
+    // would be wasteful and likely too slow for this pipeline (it
+    // wasn't built with real-time performance in mind originally --
+    // see architecture doc). Process at most ~4 times per second.
+    // nonisolated(unsafe): mutated from captureOutput, which runs
+    // nonisolated on frameProcessingQueue (see the delegate extension
+    // below). Safe because this is only ever touched from that one
+    // serial queue, never concurrently from elsewhere.
+    private nonisolated(unsafe) var lastProcessedTime = Date.distantPast
+    private let minProcessingInterval: TimeInterval = 0.25
+
+    // NEW: debounce for the "aligned" state. A single false-positive
+    // detection (something skin-colored and tall-narrow enough to
+    // slip past the heuristic checks, but not actually a finger) can
+    // otherwise flip the UI to green for one flickering frame. Require
+    // several consecutive "looksGood" readings before actually
+    // showing aligned -- doesn't fix a PERSISTENT false detection, but
+    // filters out momentary ones, which is what we actually saw on
+    // device testing.
+    private var consecutiveAlignedCount = 0
+    private let requiredConsecutiveAligned = 4  // roughly 1 second at the current processing rate
 
     func checkPermissionAndStart() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -71,11 +109,29 @@ final class CameraManager: NSObject, ObservableObject {
                 return
             }
 
-            // TODO: add AVCaptureVideoDataOutput here once we're ready
-            // to feed frames into SilhouetteDetector for live guidance.
-            // Kept out for now -- this step is ONLY about getting a
-            // preview on screen and confirming the session itself
-            // works on real hardware first.
+            self.videoOutput.setSampleBufferDelegate(self, queue: self.frameProcessingQueue)
+            self.videoOutput.alwaysDiscardsLateVideoFrames = true
+            if self.session.canAddOutput(self.videoOutput) {
+                self.session.addOutput(self.videoOutput)
+            }
+
+            // IMPORTANT: the camera sensor's native buffer orientation
+            // is landscape regardless of how the phone is held -- the
+            // preview layer rotates automatically for display, but
+            // raw sample buffers from AVCaptureVideoDataOutput do NOT
+            // unless we explicitly set the connection's orientation.
+            // Without this, contour coordinates from SilhouetteDetector
+            // would be in landscape space while the screen shows
+            // portrait, causing the live outline to be rotated wrong
+            // relative to what's actually on screen.
+            // UPDATED: switched from the older videoOrientation API
+            // (deprecated in iOS 17) to the newer rotation-angle-based
+            // API. 90 degrees is the portrait equivalent of the old
+            // .portrait case for a back-camera connection.
+            if let connection = self.videoOutput.connection(with: .video),
+               connection.isVideoRotationAngleSupported(90) {
+                connection.videoRotationAngle = 90
+            }
 
             self.session.commitConfiguration()
             self.session.startRunning()
@@ -85,6 +141,72 @@ final class CameraManager: NSObject, ObservableObject {
     func stop() {
         sessionQueue.async { [weak self] in
             self?.session.stopRunning()
+        }
+    }
+
+    /// Maps a GuidanceResult's directions to the simpler CaptureState
+    /// enum the overlay UI already knows how to display.
+    private func mapToCaptureState(_ directions: [GuidanceDirection]) -> CaptureState {
+        if directions == [.noFingerDetected] {
+            return .searching
+        }
+        if directions == [.looksGood] {
+            return .aligned
+        }
+        return .adjusting
+    }
+}
+
+extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
+    // TODO/VERIFY: marked nonisolated because this method genuinely
+    // needs to run on the background frame-processing queue, not the
+    // main actor -- newer Swift/Xcode defaults were implicitly
+    // treating CameraManager as main-actor isolated (a modern
+    // concurrency-safety feature), which conflicted with that. This
+    // is the standard pattern for AVFoundation capture delegates in
+    // this situation, but I can't fully verify the compiler accepts
+    // it without an actual build -- if a different isolation error
+    // shows up here, that's the next thing to adjust, not a sign this
+    // approach is wrong. The actual @Published property updates still
+    // correctly hop back to the main actor via DispatchQueue.main.async
+    // below, which is the part that actually matters for SwiftUI.
+    nonisolated func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        let now = Date()
+        guard now.timeIntervalSince(lastProcessedTime) >= minProcessingInterval else { return }
+        lastProcessedTime = now
+
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        // SilhouetteDetector + GuidanceEngine run on this background
+        // frame-processing queue, not main -- only the resulting
+        // @Published updates get dispatched to main for SwiftUI.
+        let silhouette = silhouetteDetector.detect(in: pixelBuffer)
+        let guidance = guidanceEngine.analyze(silhouette)
+
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            self.currentDirections = guidance.directions
+            self.currentSilhouette = silhouette
+
+            let rawState = self.mapToCaptureState(guidance.directions)
+            if rawState == .aligned {
+                self.consecutiveAlignedCount += 1
+            } else {
+                self.consecutiveAlignedCount = 0
+            }
+
+            // Only actually show "aligned" once it's held steady for
+            // several consecutive detections -- see the property
+            // comments above for why this matters.
+            if rawState == .aligned && self.consecutiveAlignedCount < self.requiredConsecutiveAligned {
+                self.captureState = .adjusting
+            } else {
+                self.captureState = rawState
+            }
         }
     }
 }
@@ -112,4 +234,3 @@ struct CameraPreviewView: UIViewRepresentable {
         }
     }
 }
- 

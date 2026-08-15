@@ -35,7 +35,15 @@ struct DetectedSilhouette {
     let imageSize: CGSize
 }
 
-final class SilhouetteDetector {
+// nonisolated: fixes a cascading series of warnings where marking
+// just the public detect() method nonisolated wasn't enough --
+// every private helper it called (preprocessForSeparation,
+// boundingRect, looksSkinToned) hit the identical warning one at a
+// time, since Swift's default main-actor isolation applies per-member,
+// not just to the entry point. This class has no shared mutable
+// state that needs actor protection (only `let context`), so marking
+// the whole type nonisolated is correct, not just a workaround.
+nonisolated final class SilhouetteDetector {
 
     private let context = CIContext()
 
@@ -44,14 +52,33 @@ final class SilhouetteDetector {
     /// convert normalized Vision coordinates into image-pixel
     /// coordinates (matching what AngleAnalyzer/GuidanceEngine expect,
     /// same convention as the Python contour arrays).
-    func detect(in pixelBuffer: CVPixelBuffer) -> DetectedSilhouette? {
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+    // nonisolated: called synchronously from CameraManager's
+    // nonisolated captureOutput() on a background queue -- this
+    // method only touches `context` (a let constant) and has no
+    // shared mutable state, so it's safe to mark nonisolated.
+    nonisolated func detect(in pixelBuffer: CVPixelBuffer) -> DetectedSilhouette? {
+        let fullImage = CIImage(cvPixelBuffer: pixelBuffer)
         let imageSize = CGSize(
             width: CVPixelBufferGetWidth(pixelBuffer),
             height: CVPixelBufferGetHeight(pixelBuffer)
         )
 
-        guard let preprocessed = preprocessForSeparation(ciImage) else {
+        // BUG FIX: an earlier version of this function CROPPED the
+        // input image to a central region before running detection,
+        // intending to ignore distant unrelated edges (door frames,
+        // furniture). That introduced a WORSE bug: cropping creates a
+        // hard, artificial rectangular edge exactly at the crop
+        // boundary, and after the contrast/saturation boost below,
+        // Vision was detecting THAT edge as the largest contour --
+        // this showed up on device as a huge rectangle roughly the
+        // size of the crop region, not the finger at all.
+        //
+        // Correct approach: run detection on the FULL, unmodified
+        // image (no fake edges introduced), then FILTER the results
+        // to prefer contours centered in frame. This achieves the
+        // same goal (ignore a door frame in the corner) without ever
+        // creating an artificial boundary for Vision to misdetect.
+        guard let preprocessed = preprocessForSeparation(fullImage) else {
             return nil
         }
 
@@ -79,38 +106,137 @@ final class SilhouetteDetector {
             return nil
         }
 
-        // Pick the largest top-level contour by point count as a proxy
-        // for contour complexity/size -- matches get_largest_contour()'s
-        // use of cv2.contourArea, though point count isn't a perfect
-        // substitute for area. TODO/VERIFY: consider computing actual
-        // polygon area from normalizedPoints instead, the way Python
-        // does with cv2.contourArea, if point-count picks the wrong
-        // contour in practice.
-        guard let largestContour = observation.topLevelContours.max(by: { $0.pointCount < $1.pointCount }) else {
+        // Convert EVERY top-level contour's points to full-image
+        // pixel coordinates (not just the single largest one), so we
+        // can filter by position before picking a winner.
+        func toImagePoints(_ contour: VNContour) -> [CGPoint] {
+            contour.normalizedPoints.map { point in
+                CGPoint(
+                    x: CGFloat(point.x) * imageSize.width,
+                    y: (1 - CGFloat(point.y)) * imageSize.height
+                )
+            }
+        }
+
+        // Prefer contours whose CENTER falls within a central region
+        // of the frame -- this is the actual fix for the original
+        // problem (a door frame or table edge far from where a
+        // properly-held finger should be), applied as a filter on
+        // results instead of a crop on the input.
+        let roiWidthFraction: CGFloat = 0.65
+        let roiHeightFraction: CGFloat = 0.85
+        let roiMinX = imageSize.width * (1 - roiWidthFraction) / 2
+        let roiMaxX = imageSize.width - roiMinX
+        let roiMinY = imageSize.height * (1 - roiHeightFraction) / 2
+        let roiMaxY = imageSize.height - roiMinY
+
+        let centeredContours = observation.topLevelContours.filter { contour in
+            let points = toImagePoints(contour)
+            guard !points.isEmpty else { return false }
+            let box = boundingRect(of: points)
+            let centerX = box.midX
+            let centerY = box.midY
+            return centerX >= roiMinX && centerX <= roiMaxX
+                && centerY >= roiMinY && centerY <= roiMaxY
+        }
+
+        // Among the centered candidates, pick the largest by point
+        // count -- matches get_largest_contour()'s use of
+        // cv2.contourArea as a size proxy. TODO/VERIFY: consider
+        // computing actual polygon area from normalizedPoints instead,
+        // if point-count picks the wrong contour in practice.
+        guard let largestContour = centeredContours.max(by: { $0.pointCount < $1.pointCount }) else {
             return nil
         }
 
-        // Vision's normalizedPoints are in a 0-1 coordinate space with
-        // origin at BOTTOM-left (unlike OpenCV/UIKit's top-left origin).
-        // Flip the Y axis here so downstream code (AngleAnalyzer,
-        // GuidanceEngine) can assume top-left origin, matching the
-        // Python prototype's coordinate convention.
-        let imagePoints: [CGPoint] = largestContour.normalizedPoints.map { point in
-            CGPoint(
-                x: CGFloat(point.x) * imageSize.width,
-                y: (1 - CGFloat(point.y)) * imageSize.height
-            )
-        }
+        let imagePoints = toImagePoints(largestContour)
 
         guard !imagePoints.isEmpty else { return nil }
 
         let boundingBox = boundingRect(of: imagePoints)
+
+        // NEW: skin-tone plausibility check, added after real device
+        // testing showed non-finger objects (a wood table + plastic
+        // figures, specifically) could pass the aspect-ratio check
+        // and still get treated as a valid finger. Whatever's
+        // detected should at least look roughly skin-colored -- this
+        // won't catch everything (another hand-shaped skin-toned
+        // object would still pass), but it directly addresses the
+        // false positive we actually observed.
+        guard looksSkinToned(pixelBuffer: pixelBuffer, in: boundingBox, imageSize: imageSize) else {
+            return nil
+        }
 
         return DetectedSilhouette(
             boundingBox: boundingBox,
             contourPoints: imagePoints,
             imageSize: imageSize
         )
+    }
+
+    /// Samples average color within the detected region and checks it
+    /// against a broad, deliberately permissive skin-tone range (needs
+    /// to work across many real skin tones, not just one). This is a
+    /// coarse sanity check, not a precise classifier -- the goal is
+    /// filtering out obviously-wrong objects (furniture, walls, toys),
+    /// not perfectly validating skin.
+    private func looksSkinToned(pixelBuffer: CVPixelBuffer, in boundingBox: CGRect, imageSize: CGSize) -> Bool {
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+
+        // Sample a smaller center region of the bounding box, to avoid
+        // averaging in background pixels right at the silhouette's edge.
+        let sampleRect = boundingBox.insetBy(
+            dx: boundingBox.width * 0.3,
+            dy: boundingBox.height * 0.3
+        )
+        guard sampleRect.width > 0, sampleRect.height > 0 else { return false }
+
+        // CIImage's coordinate origin is bottom-left; boundingBox is
+        // in the top-left-origin convention used elsewhere in this
+        // file (see the Y-flip above), so flip back for sampling.
+        let ciSampleRect = CGRect(
+            x: sampleRect.minX,
+            y: imageSize.height - sampleRect.maxY,
+            width: sampleRect.width,
+            height: sampleRect.height
+        )
+
+        let extentVector = CIVector(
+            x: ciSampleRect.origin.x, y: ciSampleRect.origin.y,
+            z: ciSampleRect.width, w: ciSampleRect.height
+        )
+        guard let averageFilter = CIFilter(name: "CIAreaAverage", parameters: [
+            kCIInputImageKey: ciImage,
+            kCIInputExtentKey: extentVector
+        ]) else { return false }
+        guard let outputImage = averageFilter.outputImage else { return false }
+
+        var pixelData = [UInt8](repeating: 0, count: 4)
+        context.render(
+            outputImage, toBitmap: &pixelData, rowBytes: 4,
+            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+            format: .RGBA8, colorSpace: nil
+        )
+
+        let r = Double(pixelData[0]) / 255.0
+        let g = Double(pixelData[1]) / 255.0
+        let b = Double(pixelData[2]) / 255.0
+
+        // Broad, permissive skin-tone heuristic (needs to work across
+        // a wide range of real skin tones): red channel should
+        // dominate or be close to green, and not be too desaturated
+        // (rules out grays/whites like a wall or table) or too
+        // saturated toward blue/green (rules out most fabrics,
+        // plastics, wood tones outside a skin-like range).
+        let maxChannel = max(r, g, b)
+        let minChannel = min(r, g, b)
+        let saturation = maxChannel > 0 ? (maxChannel - minChannel) / maxChannel : 0
+
+        let redDominant = r >= g * 0.95 && r >= b
+        let reasonableSaturation = saturation > 0.03 && saturation < 0.6
+        let reasonableBrightness = maxChannel > 0.2 && maxChannel < 0.98
+
+        return redDominant && reasonableSaturation && reasonableBrightness
     }
 
     /// Boosts separation between skin and a plain background before
@@ -130,8 +256,19 @@ final class SilhouetteDetector {
     private func preprocessForSeparation(_ image: CIImage) -> CIImage? {
         let saturationFilter = CIFilter.colorControls()
         saturationFilter.inputImage = image
-        saturationFilter.saturation = 2.0
-        saturationFilter.contrast = 1.3
+        // TODO/VERIFY: reduced from saturation=2.0, contrast=1.3 --
+        // device testing showed even a genuinely plain wall could
+        // produce large spurious detected shapes, likely because that
+        // aggressive a boost turns very subtle, real lighting
+        // gradients (a wall is never perfectly uniformly lit) into
+        // edges sharp enough for Vision to treat as object boundaries.
+        // This is a first attempt at dialing it back, not a verified
+        // fix -- if spurious detections persist, the contour-detection
+        // approach itself may need contrastAdjustment tuned down too
+        // (see the VNDetectContoursRequest setup), not just this
+        // preprocessing step.
+        saturationFilter.saturation = 1.3
+        saturationFilter.contrast = 1.05
 
         guard let output = saturationFilter.outputImage else { return nil }
         return output

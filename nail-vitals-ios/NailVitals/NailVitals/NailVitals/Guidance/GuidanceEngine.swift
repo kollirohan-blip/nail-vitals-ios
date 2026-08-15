@@ -32,7 +32,12 @@ struct GuidanceResult {
     let directions: [GuidanceDirection]
 }
 
-final class GuidanceEngine {
+// nonisolated: same fix as SilhouetteDetector -- marking just
+// analyze() wasn't enough, since it calls private helpers
+// (computeTiltFromVertical) that hit the identical warning. No
+// shared mutable state here either (only let-constant thresholds),
+// so nonisolated on the whole type is correct.
+nonisolated final class GuidanceEngine {
 
     // Calibrated from 5 known-good photos in the Python prototype --
     // do not change these without re-validating against real data,
@@ -42,8 +47,31 @@ final class GuidanceEngine {
     private let centerTolerance: Double = 0.20
     private let tiltToleranceDegrees: Double = 35.0
 
-    func analyze(_ silhouette: DetectedSilhouette?) -> GuidanceResult {
+    // nonisolated: called synchronously from CameraManager's
+    // nonisolated captureOutput() on a background queue -- this
+    // method only touches let-constant thresholds (targetWidthFraction
+    // etc.), no shared mutable state, so it's safe to mark nonisolated.
+    nonisolated func analyze(_ silhouette: DetectedSilhouette?) -> GuidanceResult {
         guard let silhouette = silhouette else {
+            return GuidanceResult(
+                widthFraction: 0, centerOffset: 0, tiltDegrees: 0,
+                directions: [.noFingerDetected]
+            )
+        }
+
+        // NEW: basic shape sanity check, added after real device
+        // testing showed the pipeline was treating ANY large contour
+        // (walls, doorframes, random edges) as a valid finger, since
+        // SilhouetteDetector just finds "the largest contour in
+        // frame" with no opinion on whether it looks finger-shaped.
+        // A finger held up should be noticeably taller than it is
+        // wide -- this threshold is a first pass, not carefully
+        // calibrated against real data yet (unlike widthFraction/
+        // centerTolerance/tiltTolerance below, which WERE validated
+        // against the 5 known-good photos). Expect to need real-world
+        // tuning once more device testing happens.
+        let aspectRatio = silhouette.boundingBox.height / max(silhouette.boundingBox.width, 1)
+        guard aspectRatio >= 1.4 else {
             return GuidanceResult(
                 widthFraction: 0, centerOffset: 0, tiltDegrees: 0,
                 directions: [.noFingerDetected]
