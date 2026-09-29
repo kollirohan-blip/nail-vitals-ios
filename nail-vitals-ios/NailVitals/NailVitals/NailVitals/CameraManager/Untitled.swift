@@ -31,6 +31,45 @@ final class CameraManager: NSObject, ObservableObject {
     // outline. nil when nothing's detected.
     @Published var currentSilhouette: DetectedSilhouette?
 
+    // Grid-sampling debug readout -- see SilhouetteDetector's
+    // looksSkinToned. Only meaningful once a contour reaches that
+    // check; stays 0 otherwise (see detect()'s reset at the top).
+    @Published var skinPassingFraction: Double = 0
+
+    // NEW: solidity debug readout -- see SilhouetteDetector's
+    // looksLikeCleanSingleShape. Below solidityThreshold means the
+    // frame was rejected as a contaminated/non-single-blob contour
+    // before even reaching the skin check.
+    @Published var solidity: Double = 0
+
+    // Which SilhouetteDetector stage the latest frame stopped at, and
+    // GuidanceEngine's raw aspect ratio -- together these tell the HUD
+    // exactly which gate is rejecting frames, instead of skin/solid
+    // reading 0% ambiguously when a frame never reached those checks.
+    @Published var silhouetteStage: SilhouetteRejectionStage = .noContourFound
+    @Published var lastAspectRatio: Double = 0
+
+    // NEW: the frame captured when the user taps the capture button.
+    // Published so ContentView can react (e.g. navigate to a result
+    // flow) once it's set. This is a live preview frame reused for
+    // capture, NOT a dedicated high-resolution AVCapturePhotoOutput
+    // capture -- simpler to wire up first and consistent with how
+    // SilhouetteDetector/AngleAnalyzer already consume CVPixelBuffer
+    // directly, no format conversion needed. TODO/VERIFY: if the
+    // measured angle needs more resolution than the live preview
+    // provides, upgrading to a real AVCapturePhotoOutput capture is
+    // the next step -- but get the full flow working end-to-end on
+    // this simpler path first.
+    @Published private(set) var capturedPixelBuffer: CVPixelBuffer?
+
+    // NEW: set by capturePhoto() (called from the main actor, on a UI
+    // button tap) and read+cleared inside captureOutput. Dispatched
+    // onto frameProcessingQueue in capturePhoto() below specifically
+    // so this flag is ONLY ever touched from that one serial queue --
+    // same single-queue safety reasoning as lastProcessedTime, just
+    // extended to also cover the write from the button tap.
+    private nonisolated(unsafe) var captureRequested = false
+
     let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "camera.session.queue")
     private let videoOutput = AVCaptureVideoDataOutput()
@@ -144,6 +183,28 @@ final class CameraManager: NSObject, ObservableObject {
         }
     }
 
+    /// Called by the UI (capture button tap) to request that the NEXT
+    /// incoming frame be saved as capturedPixelBuffer. Dispatched onto
+    /// frameProcessingQueue rather than set directly, so the flag is
+    /// only ever touched from that single queue -- see the property
+    /// comment above for why that matters.
+    func capturePhoto() {
+        frameProcessingQueue.async { [weak self] in
+            self?.captureRequested = true
+        }
+    }
+
+    /// Clears the captured photo -- called when CaptureFlowView is
+    /// dismissed (result confirmed, or user backed out), so
+    /// ContentView's fullScreenCover closes and a new capture can be
+    /// taken. Called directly from a SwiftUI callback, already on the
+    /// main thread, so no dispatch needed here (unlike capturePhoto()
+    /// above, which is called from the same context but needs to hand
+    /// off to frameProcessingQueue for captureRequested specifically).
+    func resetCapture() {
+        capturedPixelBuffer = nil
+    }
+
     /// Maps a GuidanceResult's directions to the simpler CaptureState
     /// enum the overlay UI already knows how to display.
     private func mapToCaptureState(_ directions: [GuidanceDirection]) -> CaptureState {
@@ -181,16 +242,42 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
+        // NEW: if the user tapped capture since the last frame, save
+        // THIS frame as the captured photo. Checked/cleared here on
+        // frameProcessingQueue -- the only queue that ever touches
+        // captureRequested, so no race with capturePhoto() setting it.
+        // Holding a strong reference to the CVPixelBuffer like this is
+        // enough to keep it valid past this callback (standard
+        // CoreFoundation ref-counting, toll-free bridged) -- it will
+        // NOT get silently recycled out from under us.
+        if captureRequested {
+            captureRequested = false
+            DispatchQueue.main.async { [weak self] in
+                self?.capturedPixelBuffer = pixelBuffer
+            }
+        }
+
         // SilhouetteDetector + GuidanceEngine run on this background
         // frame-processing queue, not main -- only the resulting
         // @Published updates get dispatched to main for SwiftUI.
         let silhouette = silhouetteDetector.detect(in: pixelBuffer)
         let guidance = guidanceEngine.analyze(silhouette)
+        // Read off the grid-sampling debug value right after detect()
+        // runs, on this same background queue, then hand it to main
+        // along with everything else below.
+        let skinFraction = silhouetteDetector.lastSkinPassingFraction
+        let solidityValue = silhouetteDetector.lastSolidity
+        let stage = silhouetteDetector.lastStage
+        let aspectRatio = guidanceEngine.lastAspectRatio
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.currentDirections = guidance.directions
             self.currentSilhouette = silhouette
+            self.skinPassingFraction = skinFraction
+            self.solidity = solidityValue
+            self.silhouetteStage = stage
+            self.lastAspectRatio = aspectRatio
 
             let rawState = self.mapToCaptureState(guidance.directions)
             if rawState == .aligned {

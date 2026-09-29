@@ -30,10 +30,27 @@ struct LovibondCandidate {
     let side: String  // "left" or "right", matching Python's naming
     let angleDegrees: Double
     let inflectionPoint: CGPoint   // SUGGESTED point -- see note below
+    // NEW: needed so InflectionPointConfirmation can call
+    // recomputeAngle() again if the user drags this point to a
+    // different spot on the contour -- recomputeAngle needs the
+    // ORIGINAL search direction (step) and a valid contour index to
+    // work from, neither of which can be recovered from
+    // inflectionPoint alone (it's just a raw CGPoint by that stage).
+    let inflectionIndex: Int
+    let step: Int  // -1 for "left", +1 for "right" -- matches analyze()'s (side, step) pairing below
 }
 
 struct LovibondResult {
     let fingertip: CGPoint
+    // NEW: exposed so InflectionPointConfirmation can pass them back
+    // into recomputeAngle() and can nearest-neighbor-search the full
+    // contour when the user drags a marker. None of this was needed
+    // until a real confirmation UI existed to call back into the
+    // analyzer -- previously this data just lived and died inside
+    // analyze()'s local scope.
+    let tipIndex: Int
+    let contourPoints: [CGPoint]
+    let segmentLengthPixels: Double
     let candidates: [LovibondCandidate]
 }
 
@@ -60,9 +77,111 @@ final class AngleAnalyzer {
         guard points.count > 20 else { return nil }
 
         let perimeter = contourPerimeter(points)
-        let window = max(4, Int(perimeter * 0.006))
-        let searchRange = max(40, Int(perimeter * 0.12))
-        let segmentLen = max(20, Int(perimeter * 0.05))
+        // CORRECTED: my first attempt at this (bumping the old 0.12
+        // perimeter-fraction up to 0.30) was WRONG -- based on a
+        // misread screenshot, I assumed both candidates were
+        // collapsing too close to the tip. Real device testing showed
+        // the opposite: candidates landing at OPPOSITE EDGES OF THE
+        // SCREEN, meaning the search was already free to wander too
+        // FAR from the tip, not too little. Any percentage of total
+        // PERIMETER is the wrong kind of bound here regardless of the
+        // exact number -- perimeter includes the whole folded fist,
+        // wrist, and palm creases, none of which have anything to do
+        // with where a cuticle should physically be. findBestSplit()
+        // scores purely by two-line-fit residual with NO distance
+        // penalty, so it's structurally biased toward whichever bend
+        // is SHARPEST anywhere in the search window -- and a
+        // clinically-normal cuticle (a subtle, nearly-straight
+        // 160-180 degree bend) will systematically lose that contest
+        // against a genuinely sharp, unrelated crease elsewhere in
+        // the hand, wherever one happens to fall within range.
+        //
+        // CORRECTED AGAIN: the previous fix (bounding by
+        // silhouette.boundingBox.width as a stand-in for "finger
+        // width") was ALSO wrong, for a different reason -- that
+        // bounding box wraps the ENTIRE hand, fist included, and a
+        // folded fist is considerably WIDER than the actual extended
+        // finger. So "3x finger width" was really closer to "3x fist
+        // width," generous enough that it barely constrained anything
+        // -- real device testing after this fix STILL showed
+        // candidates landing at the edges of the frame.
+        //
+        // FIX: stop trying to infer "finger width" from a bounding box
+        // that's dominated by the wider fist. Instead bound the search
+        // by a small fraction of the PHOTO'S OWN HEIGHT -- a cuticle
+        // should never be more than a modest slice of the frame away
+        // from the tip if the photo was framed the way the app's
+        // guidance asks for, regardless of hand shape or fist size.
+        // This sidesteps the whole "estimate finger thickness"
+        // problem instead of trying to fix it again.
+        //
+        // TODO/VERIFY: maxSearchFrameHeightFraction=0.15 is a first
+        // guess (roughly: cuticle within the top ~15% of frame height
+        // from the tip), not calibrated against real photos -- if
+        // candidates still land far from the real cuticle, lower this;
+        // if they're landing too close to the tip, raise it. Test this
+        // one on an ACTUAL capture-to-confirmation run, not just
+        // reasoning about it -- that's what caught the previous
+        // fix's flaw.
+        // CORRECTED A THIRD TIME: the frame-height-fraction fix STILL
+        // failed real device testing -- candidates were still landing
+        // at the frame edges. The actual flaw wasn't the number
+        // (0.15), it was the whole APPROACH: converting a physical
+        // pixel budget into an INDEX COUNT via one global "average
+        // point spacing" (perimeter / point count). That average is
+        // unreliable because point density is NOT uniform along a
+        // hand's contour -- the curved fingertip gets sampled much
+        // more densely than the straighter wrist/arm edges. Walking a
+        // fixed number of index steps from the tip can cover wildly
+        // different REAL distances depending on which stretch of the
+        // contour that walk happens to pass through. No single
+        // average could fix that, regardless of which fraction was
+        // chosen -- which is exactly why two different numbers, both
+        // reasoned out carefully, both failed the same way.
+        //
+        // FIX: stop converting to an index count at all. findBestSplit
+        // now checks the ACTUAL Euclidean distance from the tip to
+        // each candidate point directly, every step, and stops the
+        // search the moment that real distance exceeds the budget --
+        // see its updated signature below. No averaging, no
+        // approximation.
+        let maxSearchFrameHeightFraction = 0.15
+        let maxSearchDistancePixels = Double(silhouette.imageSize.height) * maxSearchFrameHeightFraction
+        // CORRECTED YET AGAIN: window (the minimum distance before a
+        // candidate is even considered) was STILL perimeter-based
+        // (perimeter * 0.006) even after fixing the maximum-distance
+        // side of this search. Real device testing after switching the
+        // final capture to highQuality (higher-resolution Vision
+        // analysis) showed the exact same markers-at-the-corners
+        // symptom, despite the max-distance fix being correct on its
+        // own terms -- because a higher-fidelity trace resolves more
+        // real detail (skin texture, tiny creases) and genuinely
+        // computes a LONGER perimeter for the same physical hand (the
+        // same effect that makes a coastline measured at higher
+        // resolution come out longer). That inflated window enough to
+        // skip past the real cuticle before the search even started
+        // scoring candidates -- independent of the correct maximum
+        // bound. Fixed the same way: real distance, not a perimeter
+        // fraction, so it can't be thrown off by tracing fidelity.
+        let windowDistancePixels = maxSearchDistancePixels * 0.05
+        // FIX (completing the same conversion): segmentLen was STILL
+        // perimeter-based (perimeter * 0.05), even after window and
+        // the max-distance bound were both fixed. Confirmed necessary
+        // by real device testing -- markers were STILL landing wrong
+        // after those two fixes, and this was the one remaining
+        // perimeter-derived value left. Same coastline-effect problem:
+        // a higher-fidelity trace inflates perimeter, which inflated
+        // this index count, which changed how much of the contour each
+        // line-fit segment covered in a way that had nothing to do
+        // with the actual geometry. Now expressed as a real distance
+        // and walked directly (see collectSegment below) instead of a
+        // fixed index count.
+        // TODO/VERIFY: segmentLengthPixels as 30% of the max search
+        // distance is a first guess, not calibrated -- if the fitted
+        // lines look too short/noisy to reliably distinguish a real
+        // bend, raise it; if they're picking up unrelated curvature
+        // beyond the immediate area of the split point, lower it.
+        let segmentLengthPixels = maxSearchDistancePixels * 0.3
 
         guard let tipIndex = findFingertipIndex(points) else { return nil }
         let tip = points[tipIndex]
@@ -71,23 +190,31 @@ final class AngleAnalyzer {
         for (side, step) in [("left", -1), ("right", 1)] {
             guard let splitIndex = findBestSplit(
                 points: points, tipIndex: tipIndex, step: step,
-                window: window, searchRange: searchRange, segmentLen: segmentLen
+                windowDistancePixels: windowDistancePixels, maxSearchDistancePixels: maxSearchDistancePixels, segmentLengthPixels: segmentLengthPixels
             ) else { continue }
 
             guard let angle = computeAngleAtInflection(
                 points: points, tipIndex: tipIndex, inflectionIndex: splitIndex,
-                step: step, segmentLen: segmentLen
+                step: step, segmentLengthPixels: segmentLengthPixels
             ) else { continue }
 
             candidates.append(LovibondCandidate(
                 side: side,
                 angleDegrees: angle,
-                inflectionPoint: points[splitIndex]
+                inflectionPoint: points[splitIndex],
+                inflectionIndex: splitIndex,
+                step: step
             ))
         }
 
         guard !candidates.isEmpty else { return nil }
-        return LovibondResult(fingertip: tip, candidates: candidates)
+        return LovibondResult(
+            fingertip: tip,
+            tipIndex: tipIndex,
+            contourPoints: points,
+            segmentLengthPixels: segmentLengthPixels,
+            candidates: candidates
+        )
     }
 
     /// Recomputes the angle for a specific inflection point the user
@@ -96,11 +223,11 @@ final class AngleAnalyzer {
     /// suggested point in the UI.
     func recomputeAngle(
         points: [CGPoint], tipIndex: Int, userConfirmedIndex: Int,
-        step: Int, segmentLen: Int
+        step: Int, segmentLengthPixels: Double
     ) -> Double? {
         computeAngleAtInflection(
             points: points, tipIndex: tipIndex, inflectionIndex: userConfirmedIndex,
-            step: step, segmentLen: segmentLen
+            step: step, segmentLengthPixels: segmentLengthPixels
         )
     }
 
@@ -128,26 +255,59 @@ final class AngleAnalyzer {
     /// (180 degrees) in most cases -- a real improvement over the
     /// curvature approach, though not a complete fix, which is why
     /// user confirmation is still required.
+    ///
+    /// UPDATED: stops based on REAL Euclidean distance from the tip,
+    /// not a fixed count of contour points -- see the class-level
+    /// comment in analyze() for why an index-count bound (even a
+    /// carefully-computed one) was structurally unreliable. This
+    /// checks actual pixel distance every step, so it can't be fooled
+    /// by uneven point density along different parts of the contour.
     private func findBestSplit(
         points: [CGPoint], tipIndex: Int, step: Int,
-        window: Int, searchRange: Int, segmentLen: Int
+        windowDistancePixels: Double, maxSearchDistancePixels: Double, segmentLengthPixels: Double
     ) -> Int? {
         let n = points.count
+        guard n > 0 else { return nil }
         var bestIndex: Int?
         var bestResidual = Double.infinity
+        let tip = points[tipIndex]
 
-        for k in window..<searchRange {
+        var k = 1
+        while k < n {
             let splitIdx = ((tipIndex + step * k) % n + n) % n
+            let candidatePoint = points[splitIdx]
+
+            // The actual fix: real distance, checked directly, not
+            // inferred from how many points we've stepped through.
+            let distanceFromTip = Double(hypot(candidatePoint.x - tip.x, candidatePoint.y - tip.y))
+            if distanceFromTip > maxSearchDistancePixels {
+                break
+            }
+
+            // Skip scoring candidates too close to the tip itself --
+            // a near-zero-length segment trivially "fits" any line
+            // with ~zero residual, which would otherwise win by
+            // default without meaning anything. This is the window
+            // check, now also real-distance-based -- see analyze()'s
+            // comment on windowDistancePixels for why the old
+            // perimeter-based version wasn't reliable.
+            if distanceFromTip < windowDistancePixels {
+                k += 1
+                continue
+            }
 
             var seg1: [CGPoint] = []
             for j in 0..<k {
                 seg1.append(points[((tipIndex + step * j) % n + n) % n])
             }
-            var seg2: [CGPoint] = []
-            for j in 0..<segmentLen {
-                seg2.append(points[((splitIdx + step * j) % n + n) % n])
+            // FIX: was a fixed index-count loop (0..<segmentLen) --
+            // now walks by real distance instead, same principle as
+            // the window/max-distance fix above. See collectSegment.
+            let seg2 = collectSegment(points: points, startIndex: splitIdx, step: step, targetDistancePixels: segmentLengthPixels)
+            guard seg1.count >= 5, seg2.count >= 5 else {
+                k += 1
+                continue
             }
-            guard seg1.count >= 5, seg2.count >= 5 else { continue }
 
             let r1 = lineFitResidual(seg1)
             let r2 = lineFitResidual(seg2)
@@ -157,6 +317,8 @@ final class AngleAnalyzer {
                 bestResidual = total
                 bestIndex = splitIdx
             }
+
+            k += 1
         }
         return bestIndex
     }
@@ -185,6 +347,37 @@ final class AngleAnalyzer {
 
     // MARK: - Line fitting + angle
 
+    /// Walks from a starting index, collecting points until the real
+    /// (straight-line-from-start) distance covers approximately
+    /// targetDistancePixels, rather than a fixed number of points --
+    /// this is what makes segment length immune to how densely the
+    /// contour happens to be sampled at that particular spot (see
+    /// analyze()'s comment on segmentLengthPixels for the bug this
+    /// fixes). Safety-capped at n so a degenerate contour can't loop
+    /// forever.
+    private func collectSegment(
+        points: [CGPoint], startIndex: Int, step: Int, targetDistancePixels: Double
+    ) -> [CGPoint] {
+        let n = points.count
+        guard n > 0 else { return [] }
+        let start = points[startIndex]
+        var segment: [CGPoint] = [start]
+
+        var k = 1
+        while k < n {
+            let idx = ((startIndex + step * k) % n + n) % n
+            let p = points[idx]
+            segment.append(p)
+
+            let distanceFromStart = Double(hypot(p.x - start.x, p.y - start.y))
+            if distanceFromStart >= targetDistancePixels {
+                break
+            }
+            k += 1
+        }
+        return segment
+    }
+
     /// Fits a line to the two segments on either side of the
     /// inflection point (tip-to-inflection = nail side,
     /// inflection-onward = skin side) and measures the angle between
@@ -198,7 +391,7 @@ final class AngleAnalyzer {
     /// first-point-to-last-point direction before comparing them.
     private func computeAngleAtInflection(
         points: [CGPoint], tipIndex: Int, inflectionIndex: Int,
-        step: Int, segmentLen: Int
+        step: Int, segmentLengthPixels: Double
     ) -> Double? {
         let n = points.count
 
@@ -208,10 +401,13 @@ final class AngleAnalyzer {
             seg1.append(points[((tipIndex + step * k) % n + n) % n])
         }
 
-        var seg2: [CGPoint] = []
-        for k in 0..<segmentLen {
-            seg2.append(points[((inflectionIndex + step * k) % n + n) % n])
-        }
+        // FIX: was a fixed index-count loop (0..<segmentLen) -- now
+        // walks by real distance instead, matching findBestSplit's
+        // seg2 construction. This one matters even more than
+        // findBestSplit's copy, since it's what actually determines
+        // the FINAL reported angle, including when the user drags a
+        // marker and this gets called again via recomputeAngle().
+        let seg2 = collectSegment(points: points, startIndex: inflectionIndex, step: step, targetDistancePixels: segmentLengthPixels)
 
         guard seg1.count >= 2, seg2.count >= 2 else { return nil }
 

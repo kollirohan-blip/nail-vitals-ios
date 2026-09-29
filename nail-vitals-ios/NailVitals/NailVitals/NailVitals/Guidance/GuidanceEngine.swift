@@ -47,12 +47,19 @@ nonisolated final class GuidanceEngine {
     private let centerTolerance: Double = 0.20
     private let tiltToleranceDegrees: Double = 35.0
 
+    // Debug readout for the on-screen HUD: the aspect ratio of the most
+    // recent silhouette, populated whether or not it passed the >= 1.4
+    // gate, so a rejection there shows its real value. Same single-queue
+    // safety reasoning as SilhouetteDetector.lastSolidity.
+    private(set) nonisolated(unsafe) var lastAspectRatio: Double = 0
+
     // nonisolated: called synchronously from CameraManager's
     // nonisolated captureOutput() on a background queue -- this
     // method only touches let-constant thresholds (targetWidthFraction
     // etc.), no shared mutable state, so it's safe to mark nonisolated.
     nonisolated func analyze(_ silhouette: DetectedSilhouette?) -> GuidanceResult {
         guard let silhouette = silhouette else {
+            lastAspectRatio = 0
             return GuidanceResult(
                 widthFraction: 0, centerOffset: 0, tiltDegrees: 0,
                 directions: [.noFingerDetected]
@@ -71,6 +78,7 @@ nonisolated final class GuidanceEngine {
         // against the 5 known-good photos). Expect to need real-world
         // tuning once more device testing happens.
         let aspectRatio = silhouette.boundingBox.height / max(silhouette.boundingBox.width, 1)
+        lastAspectRatio = Double(aspectRatio)
         guard aspectRatio >= 1.4 else {
             return GuidanceResult(
                 widthFraction: 0, centerOffset: 0, tiltDegrees: 0,

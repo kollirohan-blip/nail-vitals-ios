@@ -269,6 +269,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = NailVitals/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Nailvital needs camera acess to capture photo for screening";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Used temporarily to debug finger detection.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -315,6 +316,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = NailVitals/Info.plist;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Nailvital needs camera acess to capture photo for screening";
+				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "Used temporarily to debug finger detection.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
