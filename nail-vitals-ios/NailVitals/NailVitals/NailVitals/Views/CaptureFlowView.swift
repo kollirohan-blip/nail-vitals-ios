@@ -30,6 +30,7 @@ struct CaptureFlowView: View {
     @State private var stage: Stage = .analyzing
     @State private var displayImage: UIImage?
     @State private var lovibondResult: LovibondResult?
+    @State private var silhouette: DetectedSilhouette?
 
     private let segmenter = FingerMaskSegmenter()
     private let angleAnalyzer = AngleAnalyzer()
@@ -37,6 +38,7 @@ struct CaptureFlowView: View {
     enum Stage {
         case analyzing
         case confirming
+        case manual
         case result(LovibondCandidate)
         case failed(String)
     }
@@ -60,6 +62,18 @@ struct CaptureFlowView: View {
                         onConfirm: { confirmed in
                             stage = .result(confirmed)
                         },
+                        onCancel: onDismiss,
+                        onManual: { stage = .manual }
+                    )
+                }
+
+            case .manual:
+                if let image = displayImage {
+                    ManualAngleView(
+                        image: image,
+                        silhouette: silhouette,
+                        landmarks: landmarks,
+                        onConfirm: { stage = .result($0) },
                         onCancel: onDismiss
                     )
                 }
@@ -93,6 +107,11 @@ struct CaptureFlowView: View {
                             .background(Color.white)
                             .cornerRadius(24)
                     }
+                    if displayImage != nil {
+                        Button("Measure manually") { stage = .manual }
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(.white)
+                    }
                 }
             }
         }
@@ -107,24 +126,30 @@ struct CaptureFlowView: View {
         // block the UI while it runs.
         let dip = landmarks?.indexDIP.point
         DispatchQueue.global(qos: .userInitiated).async {
+            // Made first so manual measurement stays available even when
+            // automatic detection fails.
+            let image = makeDisplayImage(from: pixelBuffer)
+
             guard let silhouette = segmenter.segment(pixelBuffer: pixelBuffer, fingertipHint: dip) else {
                 DispatchQueue.main.async {
-                    stage = .failed("Couldn't find a clear finger outline in that photo. Try again with better lighting or positioning.")
+                    displayImage = image
+                    stage = .failed("Couldn't find a clear finger outline in that photo. Try again with better lighting or positioning, or measure it yourself.")
                 }
                 return
             }
 
             guard let result = angleAnalyzer.analyze(silhouette, dipHint: dip) else {
                 DispatchQueue.main.async {
-                    stage = .failed("Couldn't measure an angle from that photo. Try again, keeping the nail edge clearly visible.")
+                    displayImage = image
+                    self.silhouette = silhouette
+                    stage = .failed("Couldn't measure an angle from that photo. Try again, keeping the nail edge clearly visible, or measure it yourself.")
                 }
                 return
             }
 
-            let image = makeDisplayImage(from: pixelBuffer)
-
             DispatchQueue.main.async {
                 self.displayImage = image
+                self.silhouette = silhouette
                 self.lovibondResult = result
                 self.stage = .confirming
             }

@@ -195,3 +195,30 @@ func runPointed(label: String, useDIP: Bool) {
 }
 runPointed(label: "width-based search (no hint)", useDIP: false)
 runPointed(label: "DIP-anchored search (hand-pose hint, jittered ±5%)", useDIP: true)
+
+// MARK: - Manual three-point angle (AngleAnalyzer.outsideAngle)
+func polygonContains(_ poly: [CGPoint], _ p: CGPoint) -> Bool {
+    var inside = false; var j = poly.count - 1
+    for i in 0..<poly.count {
+        let a = poly[i], b = poly[j]
+        if (a.y > p.y) != (b.y > p.y), p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x { inside.toggle() }
+        j = i
+    }
+    return inside
+}
+print("\nMANUAL 3-POINT (dots placed 60px up the nail / on the cuticle / 80px along the skin)")
+print("true  side   inside-by-outline  inside-by-finger-axis  no-inside-info")
+var worstManual = 0.0
+for truth in [150.0, 160.0, 170.0, 180.0, 190.0, 200.0] {
+    for mirror in [false, true] {
+        let (raw, cut) = makeFinger(outsideAngle: truth)
+        let pts = mirror ? raw.map { CGPoint(x: imageSize.width - $0.x, y: $0.y) } : raw
+        let b = pts[cut], a = pts[cut - 60], c = pts[cut + 80]
+        let byOutline = AngleAnalyzer.outsideAngle(nailPoint: a, cuticle: b, skinPoint: c) { polygonContains(pts, $0) } ?? .nan
+        let byAxis = AngleAnalyzer.outsideAngle(nailPoint: a, cuticle: b, skinPoint: c) { abs($0.x - 540) < abs(b.x - 540) } ?? .nan
+        let none = AngleAnalyzer.outsideAngle(nailPoint: a, cuticle: b, skinPoint: c) { _ in nil } ?? .nan
+        worstManual = max(worstManual, abs(byOutline - truth), abs(byAxis - truth))
+        print(String(format: "%4.0f  %@   %8.1f            %8.1f               %8.1f", truth, mirror ? "left " : "right", byOutline, byAxis, none))
+    }
+}
+print(String(format: "worst manual error (outline or axis) = %.1f deg", worstManual))

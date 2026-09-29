@@ -579,6 +579,35 @@ final class AngleAnalyzer {
         return direction
     }
 
+    // MARK: - Manual three-point angle
+
+    /// Lovibond angle from three user-placed points (a point on the nail
+    /// plate, the cuticle corner, a point on the skin fold), measured on the
+    /// OUTSIDE of the finger so clubbing reads above 180. `isInsideFinger`
+    /// says whether a point is inside the finger; nil = unknown, in which
+    /// case the normal (concave, below 180) reading is assumed.
+    static func outsideAngle(
+        nailPoint a: CGPoint, cuticle b: CGPoint, skinPoint c: CGPoint,
+        isInsideFinger: (CGPoint) -> Bool?
+    ) -> Double? {
+        let u = CGVector(dx: a.x - b.x, dy: a.y - b.y)
+        let v = CGVector(dx: c.x - b.x, dy: c.y - b.y)
+        let lu = hypot(u.dx, u.dy), lv = hypot(v.dx, v.dy)
+        guard lu > 0, lv > 0 else { return nil }
+        let cosine = max(-1, min(1, (u.dx * v.dx + u.dy * v.dy) / (lu * lv)))
+        let wedge = Double(acos(cosine)) * 180 / .pi
+
+        // Probe just inside the wedge (along its bisector): if that lands
+        // inside the finger, the wedge faces inward and the outside angle
+        // is its reflex.
+        let bisector = CGVector(dx: u.dx / lu + v.dx / lv, dy: u.dy / lu + v.dy / lv)
+        let lb = hypot(bisector.dx, bisector.dy)
+        guard lb > 1e-6 else { return 180 }
+        let reach = 0.15 * min(lu, lv)
+        let probe = CGPoint(x: b.x + bisector.dx / lb * reach, y: b.y + bisector.dy / lb * reach)
+        return (isInsideFinger(probe) ?? false) ? 360 - wedge : wedge
+    }
+
     // MARK: - Helpers
 
     /// Shoelace signed area; its sign gives the contour's winding.

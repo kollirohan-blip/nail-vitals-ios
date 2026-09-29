@@ -35,6 +35,7 @@ struct InflectionPointConfirmation: View {
     let angleAnalyzer: AngleAnalyzer
     let onConfirm: (LovibondCandidate) -> Void
     let onCancel: () -> Void
+    var onManual: (() -> Void)? = nil
 
     @State private var selectedSide: String?
     // side -> contour index, populated once the user drags that side
@@ -183,6 +184,12 @@ struct InflectionPointConfirmation: View {
                 }
                 .disabled(selectedSide == nil)
                 .opacity(selectedSide == nil ? 0.4 : 1.0)
+            }
+
+            if let onManual {
+                Button("Neither is right — place the points myself", action: onManual)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.8))
             }
         }
     }
