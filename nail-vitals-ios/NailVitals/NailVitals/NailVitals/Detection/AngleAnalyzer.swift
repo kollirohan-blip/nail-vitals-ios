@@ -72,9 +72,29 @@ final class AngleAnalyzer {
     /// person tap/drag to confirm or correct this suggested point
     /// before the final angle gets computed. See
     /// InflectionPointConfirmation (Views/) for that UI step.
-    func analyze(_ silhouette: DetectedSilhouette) -> LovibondResult? {
+    /// - Parameter dipHint: the index finger's DIP joint (image pixels, from
+    ///   hand pose). The cuticle always lies between the fingertip and this
+    ///   joint, so when given, the search is confined to that stretch.
+    func analyze(_ silhouette: DetectedSilhouette, dipHint: CGPoint? = nil) -> LovibondResult? {
         let points = silhouette.contourPoints
         guard points.count > 20 else { return nil }
+
+        // Anatomical search band from the tip-to-DIP distance L: cuticle
+        // expected ~0.55-0.85 L from the tip apex. Without it, a shallow
+        // (near-180) cuticle loses to the pointed-tip-to-nail transition,
+        // which always bends outward and reads as false clubbing (~190-195
+        // on synthetic pointed tips; 189-193 seen on device).
+        if let dip = dipHint, let tipIndex = findFingertipIndex(points) {
+            let tip = points[tipIndex]
+            let l = Double(hypot(dip.x - tip.x, dip.y - tip.y))
+            if l > 20, let result = search(points: points, tip: tip, tipIndex: tipIndex,
+                                           windowDistancePixels: l * 0.5,
+                                           maxSearchDistancePixels: l * 0.95,
+                                           segmentLengthPixels: l * 0.18,
+                                           tipZoneDistancePixels: l * 0.35) {
+                return result
+            }
+        }
 
         let perimeter = contourPerimeter(points)
         // CORRECTED: my first attempt at this (bumping the old 0.12

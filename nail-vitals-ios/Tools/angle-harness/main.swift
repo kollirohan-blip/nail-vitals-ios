@@ -1,5 +1,5 @@
 // Synthetic-finger regression test for AngleAnalyzer. Run from this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/AngleAnalyzer.swift main.swift -o /tmp/angle-harness && /tmp/angle-harness
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/AngleAnalyzer.swift main.swift -o angle-harness && ./angle-harness
 import CoreGraphics
 import Foundation
 
@@ -102,14 +102,18 @@ struct LCG { var s: UInt64; mutating func next() -> Double { s = s &* 6364136223
 var rng = LCG(s: 42)
 func gauss() -> CGFloat { CGFloat(sqrt(-2 * log(max(rng.next(), 1e-12))) * cos(2 * .pi * rng.next())) }
 
-func makeRealistic(outsideAngle: Double, r: CGFloat, nailCurveDeg: Double, noise: CGFloat, nailFactor: CGFloat = 1.9) -> ([CGPoint], Int) {
-    let cx: CGFloat = 540, cy: CGFloat = 680
+var lastDIP = CGPoint.zero  // where a hand-pose DIP joint would sit for the last generated finger
+func makeRealistic(outsideAngle: Double, r: CGFloat, nailCurveDeg: Double, noise: CGFloat, nailFactor: CGFloat = 1.9,
+                   taper: CGFloat = 1.0, cuticleFractionOfDIP: CGFloat = 0.7) -> ([CGPoint], Int) {
+    let cx: CGFloat = 540, cy: CGFloat = 680 * max(1, r / 80)
+    let a = r * taper  // vertical semi-axis of the tip: 1 = round, >1 = pointed
     let nailLength = r * nailFactor
+    lastDIP = CGPoint(x: cx, y: cy - a + (a + nailLength) / cuticleFractionOfDIP)
     var pts: [CGPoint] = []
-    var cur = CGPoint(x: cx, y: cy - r)
-    let na = Int(Double.pi / 2 * Double(r))
+    var cur = CGPoint(x: cx, y: cy - a)
+    let na = Int(Double.pi / 2 * Double(max(r, a)))
     for i in 0...na { let t = -Double.pi / 2 + Double.pi / 2 * Double(i) / Double(na)
-        pts.append(CGPoint(x: cx + r * CGFloat(cos(t)), y: cy + r * CGFloat(sin(t)))) }
+        pts.append(CGPoint(x: cx + r * CGFloat(cos(t)), y: cy + a * CGFloat(sin(t)))) }
     // curved nail plate: heading goes from `nailCurveDeg` inward to exactly vertical at the cuticle
     cur = pts.last!
     let nn = Int(nailLength)
@@ -126,7 +130,7 @@ func makeRealistic(outsideAngle: Double, r: CGFloat, nailCurveDeg: Double, noise
     while cur.x > cx - r { cur.x -= 1; pts.append(cur) }
     while cur.y > cy { cur.y -= 1; pts.append(cur) }
     for i in 0..<na { let t = Double.pi + Double.pi / 2 * Double(i) / Double(na)
-        pts.append(CGPoint(x: cx + r * CGFloat(cos(t)), y: cy + r * CGFloat(sin(t)))) }
+        pts.append(CGPoint(x: cx + r * CGFloat(cos(t)), y: cy + a * CGFloat(sin(t)))) }
     _ = bx
     // jitter, then snap to whole pixels like a traced mask
     let jagged = pts.map { CGPoint(x: ($0.x + gauss() * noise).rounded(), y: ($0.y + gauss() * noise).rounded()) }
@@ -153,6 +157,41 @@ for (r, nf) in [(CGFloat(80), CGFloat(1.2)), (80, 1.9), (80, 2.5), (110, 1.2), (
         let mean = errs.isEmpty ? .nan : errs.reduce(0, +) / Double(errs.count) + truth
         let worst = errs.map { abs($0) }.max() ?? .nan
         let mk = markErr.isEmpty ? .nan : markErr.reduce(0, +) / Double(markErr.count)
-        print(String(format: "%3.0f/%3.1f  %5.0f  %6.1f   %6.1f      %6.1fpx          %d/20     %6.1f", Double(r), Double(nf), truth, mean, worst, mk, found, mathErr.max() ?? .nan))
+        print(String(format: "%3.0f/%3.1f/%2.0f  %5.0f  %6.1f   %6.1f      %6.1fpx          %d/20     %6.1f", Double(r), Double(nf), truth, mean, worst, mk, found, mathErr.max() ?? .nan))
     }
 }
+
+
+// MARK: - Pointed (real-looking) fingertips at the sizes seen on device
+// r=55 ~ the 110px-wide finger in a 1080x1920 video frame; r=150 ~ the same finger in a full-res photo.
+let bigImage = CGSize(width: 3024, height: 4032)
+func analyzeForTest(_ s: DetectedSilhouette, dip: CGPoint?) -> LovibondResult? { AngleAnalyzer().analyze(s, dipHint: dip) }
+func runPointed(label: String, useDIP: Bool) {
+    print("\nPOINTED TIP (taper 1.8, jagged, curved nail) -- \(label)")
+    print("r/taper/cut% true   mean   worst-err  marker-err(mean)  found")
+    for (r, taper, frac) in [(CGFloat(55), CGFloat(1.8), CGFloat(0.7)), (150, 1.8, 0.55), (150, 1.8, 0.7), (150, 1.8, 0.85), (150, 2.4, 0.7)] {
+        for truth in [160.0, 170.0, 180.0, 190.0, 200.0] {
+            var errs: [Double] = [], markErr: [Double] = [], found = 0
+            for _ in 0..<20 {
+                let (pts, cut) = makeRealistic(outsideAngle: truth, r: r, nailCurveDeg: 8, noise: 1.0, nailFactor: 1.2, taper: taper, cuticleFractionOfDIP: frac)
+                let n = pts.count
+                let sil = DetectedSilhouette(boundingBox: .zero, contourPoints: pts, imageSize: r > 100 ? bigImage : imageSize)
+                let apex = pts.min { $0.y < $1.y }!
+                let l = hypot(lastDIP.x - apex.x, lastDIP.y - apex.y)
+                let dip = CGPoint(x: lastDIP.x + gauss() * l * 0.05, y: lastDIP.y + gauss() * l * 0.05)
+                guard let res = analyzeForTest(sil, dip: useDIP ? dip : nil) else { continue }
+                let step = ((cut - res.tipIndex + n) % n) < n / 2 ? 1 : -1
+                guard let c = res.candidates.first(where: { $0.step == step }) else { continue }
+                found += 1
+                errs.append(c.angleDegrees - truth)
+                markErr.append(Double(hypot(c.inflectionPoint.x - pts[cut].x, c.inflectionPoint.y - pts[cut].y)))
+            }
+            let mean = errs.isEmpty ? .nan : errs.reduce(0, +) / Double(errs.count) + truth
+            let worst = errs.map { abs($0) }.max() ?? .nan
+            let mk = markErr.isEmpty ? .nan : markErr.reduce(0, +) / Double(markErr.count)
+            print(String(format: "%3.0f/%3.1f/%2.0f  %5.0f  %6.1f   %6.1f      %6.1fpx          %d/20", Double(r), Double(taper), Double(frac * 100), truth, mean, worst, mk, found))
+        }
+    }
+}
+runPointed(label: "width-based search (no hint)", useDIP: false)
+runPointed(label: "DIP-anchored search (hand-pose hint, jittered ±5%)", useDIP: true)
