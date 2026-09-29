@@ -7,11 +7,18 @@
 
 import SwiftUI
 
+/// true = open the Detection Lab test screen instead of the normal app.
+let showDetectionLab = true
+
 @main
 struct NailVitalsApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            if showDetectionLab {
+                DetectionLabView()
+            } else {
+                ContentView()
+            }
         }
     }
 }

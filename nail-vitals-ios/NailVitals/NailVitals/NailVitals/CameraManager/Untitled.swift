@@ -49,6 +49,14 @@ final class CameraManager: NSObject, ObservableObject {
     @Published var silhouetteStage: SilhouetteRejectionStage = .noContourFound
     @Published var lastAspectRatio: Double = 0
 
+    // Hand-pose landmarks for the latest processed frame (nil = no hand),
+    // and how long the model took on it.
+    @Published var handLandmarks: HandLandmarks?
+    @Published var handPoseMs: Double = 0
+    // Landmarks from the SAME frame as capturedPixelBuffer, so the mask
+    // segmenter gets a fingertip hint that matches the photo.
+    @Published private(set) var capturedLandmarks: HandLandmarks?
+
     // NEW: the frame captured when the user taps the capture button.
     // Published so ContentView can react (e.g. navigate to a result
     // flow) once it's set. This is a live preview frame reused for
@@ -77,6 +85,7 @@ final class CameraManager: NSObject, ObservableObject {
 
     private let silhouetteDetector = SilhouetteDetector()
     private let guidanceEngine = GuidanceEngine()
+    private let handPoseDetector = HandPoseDetector()
 
     // Throttling: running full detection on every frame (30-60fps)
     // would be wasteful and likely too slow for this pipeline (it
@@ -203,6 +212,7 @@ final class CameraManager: NSObject, ObservableObject {
     /// off to frameProcessingQueue for captureRequested specifically).
     func resetCapture() {
         capturedPixelBuffer = nil
+        capturedLandmarks = nil
     }
 
     /// Maps a GuidanceResult's directions to the simpler CaptureState
@@ -242,6 +252,9 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
+        let landmarks = handPoseDetector.detect(in: pixelBuffer)
+        let poseMs = handPoseDetector.lastDurationMs
+
         // NEW: if the user tapped capture since the last frame, save
         // THIS frame as the captured photo. Checked/cleared here on
         // frameProcessingQueue -- the only queue that ever touches
@@ -253,6 +266,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         if captureRequested {
             captureRequested = false
             DispatchQueue.main.async { [weak self] in
+                self?.capturedLandmarks = landmarks
                 self?.capturedPixelBuffer = pixelBuffer
             }
         }
@@ -278,6 +292,8 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             self.solidity = solidityValue
             self.silhouetteStage = stage
             self.lastAspectRatio = aspectRatio
+            self.handLandmarks = landmarks
+            self.handPoseMs = poseMs
 
             let rawState = self.mapToCaptureState(guidance.directions)
             if rawState == .aligned {
