@@ -26,28 +26,6 @@ final class CameraManager: NSObject, ObservableObject {
     // react to it directly.
     @Published var captureState: CaptureState = .searching
     @Published var currentDirections: [GuidanceDirection] = [.noFingerDetected]
-    // NEW: the live detected silhouette, published so the overlay can
-    // draw the REAL detected shape instead of the fixed placeholder
-    // outline. nil when nothing's detected.
-    @Published var currentSilhouette: DetectedSilhouette?
-
-    // Grid-sampling debug readout -- see SilhouetteDetector's
-    // looksSkinToned. Only meaningful once a contour reaches that
-    // check; stays 0 otherwise (see detect()'s reset at the top).
-    @Published var skinPassingFraction: Double = 0
-
-    // NEW: solidity debug readout -- see SilhouetteDetector's
-    // looksLikeCleanSingleShape. Below solidityThreshold means the
-    // frame was rejected as a contaminated/non-single-blob contour
-    // before even reaching the skin check.
-    @Published var solidity: Double = 0
-
-    // Which SilhouetteDetector stage the latest frame stopped at, and
-    // GuidanceEngine's raw aspect ratio -- together these tell the HUD
-    // exactly which gate is rejecting frames, instead of skin/solid
-    // reading 0% ambiguously when a frame never reached those checks.
-    @Published var silhouetteStage: SilhouetteRejectionStage = .noContourFound
-    @Published var lastAspectRatio: Double = 0
 
     // Hand-pose landmarks for the latest processed frame (nil = no hand),
     // and how long the model took on it.
@@ -88,7 +66,6 @@ final class CameraManager: NSObject, ObservableObject {
     private nonisolated(unsafe) var photoOutputReady = false
     private let frameProcessingQueue = DispatchQueue(label: "camera.frame.processing")
 
-    private let silhouetteDetector = SilhouetteDetector()
     private let guidanceEngine = GuidanceEngine()
     private let handPoseDetector = HandPoseDetector()
 
@@ -302,27 +279,13 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             }
         }
 
-        // SilhouetteDetector + GuidanceEngine run on this background
-        // frame-processing queue, not main -- only the resulting
-        // @Published updates get dispatched to main for SwiftUI.
-        let silhouette = silhouetteDetector.detect(in: pixelBuffer)
-        let guidance = guidanceEngine.analyze(silhouette)
-        // Read off the grid-sampling debug value right after detect()
-        // runs, on this same background queue, then hand it to main
-        // along with everything else below.
-        let skinFraction = silhouetteDetector.lastSkinPassingFraction
-        let solidityValue = silhouetteDetector.lastSolidity
-        let stage = silhouetteDetector.lastStage
-        let aspectRatio = guidanceEngine.lastAspectRatio
+        // Live coaching comes from the hand-pose joints; only the
+        // resulting @Published updates get dispatched to main for SwiftUI.
+        let guidance = guidanceEngine.analyze(landmarks: landmarks)
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.currentDirections = guidance.directions
-            self.currentSilhouette = silhouette
-            self.skinPassingFraction = skinFraction
-            self.solidity = solidityValue
-            self.silhouetteStage = stage
-            self.lastAspectRatio = aspectRatio
             self.handLandmarks = landmarks
             self.handPoseMs = poseMs
 

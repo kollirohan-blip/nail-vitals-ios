@@ -18,6 +18,9 @@ import SwiftUI
 
 struct CaptureFlowView: View {
     let pixelBuffer: CVPixelBuffer
+    /// Hand-pose joints from the same photo; the DIP joint picks the finger
+    /// in the subject mask and anchors the cuticle search.
+    let landmarks: HandLandmarks?
     /// Called when the user is done with this flow (confirmed a
     /// result, or backed out) -- lets ContentView dismiss and reset
     /// CameraManager.capturedPixelBuffer to nil so a new capture can
@@ -28,10 +31,7 @@ struct CaptureFlowView: View {
     @State private var displayImage: UIImage?
     @State private var lovibondResult: LovibondResult?
 
-    // Fresh instances -- both are cheap, stateless-between-calls
-    // classes (see their own file comments), so no need to share
-    // CameraManager's live-pipeline instances.
-    private let silhouetteDetector = SilhouetteDetector()
+    private let segmenter = FingerMaskSegmenter()
     private let angleAnalyzer = AngleAnalyzer()
 
     enum Stage {
@@ -105,15 +105,16 @@ struct CaptureFlowView: View {
         // Off the main thread -- real Vision + geometry work, even
         // though it's a one-shot (not per-frame) operation, shouldn't
         // block the UI while it runs.
+        let dip = landmarks?.indexDIP.point
         DispatchQueue.global(qos: .userInitiated).async {
-            guard let silhouette = silhouetteDetector.detect(in: pixelBuffer, highQuality: true) else {
+            guard let silhouette = segmenter.segment(pixelBuffer: pixelBuffer, fingertipHint: dip) else {
                 DispatchQueue.main.async {
                     stage = .failed("Couldn't find a clear finger outline in that photo. Try again with better lighting or positioning.")
                 }
                 return
             }
 
-            guard let result = angleAnalyzer.analyze(silhouette) else {
+            guard let result = angleAnalyzer.analyze(silhouette, dipHint: dip) else {
                 DispatchQueue.main.async {
                     stage = .failed("Couldn't measure an angle from that photo. Try again, keeping the nail edge clearly visible.")
                 }

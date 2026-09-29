@@ -126,6 +126,56 @@ nonisolated final class GuidanceEngine {
         )
     }
 
+    // Hand-pose coaching thresholds. Starting values from the Detection
+    // Lab (finger read 26-34% of frame height at a comfortable distance,
+    // joint confidence 0.75-0.89); tune with more device readings.
+    private let minJointConfidence: Float = 0.3
+    private let targetFingerLength: ClosedRange<Double> = 0.25...0.65
+    private let maxLandmarkTiltDegrees: Double = 20
+    private let maxPIPBendDegrees: Double = 30
+
+    /// Live guidance from Apple's hand-pose joints -- replaces the
+    /// silhouette-based analyze(_:) for coaching.
+    nonisolated func analyze(landmarks: HandLandmarks?) -> GuidanceResult {
+        guard let hand = landmarks, hand.minIndexConfidence >= minJointConfidence else {
+            return GuidanceResult(widthFraction: 0, centerOffset: 0, tiltDegrees: 0, directions: [.noFingerDetected])
+        }
+
+        let size = hand.fingerLengthFraction
+        let offset = Double(hand.indexDIP.point.x / hand.imageSize.width) - 0.5
+        let tilt = hand.tiltFromVerticalDegrees
+
+        var directions: [GuidanceDirection] = []
+        if size < targetFingerLength.lowerBound {
+            directions.append(.moveCloser)
+        } else if size > targetFingerLength.upperBound {
+            directions.append(.moveBack)
+        }
+        if abs(offset) > centerTolerance {
+            directions.append(offset > 0 ? .moveLeft : .moveRight)
+        }
+        if tilt > maxLandmarkTiltDegrees || pipBendDegrees(hand) > maxPIPBendDegrees {
+            directions.append(.straighten(degrees: tilt))
+        }
+        if hand.indexTip.point.y < hand.imageSize.height * 0.05 {
+            directions.append(.moveHandDown)
+        }
+        if directions.isEmpty {
+            directions = [.looksGood]
+        }
+        return GuidanceResult(widthFraction: size, centerOffset: offset, tiltDegrees: tilt, directions: directions)
+    }
+
+    /// How far the finger bends at the middle knuckle (0 = straight).
+    private func pipBendDegrees(_ hand: HandLandmarks) -> Double {
+        let a = CGVector(dx: hand.indexPIP.point.x - hand.indexMCP.point.x, dy: hand.indexPIP.point.y - hand.indexMCP.point.y)
+        let b = CGVector(dx: hand.indexDIP.point.x - hand.indexPIP.point.x, dy: hand.indexDIP.point.y - hand.indexPIP.point.y)
+        let magnitude = hypot(a.dx, a.dy) * hypot(b.dx, b.dy)
+        guard magnitude > 0 else { return 0 }
+        let cosine = max(-1, min(1, (a.dx * b.dx + a.dy * b.dy) / magnitude))
+        return Double(acos(cosine)) * 180 / .pi
+    }
+
     /// Swift equivalent of cv2.fitLine(DIST_L2), computing the tilt of
     /// the finger's silhouette from vertical.
     ///

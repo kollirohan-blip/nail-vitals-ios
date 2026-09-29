@@ -23,7 +23,7 @@ struct ContentView: View {
                 state: camera.captureState,
                 instructionText: instructionText,
                 subText: subText,
-                silhouette: camera.currentSilhouette
+                silhouette: nil
             )
 
             VStack {
@@ -56,7 +56,7 @@ struct ContentView: View {
 
                 VStack(spacing: 4) {
                     Text(debugDirectionsText)
-                    Text(pipelineStageText)
+                    Text(handReadoutText)
                 }
                 .font(.system(size: 11, weight: .medium, design: .monospaced))
                 .foregroundColor(.white.opacity(0.6))
@@ -86,7 +86,7 @@ struct ContentView: View {
             }
         )) {
             if let buffer = camera.capturedPixelBuffer {
-                CaptureFlowView(pixelBuffer: buffer, onDismiss: {
+                CaptureFlowView(pixelBuffer: buffer, landmarks: camera.capturedLandmarks, onDismiss: {
                     camera.resetCapture()
                 })
             }
@@ -99,7 +99,7 @@ struct ContentView: View {
         }
         switch first {
         case .noFingerDetected:
-            return "Align your finger with the outline"
+            return "Point your index finger up"
         case .moveCloser:
             return "Move closer"
         case .moveBack:
@@ -109,7 +109,7 @@ struct ContentView: View {
         case .moveRight:
             return "Move right"
         case .straighten:
-            return "Straighten your finger"
+            return "Straighten your finger and point it up"
         case .moveHandDown:
             return "Move your hand down slightly"
         case .looksGood:
@@ -119,42 +119,20 @@ struct ContentView: View {
 
     private var subText: String {
         switch camera.captureState {
-        case .searching: return "Hold your finger sideways, nail facing the camera"
-        case .adjusting: return "Rotate slightly so the nail edge is visible"
-        case .aligned: return "Capturing..."
+        case .searching: return "Turn your hand so the camera sees the side of your finger"
+        case .adjusting: return "Keep the nail facing left or right, not toward the camera"
+        case .aligned: return "Hold still and tap the button"
         }
     }
 
     private var debugDirectionsText: String {
-        let directions = camera.currentDirections.map { "\($0)" }.joined(separator: ", ")
-        let skinPct = Int(camera.skinPassingFraction * 100)
-        let solidityPct = Int(camera.solidity * 100)
-        return "\(directions)  |  skin: \(skinPct)%  |  solid: \(solidityPct)%"
+        camera.currentDirections.map { "\($0)" }.joined(separator: ", ")
     }
 
-    // Names the exact gate the latest frame was rejected at, so a
-    // "detection isn't working" report comes with a specific number.
-    private var pipelineStageText: String {
-        guard camera.currentSilhouette != nil else {
-            switch camera.silhouetteStage {
-            case .noContourFound:
-                return "stage: Vision found no contour"
-            case .notCentered(let count):
-                return "stage: \(count) contour(s), none centered"
-            case .onlyFrameSized(let count):
-                return "stage: rejected \(count) full-width contour(s) (background)"
-            case .lowSolidity(let value):
-                return "stage: rejected, low solidity \(Int(value * 100))%"
-            case .failedSkinTone(let value):
-                return "stage: rejected, skin check \(Int(value * 100))%"
-            case .passed:
-                return "stage: passed silhouette"
-            }
-        }
-        if camera.currentDirections == [.noFingerDetected] {
-            return "stage: rejected, aspect ratio \(String(format: "%.2f", camera.lastAspectRatio)) (need ≥1.40)"
-        }
-        return "stage: silhouette + shape OK (aspect \(String(format: "%.2f", camera.lastAspectRatio)))"
+    private var handReadoutText: String {
+        guard let hand = camera.handLandmarks else { return "hand: none" }
+        return String(format: "hand conf %.2f  length %.0f%%  tilt %.0f°",
+                      hand.minIndexConfidence, hand.fingerLengthFraction * 100, hand.tiltFromVerticalDegrees)
     }
 }
 
