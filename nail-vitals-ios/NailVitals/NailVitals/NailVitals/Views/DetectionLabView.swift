@@ -156,6 +156,7 @@ private struct MaskTestView: View {
     private var summary: String {
         guard finished else { return "Running mask..." }
         var lines = [
+            "photo \(CVPixelBufferGetWidth(pixelBuffer))x\(CVPixelBufferGetHeight(pixelBuffer))",
             "instances \(diagnostics.instanceCount)  chosen #\(diagnostics.chosenInstance)",
             "mask \(Int(diagnostics.maskMs)) ms  contour \(Int(diagnostics.contourMs)) ms  pts \(diagnostics.contourPointCount)",
             landmarks == nil ? "no hand-pose hint (used largest subject)" : "hint: index DIP from hand pose"

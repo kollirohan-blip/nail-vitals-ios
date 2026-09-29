@@ -81,6 +81,11 @@ final class CameraManager: NSObject, ObservableObject {
     let session = AVCaptureSession()
     private let sessionQueue = DispatchQueue(label: "camera.session.queue")
     private let videoOutput = AVCaptureVideoDataOutput()
+    // Full-resolution stills for the measurement. A 1080x1920 video frame
+    // left the finger only ~110px wide on device -- too few pixels for the
+    // cuticle search. Only touched on sessionQueue.
+    private let photoOutput = AVCapturePhotoOutput()
+    private nonisolated(unsafe) var photoOutputReady = false
     private let frameProcessingQueue = DispatchQueue(label: "camera.frame.processing")
 
     private let silhouetteDetector = SilhouetteDetector()
@@ -181,6 +186,20 @@ final class CameraManager: NSObject, ObservableObject {
                 connection.videoRotationAngle = 90
             }
 
+            if self.session.canAddOutput(self.photoOutput) {
+                self.session.addOutput(self.photoOutput)
+                if let largest = device.activeFormat.supportedMaxPhotoDimensions
+                    .max(by: { Int($0.width) * Int($0.height) < Int($1.width) * Int($1.height) }) {
+                    self.photoOutput.maxPhotoDimensions = largest
+                }
+                if let connection = self.photoOutput.connection(with: .video),
+                   connection.isVideoRotationAngleSupported(90) {
+                    connection.videoRotationAngle = 90
+                }
+                self.photoOutputReady = self.photoOutput.availablePhotoPixelFormatTypes
+                    .contains(kCVPixelFormatType_32BGRA)
+            }
+
             self.session.commitConfiguration()
             self.session.startRunning()
         }
@@ -192,12 +211,24 @@ final class CameraManager: NSObject, ObservableObject {
         }
     }
 
-    /// Called by the UI (capture button tap) to request that the NEXT
-    /// incoming frame be saved as capturedPixelBuffer. Dispatched onto
-    /// frameProcessingQueue rather than set directly, so the flag is
-    /// only ever touched from that single queue -- see the property
-    /// comment above for why that matters.
+    /// Called by the UI (capture button tap). Takes a full-resolution
+    /// still; if the photo output isn't available, falls back to saving
+    /// the NEXT video frame (captureRequested is only ever touched on
+    /// frameProcessingQueue -- see the property comment above).
     func capturePhoto() {
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            guard self.photoOutputReady else {
+                self.requestFrameCapture()
+                return
+            }
+            let settings = AVCapturePhotoSettings(format: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA])
+            settings.maxPhotoDimensions = self.photoOutput.maxPhotoDimensions
+            self.photoOutput.capturePhoto(with: settings, delegate: self)
+        }
+    }
+
+    private nonisolated func requestFrameCapture() {
         frameProcessingQueue.async { [weak self] in
             self?.captureRequested = true
         }
@@ -311,6 +342,40 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
                 self.captureState = rawState
             }
         }
+    }
+}
+
+extension CameraManager: AVCapturePhotoCaptureDelegate {
+    nonisolated func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
+        guard error == nil, let raw = photo.pixelBuffer else {
+            print("CameraManager: photo capture failed (\(String(describing: error))), using a video frame instead")
+            requestFrameCapture()
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let buffer = Self.uprightPortrait(raw) ?? raw
+            // Own detector instance: the live one belongs to frameProcessingQueue.
+            let landmarks = HandPoseDetector().detect(in: buffer)
+            DispatchQueue.main.async {
+                self?.capturedLandmarks = landmarks
+                self?.capturedPixelBuffer = buffer
+            }
+        }
+    }
+
+    /// Still-photo buffers may arrive in the sensor's landscape orientation
+    /// even with the connection rotated; everything downstream assumes the
+    /// same upright portrait frame as the live video buffers.
+    private nonisolated static func uprightPortrait(_ buffer: CVPixelBuffer) -> CVPixelBuffer? {
+        let width = CVPixelBufferGetWidth(buffer), height = CVPixelBufferGetHeight(buffer)
+        guard width > height else { return buffer }
+        let rotated = CIImage(cvPixelBuffer: buffer).oriented(.right)
+        var output: CVPixelBuffer?
+        CVPixelBufferCreate(kCFAllocatorDefault, height, width, kCVPixelFormatType_32BGRA,
+                            [kCVPixelBufferIOSurfacePropertiesKey as String: [:]] as CFDictionary, &output)
+        guard let output else { return nil }
+        CIContext().render(rotated.transformed(by: CGAffineTransform(translationX: -rotated.extent.minX, y: -rotated.extent.minY)), to: output)
+        return output
     }
 }
 
