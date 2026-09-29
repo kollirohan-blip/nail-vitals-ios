@@ -145,6 +145,29 @@ final class AngleAnalyzer {
         // search the moment that real distance exceeds the budget --
         // see its updated signature below. No averaging, no
         // approximation.
+        guard let tipIndex = findFingertipIndex(points) else { return nil }
+        let tip = points[tipIndex]
+
+        // SUPERSEDES the frame-height bounds below: all search distances
+        // now scale with the finger's own measured width (still real
+        // pixel distances, never perimeter/index counts). Synthetic
+        // fingers showed frame-height bounds only work at one finger
+        // size -- smaller or larger fingers put the cuticle 50-110px off
+        // or outside the search range entirely. Ratios assume a
+        // side-view index finger (tip apex to cuticle ~1.2-1.6 widths);
+        // capped at 2 widths so the next bend down (the DIP knuckle,
+        // ~1 width past the cuticle) can't out-score the cuticle.
+        if let width = estimateFingerWidth(points: points, tipIndex: tipIndex) {
+            let w = Double(width)
+            return search(points: points, tip: tip, tipIndex: tipIndex,
+                          windowDistancePixels: w * 0.75,
+                          maxSearchDistancePixels: w * 2.0,
+                          segmentLengthPixels: w * 0.45,
+                          tipZoneDistancePixels: w * 0.6)
+        }
+
+        // Fallback when the width can't be measured: the older
+        // frame-height-based bounds.
         let maxSearchFrameHeightFraction = 0.15
         let maxSearchDistancePixels = Double(silhouette.imageSize.height) * maxSearchFrameHeightFraction
         // CORRECTED YET AGAIN: window (the minimum distance before a
@@ -183,14 +206,24 @@ final class AngleAnalyzer {
         // beyond the immediate area of the split point, lower it.
         let segmentLengthPixels = maxSearchDistancePixels * 0.3
 
-        guard let tipIndex = findFingertipIndex(points) else { return nil }
-        let tip = points[tipIndex]
+        return search(points: points, tip: tip, tipIndex: tipIndex,
+                      windowDistancePixels: windowDistancePixels,
+                      maxSearchDistancePixels: maxSearchDistancePixels,
+                      segmentLengthPixels: segmentLengthPixels,
+                      tipZoneDistancePixels: 0)
+    }
 
+    private func search(
+        points: [CGPoint], tip: CGPoint, tipIndex: Int,
+        windowDistancePixels: Double, maxSearchDistancePixels: Double, segmentLengthPixels: Double,
+        tipZoneDistancePixels: Double
+    ) -> LovibondResult? {
         var candidates: [LovibondCandidate] = []
         for (side, step) in [("left", -1), ("right", 1)] {
             guard let splitIndex = findBestSplit(
                 points: points, tipIndex: tipIndex, step: step,
-                windowDistancePixels: windowDistancePixels, maxSearchDistancePixels: maxSearchDistancePixels, segmentLengthPixels: segmentLengthPixels
+                windowDistancePixels: windowDistancePixels, maxSearchDistancePixels: maxSearchDistancePixels, segmentLengthPixels: segmentLengthPixels,
+                tipZoneDistancePixels: tipZoneDistancePixels
             ) else { continue }
 
             guard let angle = computeAngleAtInflection(
@@ -244,6 +277,38 @@ final class AngleAnalyzer {
         return minIndex
     }
 
+    /// Finger width just below the tip: walk the contour both ways from
+    /// the tip to a given depth and measure the horizontal gap, then
+    /// re-measure at depth = that width until it settles (the rounded
+    /// tip is narrower than the finger, so a shallow first depth
+    /// underestimates).
+    private func estimateFingerWidth(points: [CGPoint], tipIndex: Int) -> CGFloat? {
+        let n = points.count
+        let tipY = points[tipIndex].y
+
+        func widthAt(depth: CGFloat) -> CGFloat? {
+            func walk(_ step: Int) -> CGPoint? {
+                for k in 1..<(n / 2) {
+                    let p = points[((tipIndex + step * k) % n + n) % n]
+                    if p.y >= tipY + depth { return p }
+                }
+                return nil
+            }
+            guard let a = walk(1), let b = walk(-1) else { return nil }
+            return abs(a.x - b.x)
+        }
+
+        var depth: CGFloat = 20
+        var width: CGFloat = 0
+        for _ in 0..<6 {
+            guard let w = widthAt(depth: depth), w > 0 else { break }
+            width = w
+            if depth >= w { break }
+            depth = w
+        }
+        return width > 0 ? width : nil
+    }
+
     // MARK: - Best-fit-split search (replaces raw curvature-maximum)
 
     /// Instead of picking the single sharpest local-curvature point
@@ -264,12 +329,16 @@ final class AngleAnalyzer {
     /// by uneven point density along different parts of the contour.
     private func findBestSplit(
         points: [CGPoint], tipIndex: Int, step: Int,
-        windowDistancePixels: Double, maxSearchDistancePixels: Double, segmentLengthPixels: Double
+        windowDistancePixels: Double, maxSearchDistancePixels: Double, segmentLengthPixels: Double,
+        tipZoneDistancePixels: Double
     ) -> Int? {
         let n = points.count
         guard n > 0 else { return nil }
         var bestIndex: Int?
         var bestResidual = Double.infinity
+        var bestTurnIndex: Int?
+        var bestTurn = -1.0
+        let maxStraightRms = max(1.5, segmentLengthPixels * 0.03)
         let tip = points[tipIndex]
 
         var k = 1
@@ -296,13 +365,20 @@ final class AngleAnalyzer {
                 continue
             }
 
-            var seg1: [CGPoint] = []
-            for j in 0..<k {
-                seg1.append(points[((tipIndex + step * j) % n + n) % n])
+            // Both segments are LOCAL, equal-length windows on either
+            // side of the candidate. seg1 used to run all the way from
+            // the tip apex; on synthetic fingers with known angles that
+            // made the fit prefer points on the rounded fingertip (every
+            // finger scored ~125 deg, ~200px from the real cuticle).
+            let seg1 = nailSideSegment(points: points, tipIndex: tipIndex, splitIndex: splitIdx, step: step, segmentLengthPixels: segmentLengthPixels)
+            // The nail-side window itself must start clear of the rounded
+            // tip, or the tip-to-nail transition reads as a false convex
+            // "corner" (a normal 170 deg finger scored 191 = clubbed).
+            if let windowStart = seg1.first,
+               Double(hypot(windowStart.x - tip.x, windowStart.y - tip.y)) < tipZoneDistancePixels {
+                k += 1
+                continue
             }
-            // FIX: was a fixed index-count loop (0..<segmentLen) --
-            // now walks by real distance instead, same principle as
-            // the window/max-distance fix above. See collectSegment.
             let seg2 = collectSegment(points: points, startIndex: splitIdx, step: step, targetDistancePixels: segmentLengthPixels)
             guard seg1.count >= 5, seg2.count >= 5 else {
                 k += 1
@@ -318,9 +394,24 @@ final class AngleAnalyzer {
                 bestIndex = splitIdx
             }
 
+            // Local windows fit ANY straight stretch perfectly, so residual
+            // alone ties a flat point with the real corner. Among points
+            // where both windows are genuinely straight (which excludes the
+            // rounded tip), prefer the biggest change in direction.
+            let rms1 = sqrt(r1 / Double(seg1.count))
+            let rms2 = sqrt(r2 / Double(seg2.count))
+            if rms1 <= maxStraightRms && rms2 <= maxStraightRms {
+                let d1 = fitLineOriented(seg1), d2 = fitLineOriented(seg2)
+                let turn = acos(max(-1, min(1, Double(d1.dx * d2.dx + d1.dy * d2.dy))))
+                if turn > bestTurn {
+                    bestTurn = turn
+                    bestTurnIndex = splitIdx
+                }
+            }
+
             k += 1
         }
-        return bestIndex
+        return bestTurnIndex ?? bestIndex
     }
 
     /// Sum of squared perpendicular distances from points to their
@@ -356,18 +447,21 @@ final class AngleAnalyzer {
     /// fixes). Safety-capped at n so a degenerate contour can't loop
     /// forever.
     private func collectSegment(
-        points: [CGPoint], startIndex: Int, step: Int, targetDistancePixels: Double
+        points: [CGPoint], startIndex: Int, step: Int, targetDistancePixels: Double,
+        stopIndex: Int? = nil
     ) -> [CGPoint] {
         let n = points.count
         guard n > 0 else { return [] }
         let start = points[startIndex]
         var segment: [CGPoint] = [start]
+        if startIndex == stopIndex { return segment }
 
         var k = 1
         while k < n {
             let idx = ((startIndex + step * k) % n + n) % n
             let p = points[idx]
             segment.append(p)
+            if idx == stopIndex { break }
 
             let distanceFromStart = Double(hypot(p.x - start.x, p.y - start.y))
             if distanceFromStart >= targetDistancePixels {
@@ -393,20 +487,10 @@ final class AngleAnalyzer {
         points: [CGPoint], tipIndex: Int, inflectionIndex: Int,
         step: Int, segmentLengthPixels: Double
     ) -> Double? {
-        let n = points.count
-
-        let seg1Count = max(1, (((inflectionIndex - tipIndex) * step) % n + n) % n)
-        var seg1: [CGPoint] = []
-        for k in 0..<seg1Count {
-            seg1.append(points[((tipIndex + step * k) % n + n) % n])
-        }
-
-        // FIX: was a fixed index-count loop (0..<segmentLen) -- now
-        // walks by real distance instead, matching findBestSplit's
-        // seg2 construction. This one matters even more than
-        // findBestSplit's copy, since it's what actually determines
-        // the FINAL reported angle, including when the user drags a
-        // marker and this gets called again via recomputeAngle().
+        // Local nail-plate window just before the cuticle (not from the
+        // tip apex -- the rounded fingertip biased the fit ~13 deg on
+        // synthetic fingers with known angles).
+        let seg1 = nailSideSegment(points: points, tipIndex: tipIndex, splitIndex: inflectionIndex, step: step, segmentLengthPixels: segmentLengthPixels)
         let seg2 = collectSegment(points: points, startIndex: inflectionIndex, step: step, targetDistancePixels: segmentLengthPixels)
 
         guard seg1.count >= 2, seg2.count >= 2 else { return nil }
@@ -420,11 +504,29 @@ final class AngleAnalyzer {
         guard mag1 > 0, mag2 > 0 else { return nil }
 
         let cosAngle = max(-1, min(1, dot / (mag1 * mag2)))
-        let angleBetween = acos(cosAngle) * 180 / .pi
+        let turn = acos(cosAngle) * 180 / .pi
 
-        // Lovibond convention: report the "outer" angle (normal is
-        // ~160-180 deg, meaning nearly straight/collinear segments).
-        return 180 - angleBetween
+        // Lovibond angle is measured on the OUTSIDE of the finger:
+        // below 180 = the normal dip at the nail fold, above 180 = the
+        // bulge of clubbing. An unsigned acos can't tell those apart
+        // (200 deg used to read as 160), so the turn direction decides:
+        // turning toward the finger's interior is a convex bulge. Cross
+        // product and shoelace area share the image's handedness, and
+        // stepping backwards (step == -1) flips the traversal direction.
+        let cross = dir1.dx * dir2.dy - dir1.dy * dir2.dx
+        let orientation = signedArea(points) * CGFloat(step)
+        let isConvex = cross * orientation > 0
+        return isConvex ? 180 + turn : 180 - turn
+    }
+
+    /// The segmentLengthPixels-long stretch of contour ending at the
+    /// split point, walked back toward (never past) the fingertip, in
+    /// traversal order so fitLineOriented points tip -> split.
+    private func nailSideSegment(
+        points: [CGPoint], tipIndex: Int, splitIndex: Int, step: Int, segmentLengthPixels: Double
+    ) -> [CGPoint] {
+        collectSegment(points: points, startIndex: splitIndex, step: -step,
+                       targetDistancePixels: segmentLengthPixels, stopIndex: tipIndex).reversed()
     }
 
     /// Least-squares line direction (PCA-based, same approach verified
@@ -458,6 +560,18 @@ final class AngleAnalyzer {
     }
 
     // MARK: - Helpers
+
+    /// Shoelace signed area; its sign gives the contour's winding.
+    private func signedArea(_ points: [CGPoint]) -> CGFloat {
+        guard points.count > 2 else { return 0 }
+        var sum: CGFloat = 0
+        for i in 0..<points.count {
+            let a = points[i]
+            let b = points[(i + 1) % points.count]
+            sum += a.x * b.y - b.x * a.y
+        }
+        return sum / 2
+    }
 
     private func contourPerimeter(_ points: [CGPoint]) -> Double {
         guard points.count > 1 else { return 0 }
