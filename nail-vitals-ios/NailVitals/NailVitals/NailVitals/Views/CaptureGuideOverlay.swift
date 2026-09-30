@@ -2,21 +2,14 @@
 //  CaptureGuideOverlay.swift
 //  NailVitals
 //
-//  SwiftUI overlay matching the validated design spec (see
-//  guided_capture_demo.html for the working reference version):
-//    - Idle/searching: cyan #00E5FF, breathing pulse
-//    - Adjusting: amber #FFB300
-//    - Aligned: green #00E676, scale-snap + haptic
-//    - Dark backdrop: rgba(0,0,0,0.4) behind camera preview
-//    - Font: SF Pro Display, Medium/Semibold, sentence case
+//  Live capture overlay: corner brackets that follow the real fingertip
+//  (from the hand-pose joints), colored by capture state -- cyan searching,
+//  amber adjusting, green aligned (brackets tighten and a check appears).
+//  With no hand in view, the brackets rest in the middle as a target.
 //
-//  Always shows a fixed placeholder finger shape for visual calm; the color
-//  state (cyan/amber/green) and text come from the live hand-pose coaching
-//  in GuidanceEngine. The precise finger outline is only traced on the
-//  captured photo, for measurement.
-//
+
 import SwiftUI
-import UIKit  // needed for UIImpactFeedbackGenerator -- SwiftUI alone doesn't pull this in
+import UIKit  // UIImpactFeedbackGenerator
 
 enum CaptureState {
     case searching
@@ -28,95 +21,126 @@ struct CaptureGuideOverlay: View {
     let state: CaptureState
     let instructionText: String
     let subText: String
+    let hand: HandLandmarks?
 
-    private var strokeColor: Color {
-        switch state {
-        case .searching: return Color(hex: 0x00E5FF)
-        case .adjusting: return Color(hex: 0xFFB300)
-        case .aligned: return Color(hex: 0x00E676)
-        }
-    }
+    private var color: Color { Theme.color(for: state) }
 
     var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                Color.black.opacity(0.4)
-
-                outlinePath(viewSize: geometry.size)
-                    .stroke(strokeColor, lineWidth: 4)
-                    .shadow(color: strokeColor.opacity(0.6), radius: 10)
-                    .opacity(state == .searching ? pulseOpacity : 1.0)
-                    .animation(
-                        state == .searching
-                            ? .easeInOut(duration: 1.6).repeatForever(autoreverses: true)
-                            : .default,
-                        value: state
-                    )
-
-                VStack {
-                    Spacer()
-                    VStack(spacing: 6) {
-                        Text(instructionText)
-                            .font(.system(size: 17, weight: .semibold, design: .default))
-                            .foregroundColor(.white)
-                        Text(subText)
-                            .font(.system(size: 13, weight: .medium, design: .default))
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                    .padding(.bottom, 32)
+        ZStack {
+            // Same full-screen coordinate space as the aspect-fill preview,
+            // so the brackets line up with the finger on screen.
+            GeometryReader { geometry in
+                ZStack {
+                    Color.black.opacity(0.25)
+                    reticle(in: targetRect(viewSize: geometry.size))
                 }
             }
+            .ignoresSafeArea()
+
+            VStack {
+                if state != .aligned {
+                    poseHint.padding(.top, 12)
+                }
+                Spacer()
+                VStack(spacing: 6) {
+                    Text(instructionText)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.white)
+                    Text(subText)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
+                .padding(.bottom, 32)
+            }
+            .animation(.easeInOut(duration: 0.25), value: state)
         }
-        .onChange(of: state) { oldValue, newValue in
+        .onChange(of: state) { _, newValue in
             if newValue == .aligned {
-                let generator = UIImpactFeedbackGenerator(style: .medium)
-                generator.impactOccurred()
+                UIImpactFeedbackGenerator(style: .medium).impactOccurred()
             }
         }
     }
 
-    private var pulseOpacity: Double { 0.85 }
-
-    private func outlinePath(viewSize: CGSize) -> Path {
-        fingerOutlinePath(viewSize: viewSize)
+    private func reticle(in rect: CGRect) -> some View {
+        let aligned = state == .aligned
+        return ZStack(alignment: .topTrailing) {
+            CornerBrackets(armLength: min(30, rect.width * 0.28))
+                .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+                .shadow(color: color.opacity(0.7), radius: 8)
+            if aligned {
+                Image(systemName: "checkmark.circle.fill")
+                    .font(.system(size: 26))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, Theme.aligned)
+                    .offset(x: 13, y: -13)
+                    .transition(.scale.combined(with: .opacity))
+            }
+        }
+        .frame(width: rect.width, height: rect.height)
+        .scaleEffect(aligned ? 0.92 : 1)
+        .phaseAnimator([1.0, 0.45]) { content, phase in
+            content.opacity(state == .searching ? phase : 1)
+        } animation: { _ in .easeInOut(duration: 1.1) }
+        .position(x: rect.midX, y: rect.midY)
+        .animation(.easeOut(duration: 0.25), value: rect)
+        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: aligned)
     }
 
-    /// Hand-designed placeholder shape, centered in the given view
-    /// size so it still looks reasonable at different screen sizes.
-    private func fingerOutlinePath(viewSize: CGSize) -> Path {
-        let boxWidth: CGFloat = 150
-        let boxHeight: CGFloat = 380
-        let offsetX = (viewSize.width - boxWidth) / 2
-        let offsetY = (viewSize.height - boxHeight) / 2 - 40  // nudge up, matching original layout intent
-
-        func pt(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-            CGPoint(x: x + offsetX, y: y + offsetY)
+    /// Box around the fingertip's end segment (tip to DIP joint, extended a
+    /// little past the tip since the tip joint sits inside the pad), mapped
+    /// with the preview's aspect-fill scaling. A centered target when no
+    /// hand is found.
+    private func targetRect(viewSize: CGSize) -> CGRect {
+        guard let hand else {
+            let size = CGSize(width: 150, height: 220)
+            return CGRect(x: (viewSize.width - size.width) / 2, y: viewSize.height * 0.4 - size.height / 2,
+                          width: size.width, height: size.height)
         }
+        let scale = max(viewSize.width / hand.imageSize.width, viewSize.height / hand.imageSize.height)
+        let offsetX = (viewSize.width - hand.imageSize.width * scale) / 2
+        let offsetY = (viewSize.height - hand.imageSize.height * scale) / 2
+        func toView(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x * scale + offsetX, y: p.y * scale + offsetY) }
 
-        return Path { path in
-            path.move(to: pt(75, 8))
-            path.addCurve(to: pt(25, 85), control1: pt(42, 8), control2: pt(26, 38))
-            path.addLine(to: pt(22, 300))
-            path.addCurve(to: pt(40, 362), control1: pt(21, 330), control2: pt(28, 352))
-            path.addLine(to: pt(40, 368))
-            path.addCurve(to: pt(48, 376), control1: pt(40, 372), control2: pt(44, 376))
-            path.addLine(to: pt(102, 376))
-            path.addCurve(to: pt(110, 368), control1: pt(106, 376), control2: pt(110, 372))
-            path.addLine(to: pt(110, 362))
-            path.addCurve(to: pt(128, 300), control1: pt(122, 352), control2: pt(129, 330))
-            path.addLine(to: pt(125, 85))
-            path.addCurve(to: pt(75, 8), control1: pt(124, 38), control2: pt(108, 8))
-            path.closeSubpath()
+        let tip = toView(hand.indexTip.point), dip = toView(hand.indexDIP.point)
+        let length = max(hypot(tip.x - dip.x, tip.y - dip.y), 40)
+        let top = min(tip.y, dip.y) - length * 0.45
+        let bottom = max(tip.y, dip.y) + length * 0.3
+        let width = max(length * 1.15, 90)
+        return CGRect(x: (tip.x + dip.x) / 2 - width / 2, y: top, width: width, height: bottom - top)
+    }
+
+    private var poseHint: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "hand.point.up.left.fill")
+                .font(.system(size: 15))
+            Text("Side view: nail edge facing left or right")
+                .font(.system(size: 13, weight: .medium))
         }
+        .foregroundColor(.white)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: Capsule())
+        .transition(.opacity)
     }
 }
 
-private extension Color {
-    init(hex: UInt32) {
-        self.init(
-            red: Double((hex >> 16) & 0xFF) / 255,
-            green: Double((hex >> 8) & 0xFF) / 255,
-            blue: Double(hex & 0xFF) / 255
-        )
+/// Four L-shaped corners of a rectangle.
+private struct CornerBrackets: Shape {
+    let armLength: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let a = min(armLength, rect.width / 2, rect.height / 2)
+        var path = Path()
+        for (corner, dx, dy) in [(CGPoint(x: rect.minX, y: rect.minY), 1.0, 1.0),
+                                 (CGPoint(x: rect.maxX, y: rect.minY), -1.0, 1.0),
+                                 (CGPoint(x: rect.minX, y: rect.maxY), 1.0, -1.0),
+                                 (CGPoint(x: rect.maxX, y: rect.maxY), -1.0, -1.0)] {
+            path.move(to: CGPoint(x: corner.x + a * dx, y: corner.y))
+            path.addLine(to: corner)
+            path.addLine(to: CGPoint(x: corner.x, y: corner.y + a * dy))
+        }
+        return path
     }
 }

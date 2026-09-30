@@ -16,6 +16,8 @@ final class CameraManager: NSObject, ObservableObject {
     @Published var permissionDenied = false
 
     @Published var captureState: CaptureState = .searching
+    /// 0...1 toward "aligned": how much of the required steady hold is done.
+    @Published var alignedProgress: Double = 0
     @Published var currentDirections: [GuidanceDirection] = [.noFingerDetected]
 
     // Hand-pose landmarks for the latest processed frame (nil = no hand),
@@ -284,6 +286,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             } else {
                 self.captureState = rawState
             }
+            self.alignedProgress = min(1, Double(self.consecutiveAlignedCount) / Double(self.requiredConsecutiveAligned))
         }
     }
 }

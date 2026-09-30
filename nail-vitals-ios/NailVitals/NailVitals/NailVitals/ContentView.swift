@@ -24,7 +24,8 @@ struct ContentView: View {
             CaptureGuideOverlay(
                 state: camera.captureState,
                 instructionText: instructionText,
-                subText: subText
+                subText: subText,
+                hand: camera.handLandmarks
             )
 
             VStack {
@@ -32,26 +33,11 @@ struct ContentView: View {
                 Button(action: {
                     camera.capturePhoto()
                 }) {
-                    Image(systemName: "circle")
-                        .font(.system(size: 72))
-                        .foregroundColor(.white)
-                        .shadow(radius: 10)
-                        // NEW: dimmed when not aligned -- still
-                        // visible (so it doesn't look broken/missing)
-                        // but clearly not the "ready" state.
-                        .opacity(camera.captureState == .aligned ? 1.0 : 0.35)
+                    captureButtonFace
                 }
-                // NEW: only actually tappable once GuidanceEngine
-                // reports .aligned. BUG THIS FIXES: nothing was
-                // stopping a capture from being taken while the
-                // screen still said "Move back a little" -- every
-                // capture in this whole debugging session could have
-                // come from a badly-framed photo, which would produce
-                // a genuinely odd contour no amount of AngleAnalyzer
-                // tuning could fix, since the problem would be the
-                // INPUT, not the search math. This forces capture to
-                // only happen on a frame GuidanceEngine has actually
-                // validated as well-positioned.
+                // Only tappable once GuidanceEngine reports .aligned:
+                // captures taken while the screen still said "Move back a
+                // little" gave badly framed photos no angle tuning could fix.
                 .disabled(camera.captureState != .aligned)
                 .padding(.bottom, 50)
 
@@ -102,6 +88,29 @@ struct ContentView: View {
                 )
             }
         }
+    }
+
+    /// Shutter with a "hold still" ring that fills as alignment steadies;
+    /// dimmed (but visible) until aligned.
+    private var captureButtonFace: some View {
+        let aligned = camera.captureState == .aligned
+        return ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.85), lineWidth: 4)
+            Circle()
+                .trim(from: 0, to: camera.alignedProgress)
+                .stroke(Theme.aligned, style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                .rotationEffect(.degrees(-90))
+                .animation(.linear(duration: 0.25), value: camera.alignedProgress)
+            Circle()
+                .fill(Color.white)
+                .padding(8)
+                .scaleEffect(aligned ? 1 : 0.82)
+                .animation(.spring(response: 0.3, dampingFraction: 0.6), value: aligned)
+        }
+        .frame(width: 78, height: 78)
+        .shadow(radius: 10)
+        .opacity(aligned ? 1 : 0.55)
     }
 
     private var instructionText: String {
