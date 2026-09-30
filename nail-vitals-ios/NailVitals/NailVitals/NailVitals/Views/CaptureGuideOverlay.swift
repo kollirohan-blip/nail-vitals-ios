@@ -22,6 +22,8 @@ struct CaptureGuideOverlay: View {
     let instructionText: String
     let subText: String
     let hand: HandLandmarks?
+    /// Live glowing finger outline; when nil, the corner brackets show.
+    var outline: FingerOutline? = nil
 
     private var color: Color { Theme.color(for: state) }
 
@@ -32,8 +34,18 @@ struct CaptureGuideOverlay: View {
             GeometryReader { geometry in
                 ZStack {
                     Color.black.opacity(0.25)
-                    reticle(in: targetRect(viewSize: geometry.size))
+                    if let outline {
+                        let mapping = PreviewMapping(imageSize: outline.imageSize, viewSize: geometry.size)
+                        LiveFingerOutline(points: outline.points.map(mapping.toView),
+                                          cuticle: outline.cuticle.map(mapping.toView),
+                                          state: state)
+                            .transition(.opacity)
+                    } else {
+                        reticle(in: targetRect(viewSize: geometry.size))
+                            .transition(.opacity)
+                    }
                 }
+                .animation(.easeInOut(duration: 0.3), value: outline == nil)
             }
             .ignoresSafeArea()
 
@@ -98,12 +110,8 @@ struct CaptureGuideOverlay: View {
             return CGRect(x: (viewSize.width - size.width) / 2, y: viewSize.height * 0.4 - size.height / 2,
                           width: size.width, height: size.height)
         }
-        let scale = max(viewSize.width / hand.imageSize.width, viewSize.height / hand.imageSize.height)
-        let offsetX = (viewSize.width - hand.imageSize.width * scale) / 2
-        let offsetY = (viewSize.height - hand.imageSize.height * scale) / 2
-        func toView(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x * scale + offsetX, y: p.y * scale + offsetY) }
-
-        let tip = toView(hand.indexTip.point), dip = toView(hand.indexDIP.point)
+        let mapping = PreviewMapping(imageSize: hand.imageSize, viewSize: viewSize)
+        let tip = mapping.toView(hand.indexTip.point), dip = mapping.toView(hand.indexDIP.point)
         let length = max(hypot(tip.x - dip.x, tip.y - dip.y), 40)
         let top = min(tip.y, dip.y) - length * 0.45
         let bottom = max(tip.y, dip.y) + length * 0.3

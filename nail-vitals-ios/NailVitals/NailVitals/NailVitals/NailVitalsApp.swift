@@ -13,6 +13,10 @@ let showDetectionLab = false
 /// true = show the hand-pose numbers under the capture button (testing only).
 let showDebugReadout = false
 
+/// true = glowing live outline of the finger while framing (turn off if the
+/// phone gets hot during a long demo; the corner brackets remain).
+let liveOutlineEnabled = true
+
 @main
 struct NailVitalsApp: App {
     @State private var showSplash = true

@@ -46,7 +46,7 @@ nonisolated final class FingerMaskSegmenter {
         guard let observation = maskRequest.results?.first, !observation.allInstances.isEmpty else { return nil }
         diag.instanceCount = observation.allInstances.count
 
-        let instance = fingertipHint.flatMap { instanceLabel(in: observation.instanceMask, at: $0, imageSize: imageSize) }
+        let instance = fingertipHint.flatMap { MaskGeometry.instanceLabel(in: observation.instanceMask, at: $0, imageSize: imageSize) }
             ?? observation.allInstances.first!
         diag.chosenInstance = instance
 
@@ -59,39 +59,24 @@ nonisolated final class FingerMaskSegmenter {
         let maskImage = CIImage(cvPixelBuffer: mask)
         guard let cgMask = context.createCGImage(maskImage, from: maskImage.extent) else { return nil }
 
-        let contourRequest = VNDetectContoursRequest()
-        contourRequest.detectsDarkOnLight = false  // white subject on black
-        contourRequest.contrastAdjustment = 1.0
         // Full resolution: the default 512 cap would coarsen the outline
         // AngleAnalyzer measures.
-        contourRequest.maximumImageDimension = Int(max(imageSize.width, imageSize.height))
-        do {
-            try VNImageRequestHandler(cgImage: cgMask, options: [:]).perform([contourRequest])
-        } catch {
-            print("FingerMaskSegmenter: contour request failed: \(error)")
-            return nil
-        }
-        guard let contours = contourRequest.results?.first?.topLevelContours, !contours.isEmpty else { return nil }
-
-        func toImagePoints(_ contour: VNContour) -> [CGPoint] {
-            contour.normalizedPoints.map {
-                CGPoint(x: CGFloat($0.x) * imageSize.width, y: (1 - CGFloat($0.y)) * imageSize.height)
-            }
-        }
-
-        let candidates = contours.map(toImagePoints).filter { $0.count > 20 }
-        let chosen = fingertipHint.flatMap { hint in candidates.first { contains($0, hint) } }
-            ?? candidates.max { abs(polygonArea($0)) < abs(polygonArea($1)) }
+        let candidates = MaskGeometry.contours(of: cgMask, maximumDimension: Int(max(imageSize.width, imageSize.height)), imageSize: imageSize)
         diag.contourMs = (CFAbsoluteTimeGetCurrent() - start) * 1000
-        guard let points = chosen else { return nil }
+        guard let points = MaskGeometry.pickContour(candidates, containing: fingertipHint) else { return nil }
         diag.contourPointCount = points.count
 
-        return DetectedSilhouette(boundingBox: boundingRect(of: points), contourPoints: points, imageSize: imageSize)
+        return DetectedSilhouette(boundingBox: MaskGeometry.boundingRect(of: points), contourPoints: points, imageSize: imageSize)
     }
+}
+
+/// Mask and outline helpers shared by the measurement segmenter and the
+/// live outline.
+nonisolated enum MaskGeometry {
 
     /// Reads the low-resolution instance-label mask (0 = background) at an
     /// image point.
-    private func instanceLabel(in labels: CVPixelBuffer, at point: CGPoint, imageSize: CGSize) -> Int? {
+    static func instanceLabel(in labels: CVPixelBuffer, at point: CGPoint, imageSize: CGSize) -> Int? {
         CVPixelBufferLockBaseAddress(labels, .readOnly)
         defer { CVPixelBufferUnlockBaseAddress(labels, .readOnly) }
         guard let base = CVPixelBufferGetBaseAddress(labels) else { return nil }
@@ -102,7 +87,34 @@ nonisolated final class FingerMaskSegmenter {
         return value == 0 ? nil : Int(value)
     }
 
-    private func contains(_ polygon: [CGPoint], _ p: CGPoint) -> Bool {
+    /// Outlines of the white regions of a black-and-white mask, in image
+    /// pixels (top-left origin) of an image of `imageSize`.
+    static func contours(of mask: CGImage, maximumDimension: Int, imageSize: CGSize) -> [[CGPoint]] {
+        let request = VNDetectContoursRequest()
+        request.detectsDarkOnLight = false  // white subject on black
+        request.contrastAdjustment = 1.0
+        request.maximumImageDimension = maximumDimension
+        do {
+            try VNImageRequestHandler(cgImage: mask, options: [:]).perform([request])
+        } catch {
+            print("MaskGeometry: contour request failed: \(error)")
+            return []
+        }
+        return (request.results?.first?.topLevelContours ?? []).map { contour in
+            contour.normalizedPoints.map {
+                CGPoint(x: CGFloat($0.x) * imageSize.width, y: (1 - CGFloat($0.y)) * imageSize.height)
+            }
+        }
+    }
+
+    /// The outline containing `hint`, else the largest; ignores tiny specks.
+    static func pickContour(_ contours: [[CGPoint]], containing hint: CGPoint?) -> [CGPoint]? {
+        let candidates = contours.filter { $0.count > 20 }
+        return hint.flatMap { h in candidates.first { contains($0, h) } }
+            ?? candidates.max { abs(polygonArea($0)) < abs(polygonArea($1)) }
+    }
+
+    static func contains(_ polygon: [CGPoint], _ p: CGPoint) -> Bool {
         var inside = false
         var j = polygon.count - 1
         for i in 0..<polygon.count {
@@ -115,7 +127,7 @@ nonisolated final class FingerMaskSegmenter {
         return inside
     }
 
-    private func polygonArea(_ points: [CGPoint]) -> CGFloat {
+    static func polygonArea(_ points: [CGPoint]) -> CGFloat {
         var sum: CGFloat = 0
         for i in 0..<points.count {
             let a = points[i], b = points[(i + 1) % points.count]
@@ -124,7 +136,7 @@ nonisolated final class FingerMaskSegmenter {
         return sum / 2
     }
 
-    private func boundingRect(of points: [CGPoint]) -> CGRect {
+    static func boundingRect(of points: [CGPoint]) -> CGRect {
         let xs = points.map(\.x), ys = points.map(\.y)
         guard let minX = xs.min(), let maxX = xs.max(), let minY = ys.min(), let maxY = ys.max() else { return .zero }
         return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)

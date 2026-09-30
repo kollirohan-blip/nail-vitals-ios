@@ -24,6 +24,10 @@ final class CameraManager: NSObject, ObservableObject {
     // and how long the model took on it.
     @Published var handLandmarks: HandLandmarks?
     @Published var handPoseMs: Double = 0
+    // Live glowing finger outline (display only) and its time per update.
+    @Published var liveOutline: FingerOutline?
+    @Published var outlineMs: Double = 0
+    private var lastOutlineAt = Date.distantPast
     // Landmarks from the SAME frame as capturedPixelBuffer, so the mask
     // segmenter gets a fingertip hint that matches the photo.
     @Published private(set) var capturedLandmarks: HandLandmarks?
@@ -52,6 +56,15 @@ final class CameraManager: NSObject, ObservableObject {
 
     private let guidanceEngine = GuidanceEngine()
     private let handPoseDetector = HandPoseDetector()
+
+    // The outline runs on its own queue, on every other processed frame and
+    // only when the previous run has finished, so hand-pose coaching never
+    // waits on it. outlineBusy/outlineFrameCount are only touched on
+    // frameProcessingQueue.
+    private let outlineQueue = DispatchQueue(label: "camera.outline")
+    private let outlineTracker = LiveOutlineTracker()
+    private nonisolated(unsafe) var outlineBusy = false
+    private nonisolated(unsafe) var outlineFrameCount = 0
 
     // Throttling: running full detection on every frame (30-60fps)
     // would be wasteful and likely too slow for this pipeline (it
@@ -244,6 +257,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         let landmarks = handPoseDetector.detect(in: pixelBuffer)
         let poseMs = handPoseDetector.lastDurationMs
+        updateLiveOutline(pixelBuffer: pixelBuffer, landmarks: landmarks)
 
         // NEW: if the user tapped capture since the last frame, save
         // THIS frame as the captured photo. Checked/cleared here on
@@ -287,6 +301,39 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
                 self.captureState = rawState
             }
             self.alignedProgress = min(1, Double(self.consecutiveAlignedCount) / Double(self.requiredConsecutiveAligned))
+        }
+    }
+}
+
+extension CameraManager {
+    /// Called on frameProcessingQueue for each processed frame.
+    nonisolated func updateLiveOutline(pixelBuffer: CVPixelBuffer, landmarks: HandLandmarks?) {
+        outlineFrameCount += 1
+        guard liveOutlineEnabled else { return }
+        guard let landmarks else {
+            DispatchQueue.main.async { [weak self] in self?.publishOutline(nil, ms: nil) }
+            return
+        }
+        guard !outlineBusy, outlineFrameCount % 2 == 0 else { return }
+        outlineBusy = true
+        outlineQueue.async { [weak self] in
+            guard let self else { return }
+            let outline = self.outlineTracker.outline(in: pixelBuffer, hand: landmarks)
+            let ms = self.outlineTracker.lastDurationMs
+            self.frameProcessingQueue.async { self.outlineBusy = false }
+            DispatchQueue.main.async { self.publishOutline(outline, ms: ms) }
+        }
+    }
+
+    /// Keeps the last outline briefly through a missed update, so it
+    /// doesn't flicker to the brackets and back.
+    private func publishOutline(_ outline: FingerOutline?, ms: Double?) {
+        if let ms { outlineMs = ms }
+        if let outline {
+            liveOutline = outline
+            lastOutlineAt = Date()
+        } else if Date().timeIntervalSince(lastOutlineAt) > 0.6 {
+            liveOutline = nil
         }
     }
 }

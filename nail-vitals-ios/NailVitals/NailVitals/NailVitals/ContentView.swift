@@ -25,7 +25,8 @@ struct ContentView: View {
                 state: camera.captureState,
                 instructionText: instructionText,
                 subText: subText,
-                hand: camera.handLandmarks
+                hand: camera.handLandmarks,
+                outline: camera.liveOutline
             )
 
             VStack {
@@ -151,8 +152,8 @@ struct ContentView: View {
 
     private var handReadoutText: String {
         guard let hand = camera.handLandmarks else { return "hand: none" }
-        return String(format: "hand conf %.2f  length %.0f%%  tilt %.0f°",
-                      hand.minIndexConfidence, hand.fingerLengthFraction * 100, hand.tiltFromVerticalDegrees)
+        return String(format: "hand conf %.2f  length %.0f%%  tilt %.0f°  outline %.0f ms",
+                      hand.minIndexConfidence, hand.fingerLengthFraction * 100, hand.tiltFromVerticalDegrees, camera.outlineMs)
     }
 }
 

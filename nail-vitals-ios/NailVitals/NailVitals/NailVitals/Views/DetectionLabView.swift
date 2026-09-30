@@ -82,12 +82,8 @@ struct DetectionLabView: View {
     }
 
     private func landmarkOverlay(_ hand: HandLandmarks, viewSize: CGSize) -> some View {
-        // Preview uses aspect FILL, so map with the larger scale and a
-        // centered crop offset.
-        let scale = max(viewSize.width / hand.imageSize.width, viewSize.height / hand.imageSize.height)
-        let offsetX = (viewSize.width - hand.imageSize.width * scale) / 2
-        let offsetY = (viewSize.height - hand.imageSize.height * scale) / 2
-        func toView(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x * scale + offsetX, y: p.y * scale + offsetY) }
+        let mapping = PreviewMapping(imageSize: hand.imageSize, viewSize: viewSize)
+        func toView(_ p: CGPoint) -> CGPoint { mapping.toView(p) }
 
         let joints = [hand.indexTip, hand.indexDIP, hand.indexPIP, hand.indexMCP]
         return ZStack {
