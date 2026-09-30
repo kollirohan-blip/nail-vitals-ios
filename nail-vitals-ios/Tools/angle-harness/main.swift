@@ -157,7 +157,7 @@ for (r, nf) in [(CGFloat(80), CGFloat(1.2)), (80, 1.9), (80, 2.5), (110, 1.2), (
         let mean = errs.isEmpty ? .nan : errs.reduce(0, +) / Double(errs.count) + truth
         let worst = errs.map { abs($0) }.max() ?? .nan
         let mk = markErr.isEmpty ? .nan : markErr.reduce(0, +) / Double(markErr.count)
-        print(String(format: "%3.0f/%3.1f/%2.0f  %5.0f  %6.1f   %6.1f      %6.1fpx          %d/20     %6.1f", Double(r), Double(nf), truth, mean, worst, mk, found, mathErr.max() ?? .nan))
+        print(String(format: "%3.0f/%3.1f  %5.0f  %6.1f   %6.1f      %6.1fpx          %d/20     %6.1f", Double(r), Double(nf), truth, mean, worst, mk, found, mathErr.max() ?? .nan))
     }
 }
 
@@ -169,7 +169,7 @@ func analyzeForTest(_ s: DetectedSilhouette, dip: CGPoint?) -> LovibondResult? {
 func runPointed(label: String, useDIP: Bool) {
     print("\nPOINTED TIP (taper 1.8, jagged, curved nail) -- \(label)")
     print("r/taper/cut% true   mean   worst-err  marker-err(mean)  found")
-    for (r, taper, frac) in [(CGFloat(55), CGFloat(1.8), CGFloat(0.7)), (150, 1.8, 0.55), (150, 1.8, 0.7), (150, 1.8, 0.85), (150, 2.4, 0.7)] {
+    for (r, taper, frac) in [(CGFloat(150), CGFloat(1.8), CGFloat(0.35)), (150, 1.8, 0.42), (150, 1.8, 0.5), (150, 1.8, 0.6), (150, 2.4, 0.42), (150, 1.2, 0.42)] {
         for truth in [160.0, 170.0, 180.0, 190.0, 200.0] {
             var errs: [Double] = [], markErr: [Double] = [], found = 0
             for _ in 0..<20 {

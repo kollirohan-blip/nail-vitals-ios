@@ -79,19 +79,20 @@ final class AngleAnalyzer {
         let points = silhouette.contourPoints
         guard points.count > 20 else { return nil }
 
-        // Anatomical search band from the tip-to-DIP distance L: cuticle
-        // expected ~0.55-0.85 L from the tip apex. Without it, a shallow
-        // (near-180) cuticle loses to the pointed-tip-to-nail transition,
-        // which always bends outward and reads as false clubbing (~190-195
-        // on synthetic pointed tips; 189-193 seen on device).
+        // Anatomical search band from the tip-apex-to-DIP distance L.
+        // Without it, a shallow (near-180) cuticle loses to the pointed-tip-
+        // to-nail transition, which always bends outward and reads as false
+        // clubbing (189-193 seen on device). The first zoomed on-device photo
+        // put the real cuticle at ~0.42 L (an earlier 0.55-0.85 L guess left
+        // markers well below it), so the band is 0.25-0.65 L.
         if let dip = dipHint, let tipIndex = findFingertipIndex(points) {
             let tip = points[tipIndex]
             let l = Double(hypot(dip.x - tip.x, dip.y - tip.y))
             if l > 20, let result = search(points: points, tip: tip, tipIndex: tipIndex,
-                                           windowDistancePixels: l * 0.5,
-                                           maxSearchDistancePixels: l * 0.95,
-                                           segmentLengthPixels: l * 0.18,
-                                           tipZoneDistancePixels: l * 0.35) {
+                                           windowDistancePixels: l * 0.25,
+                                           maxSearchDistancePixels: l * 0.65,
+                                           segmentLengthPixels: l * 0.12,
+                                           tipZoneDistancePixels: l * 0.15) {
                 return result
             }
         }
@@ -358,7 +359,10 @@ final class AngleAnalyzer {
         var bestResidual = Double.infinity
         var bestTurnIndex: Int?
         var bestTurn = -1.0
+        var bestDipIndex: Int?
+        var bestDip = -1.0
         let maxStraightRms = max(1.5, segmentLengthPixels * 0.03)
+        let orientation = signedArea(points) * CGFloat(step)
         let tip = points[tipIndex]
 
         var k = 1
@@ -427,12 +431,29 @@ final class AngleAnalyzer {
                     bestTurn = turn
                     bestTurnIndex = splitIdx
                 }
+                let isDip = (d1.dx * d2.dy - d1.dy * d2.dx) * orientation < 0
+                if isDip && turn > bestDip {
+                    bestDip = turn
+                    bestDipIndex = splitIdx
+                }
             }
 
             k += 1
         }
+        // A normal cuticle is the only inward dip on the nail side: the
+        // rounded tip above it and the skin slope below it both bulge
+        // outward (on device the old max-turn rule picked that lower bulge).
+        // Only when there's no real dip -- the clubbing case -- fall back to
+        // the sharpest bend overall. ("First bend below the nail, either
+        // direction" was also tried: it read 12 synthetic normal fingers as
+        // clubbed, because the rounded tip is usually that first bend.)
+        if bestDip >= minCuticleDipRadians, let bestDipIndex {
+            return bestDipIndex
+        }
         return bestTurnIndex ?? bestIndex
     }
+
+    private let minCuticleDipRadians = 4.0 * .pi / 180
 
     /// Sum of squared perpendicular distances from points to their
     /// best-fit line -- lower means the points are more truly
@@ -578,6 +599,10 @@ final class AngleAnalyzer {
         }
         return direction
     }
+
+    /// Readings outside this range come from misplaced points, not anatomy
+    /// (normal ~160, clubbing above 180; a manual mis-drag produced 305.7).
+    static let plausibleRange: ClosedRange<Double> = 120...240
 
     // MARK: - Manual three-point angle
 
