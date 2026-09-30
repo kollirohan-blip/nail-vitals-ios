@@ -145,6 +145,7 @@ struct CaptureFlowView: View {
         // though it's a one-shot (not per-frame) operation, shouldn't
         // block the UI while it runs.
         let dip = landmarks?.indexDIP.point
+        let tip = landmarks?.indexTip.point
         let hand = landmarks
         DispatchQueue.global(qos: .userInitiated).async {
             // Made first so manual measurement stays available even when
@@ -164,13 +165,13 @@ struct CaptureFlowView: View {
                 return
             }
 
-            guard let result = angleAnalyzer.analyze(silhouette, dipHint: dip) else {
+            guard let result = angleAnalyzer.analyze(silhouette, dipHint: dip, tipHint: tip) else {
                 let folder = save(nil, failure: "no angle")
                 DispatchQueue.main.async {
                     displayImage = image
                     captureFolder = folder
                     self.silhouette = silhouette
-                    stage = .failed("Couldn't measure an angle from that photo. Try again, keeping the nail edge clearly visible, or measure it yourself.")
+                    stage = .failed("Couldn't trace the edge of your finger. Hold it in front of a plain wall (not over a laptop or desk) with the nail edge visible, or measure it yourself.")
                 }
                 return
             }

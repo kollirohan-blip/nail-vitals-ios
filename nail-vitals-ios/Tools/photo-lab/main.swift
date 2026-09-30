@@ -121,7 +121,7 @@ for path in args {
     let hand = HandPoseDetector().detect(in: buffer)
     let segmenter = FingerMaskSegmenter()
     let silhouette = segmenter.segment(pixelBuffer: buffer, fingertipHint: hand?.indexDIP.point)
-    let result = silhouette.flatMap { AngleAnalyzer().analyze($0, dipHint: hand?.indexDIP.point) }
+    let result = silhouette.flatMap { AngleAnalyzer().analyze($0, dipHint: hand?.indexDIP.point, tipHint: hand?.indexTip.point) }
 
     print("== \(name)  \(image.width)x\(image.height)")
     if !savedSummary.isEmpty { print(savedSummary) }

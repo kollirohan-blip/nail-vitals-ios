@@ -75,9 +75,30 @@ final class AngleAnalyzer {
     /// - Parameter dipHint: the index finger's DIP joint (image pixels, from
     ///   hand pose). The cuticle always lies between the fingertip and this
     ///   joint, so when given, the search is confined to that stretch.
-    func analyze(_ silhouette: DetectedSilhouette, dipHint: CGPoint? = nil) -> LovibondResult? {
+    /// - Parameter tipHint: the index fingertip (hand pose). With it, the
+    ///   apex is taken from the outline near the real fingertip instead of
+    ///   the outline's topmost point, and if the outline doesn't pass near
+    ///   the fingertip at all, nothing is returned.
+    func analyze(_ silhouette: DetectedSilhouette, dipHint: CGPoint? = nil, tipHint: CGPoint? = nil) -> LovibondResult? {
         let points = silhouette.contourPoints
         guard points.count > 20 else { return nil }
+
+        // On device, a finger held over a laptop got merged with the laptop in
+        // the subject mask: the outline traced the laptop, its top edge was
+        // taken as the "fingertip", and the reading was nonsense (~181-269).
+        // The finger's own edge isn't in such an outline, so refuse. Same
+        // anatomical search band as the dipHint-only path below.
+        if let dip = dipHint, let tipHint {
+            guard let tipIndex = fingertipIndex(points, near: tipHint, dip: dip) else { return nil }
+            let tip = points[tipIndex]
+            let l = Double(hypot(dip.x - tip.x, dip.y - tip.y))
+            guard l > 20 else { return nil }
+            return search(points: points, tip: tip, tipIndex: tipIndex,
+                          windowDistancePixels: l * 0.25,
+                          maxSearchDistancePixels: l * 0.65,
+                          segmentLengthPixels: l * 0.12,
+                          tipZoneDistancePixels: l * 0.15)
+        }
 
         // Anatomical search band from the tip-apex-to-DIP distance L.
         // Without it, a shallow (near-180) cuticle loses to the pointed-tip-
@@ -286,6 +307,26 @@ final class AngleAnalyzer {
     }
 
     // MARK: - Fingertip
+
+    /// The outline's apex near the hand-pose fingertip: among outline points
+    /// within 0.6 of the tip-to-DIP distance of the tip joint, the one
+    /// furthest out along the DIP-to-tip direction (so a tilted finger still
+    /// gets its real apex). nil when the outline never comes near the tip.
+    private func fingertipIndex(_ points: [CGPoint], near tipHint: CGPoint, dip: CGPoint) -> Int? {
+        let length = hypot(tipHint.x - dip.x, tipHint.y - dip.y)
+        guard length > 0 else { return nil }
+        let axis = CGVector(dx: (tipHint.x - dip.x) / length, dy: (tipHint.y - dip.y) / length)
+        var best: Int?
+        var bestReach = -CGFloat.infinity
+        for (i, p) in points.enumerated() where hypot(p.x - tipHint.x, p.y - tipHint.y) <= length * 0.6 {
+            let reach = (p.x - dip.x) * axis.dx + (p.y - dip.y) * axis.dy
+            if reach > bestReach {
+                bestReach = reach
+                best = i
+            }
+        }
+        return best
+    }
 
     private func findFingertipIndex(_ points: [CGPoint]) -> Int? {
         guard !points.isEmpty else { return nil }

@@ -208,7 +208,7 @@ private struct MaskTestView: View {
         DispatchQueue.global(qos: .userInitiated).async {
             let segmenter = FingerMaskSegmenter()
             let sil = segmenter.segment(pixelBuffer: buffer, fingertipHint: hint)
-            let res = sil.flatMap { AngleAnalyzer().analyze($0, dipHint: hint) }
+            let res = sil.flatMap { AngleAnalyzer().analyze($0, dipHint: hint, tipHint: landmarks?.indexTip.point) }
             let ciImage = CIImage(cvPixelBuffer: buffer)
             let cg = CIContext().createCGImage(ciImage, from: ciImage.extent)
             let diag = segmenter.lastDiagnostics

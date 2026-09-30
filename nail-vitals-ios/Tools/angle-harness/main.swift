@@ -165,7 +165,7 @@ for (r, nf) in [(CGFloat(80), CGFloat(1.2)), (80, 1.9), (80, 2.5), (110, 1.2), (
 // MARK: - Pointed (real-looking) fingertips at the sizes seen on device
 // r=55 ~ the 110px-wide finger in a 1080x1920 video frame; r=150 ~ the same finger in a full-res photo.
 let bigImage = CGSize(width: 3024, height: 4032)
-func analyzeForTest(_ s: DetectedSilhouette, dip: CGPoint?) -> LovibondResult? { AngleAnalyzer().analyze(s, dipHint: dip) }
+func analyzeForTest(_ s: DetectedSilhouette, dip: CGPoint?, tip: CGPoint? = nil) -> LovibondResult? { AngleAnalyzer().analyze(s, dipHint: dip, tipHint: tip) }
 func runPointed(label: String, useDIP: Bool) {
     print("\nPOINTED TIP (taper 1.8, jagged, curved nail) -- \(label)")
     print("r/taper/cut% true   mean   worst-err  marker-err(mean)  found")
@@ -179,7 +179,9 @@ func runPointed(label: String, useDIP: Bool) {
                 let apex = pts.min { $0.y < $1.y }!
                 let l = hypot(lastDIP.x - apex.x, lastDIP.y - apex.y)
                 let dip = CGPoint(x: lastDIP.x + gauss() * l * 0.05, y: lastDIP.y + gauss() * l * 0.05)
-                guard let res = analyzeForTest(sil, dip: useDIP ? dip : nil) else { continue }
+                // hand-pose tip sits a little inside the apex, toward the DIP
+                let tipHint = CGPoint(x: apex.x + (dip.x - apex.x) * 0.12, y: apex.y + (dip.y - apex.y) * 0.12)
+                guard let res = analyzeForTest(sil, dip: useDIP ? dip : nil, tip: useDIP ? tipHint : nil) else { continue }
                 let step = ((cut - res.tipIndex + n) % n) < n / 2 ? 1 : -1
                 guard let c = res.candidates.first(where: { $0.step == step }) else { continue }
                 found += 1
