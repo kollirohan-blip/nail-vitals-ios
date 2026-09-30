@@ -31,6 +31,7 @@ struct CaptureFlowView: View {
     @State private var displayImage: UIImage?
     @State private var lovibondResult: LovibondResult?
     @State private var silhouette: DetectedSilhouette?
+    @State private var captureFolder: URL?
 
     private let segmenter = FingerMaskSegmenter()
     private let angleAnalyzer = AngleAnalyzer()
@@ -135,10 +136,7 @@ struct CaptureFlowView: View {
     }
 
     private func finish(with confirmed: LovibondCandidate, manualDots: [CGPoint]?) {
-        if let image = displayImage {
-            CaptureRecorder.save(image: image, landmarks: landmarks, result: lovibondResult,
-                                 confirmed: confirmed, manualDots: manualDots)
-        }
+        CaptureRecorder.saveConfirmation(in: captureFolder, confirmed: confirmed, manualDots: manualDots)
         stage = .result(confirmed)
     }
 
@@ -147,30 +145,40 @@ struct CaptureFlowView: View {
         // though it's a one-shot (not per-frame) operation, shouldn't
         // block the UI while it runs.
         let dip = landmarks?.indexDIP.point
+        let hand = landmarks
         DispatchQueue.global(qos: .userInitiated).async {
             // Made first so manual measurement stays available even when
             // automatic detection fails.
             let image = makeDisplayImage(from: pixelBuffer)
+            func save(_ result: LovibondResult?, failure: String?) -> URL? {
+                image.flatMap { CaptureRecorder.saveAnalysis(image: $0, landmarks: hand, result: result, failure: failure) }
+            }
 
             guard let silhouette = segmenter.segment(pixelBuffer: pixelBuffer, fingertipHint: dip) else {
+                let folder = save(nil, failure: "no outline")
                 DispatchQueue.main.async {
                     displayImage = image
+                    captureFolder = folder
                     stage = .failed("Couldn't find a clear finger outline in that photo. Try again with better lighting or positioning, or measure it yourself.")
                 }
                 return
             }
 
             guard let result = angleAnalyzer.analyze(silhouette, dipHint: dip) else {
+                let folder = save(nil, failure: "no angle")
                 DispatchQueue.main.async {
                     displayImage = image
+                    captureFolder = folder
                     self.silhouette = silhouette
                     stage = .failed("Couldn't measure an angle from that photo. Try again, keeping the nail edge clearly visible, or measure it yourself.")
                 }
                 return
             }
 
+            let folder = save(result, failure: nil)
             DispatchQueue.main.async {
                 self.displayImage = image
+                self.captureFolder = folder
                 self.silhouette = silhouette
                 self.lovibondResult = result
                 self.stage = .confirming

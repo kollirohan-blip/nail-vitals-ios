@@ -24,6 +24,7 @@ struct ManualAngleView: View {
     // Image-pixel coordinates: [nail, cuticle, skin].
     @State private var points: [CGPoint] = []
     @State private var dragging: Int?
+    @State private var grabOffset = CGSize.zero
     // Only used when neither the outline nor hand pose can say which side
     // is inside the finger.
     @State private var flipped = false
@@ -40,6 +41,8 @@ struct ManualAngleView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: geo.size.width, height: geo.size.height)
+                    .contentShape(Rectangle())
+                    .gesture(dragNearestDot(viewSize: geo.size))
 
                 if points.count == 3 {
                     Path { path in path.addLines(points.map { toView($0, geo.size) }) }
@@ -157,17 +160,38 @@ struct ManualAngleView: View {
                 .shadow(color: .black, radius: 2)
                 .offset(x: 13, y: -13)
         }
-        .frame(width: 44, height: 44)  // finger-sized touch target around a small dot
-        .contentShape(Rectangle())
         .position(toView(points[i], viewSize))
-        .gesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { value in
+        .allowsHitTesting(false)
+    }
+
+    /// One gesture for all dots: grabs whichever dot is nearest the touch
+    /// (stacked dots each had their own touch area, so the top one blocked
+    /// the others), and keeps the finger's offset from the dot so the finger
+    /// doesn't cover it.
+    private func dragNearestDot(viewSize: CGSize) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                if dragging == nil {
+                    guard let i = nearestDot(to: value.startLocation, viewSize: viewSize) else { return }
                     dragging = i
-                    points[i] = snapToOutline(toImage(value.location, viewSize), viewSize: viewSize)
+                    let dot = toView(points[i], viewSize)
+                    grabOffset = CGSize(width: dot.x - value.startLocation.x, height: dot.y - value.startLocation.y)
                 }
-                .onEnded { _ in dragging = nil }
-        )
+                guard let i = dragging else { return }
+                let target = CGPoint(x: value.location.x + grabOffset.width, y: value.location.y + grabOffset.height)
+                points[i] = snapToOutline(toImage(target, viewSize), viewSize: viewSize)
+            }
+            .onEnded { _ in dragging = nil }
+    }
+
+    private func nearestDot(to location: CGPoint, viewSize: CGSize) -> Int? {
+        guard points.count == 3 else { return nil }
+        let distances = points.map { p -> CGFloat in
+            let v = toView(p, viewSize)
+            return hypot(v.x - location.x, v.y - location.y)
+        }
+        guard let best = distances.indices.min(by: { distances[$0] < distances[$1] }), distances[best] <= 60 else { return nil }
+        return best
     }
 
     /// Magnified view around the dot being dragged, so a fingertip doesn't

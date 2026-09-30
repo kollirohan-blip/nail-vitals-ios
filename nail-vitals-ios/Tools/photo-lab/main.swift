@@ -86,9 +86,14 @@ if let i = args.firstIndex(of: "--truth"), i + 1 < args.count {
 func loadCaptureFolder(_ dir: String) -> (photo: String, truth: CGPoint?, summary: String)? {
     let photo = (dir as NSString).appendingPathComponent("photo.jpg")
     guard FileManager.default.fileExists(atPath: photo) else { return nil }
-    let jsonURL = URL(fileURLWithPath: (dir as NSString).appendingPathComponent("capture.json"))
-    guard let data = try? Data(contentsOf: jsonURL),
-          let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return (photo, nil, "") }
+    // Newer captures keep the user's confirmation in confirmation.json; the
+    // first few stored everything in capture.json.
+    func readJSON(_ file: String) -> [String: Any]? {
+        let url = URL(fileURLWithPath: (dir as NSString).appendingPathComponent(file))
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    }
+    guard let json = readJSON("confirmation.json") ?? readJSON("capture.json") else { return (photo, nil, "") }
     var truth: CGPoint?
     if let dots = json["manualDots"] as? [[Double]], dots.count == 3 { truth = CGPoint(x: dots[1][0], y: dots[1][1]) }
     var summary = ""
