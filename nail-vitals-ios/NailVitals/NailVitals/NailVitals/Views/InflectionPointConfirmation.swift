@@ -35,7 +35,9 @@ struct InflectionPointConfirmation: View {
     let angleAnalyzer: AngleAnalyzer
     let onConfirm: (LovibondCandidate) -> Void
     let onCancel: () -> Void
-    var onManual: (() -> Void)? = nil
+    /// Passes the selected (possibly dragged) marker, if any, so manual
+    /// placement can start from it.
+    var onManual: ((LovibondCandidate?) -> Void)? = nil
 
     @State private var selectedSide: String?
     // side -> contour index, populated once the user drags that side
@@ -187,7 +189,7 @@ struct InflectionPointConfirmation: View {
             }
 
             if let onManual {
-                Button("Neither is right — place the points myself", action: onManual)
+                Button("Neither is right — place the points myself") { onManual(selectedCandidate()) }
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.white.opacity(0.8))
             }
@@ -199,20 +201,21 @@ struct InflectionPointConfirmation: View {
     }
 
     private func confirm() {
+        guard let confirmedCandidate = selectedCandidate() else { return }
+        onConfirm(confirmedCandidate)
+    }
+
+    /// The selected marker, including any drag adjustment.
+    private func selectedCandidate() -> LovibondCandidate? {
         guard let side = selectedSide,
-              let original = result.candidates.first(where: { $0.side == side }) else { return }
-
-        let finalAngle = liveAngles[side] ?? original.angleDegrees
-        let finalPoint = currentImagePoint(for: original)
-
-        let confirmedCandidate = LovibondCandidate(
+              let original = result.candidates.first(where: { $0.side == side }) else { return nil }
+        return LovibondCandidate(
             side: original.side,
-            angleDegrees: finalAngle,
-            inflectionPoint: finalPoint,
+            angleDegrees: liveAngles[side] ?? original.angleDegrees,
+            inflectionPoint: currentImagePoint(for: original),
             inflectionIndex: adjustedIndices[side] ?? original.inflectionIndex,
             step: original.step
         )
-        onConfirm(confirmedCandidate)
     }
 
     // MARK: - Coordinate conversion

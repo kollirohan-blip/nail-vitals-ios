@@ -120,7 +120,7 @@ struct ContentView: View {
     private var subText: String {
         switch camera.captureState {
         case .searching: return "Turn your hand so the camera sees the side of your finger"
-        case .adjusting: return "Keep the nail facing left or right, not toward the camera"
+        case .adjusting: return "Turn until the nail looks like a thin edge, not a flat surface"
         case .aligned: return "Hold still and tap the button"
         }
     }

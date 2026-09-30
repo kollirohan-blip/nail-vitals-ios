@@ -8,7 +8,7 @@
 import SwiftUI
 
 /// true = open the Detection Lab test screen instead of the normal app.
-let showDetectionLab = true
+let showDetectionLab = false
 
 @main
 struct NailVitalsApp: App {

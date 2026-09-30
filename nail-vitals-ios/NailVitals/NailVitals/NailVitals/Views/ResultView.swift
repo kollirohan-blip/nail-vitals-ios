@@ -21,8 +21,17 @@ struct ResultView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            Text("\(candidate.angleDegrees, specifier: "%.1f")°")
-                .font(.system(size: 48, weight: .bold))
+            if AngleAnalyzer.plausibleRange.contains(candidate.angleDegrees) {
+                Text("\(candidate.angleDegrees, specifier: "%.1f")°")
+                    .font(.system(size: 48, weight: .bold))
+            } else {
+                Text("Couldn't get a reliable measurement")
+                    .font(.system(size: 22, weight: .bold))
+                    .multilineTextAlignment(.center)
+                Text("Please retake the photo with your finger turned sideways.")
+                    .font(.system(size: 15))
+                    .multilineTextAlignment(.center)
+            }
 
             Text("This tool flags a pattern that may be worth discussing with a doctor. It does not diagnose any condition.")
                 .font(.system(size: 13, weight: .medium))

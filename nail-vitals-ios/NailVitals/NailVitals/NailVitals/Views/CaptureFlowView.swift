@@ -38,7 +38,7 @@ struct CaptureFlowView: View {
     enum Stage {
         case analyzing
         case confirming
-        case manual
+        case manual(LovibondCandidate?)
         case result(LovibondCandidate)
         case failed(String)
     }
@@ -63,16 +63,18 @@ struct CaptureFlowView: View {
                             stage = .result(confirmed)
                         },
                         onCancel: onDismiss,
-                        onManual: { stage = .manual }
+                        onManual: { stage = .manual($0) }
                     )
                 }
 
-            case .manual:
+            case .manual(let suggestion):
                 if let image = displayImage {
                     ManualAngleView(
                         image: image,
                         silhouette: silhouette,
                         landmarks: landmarks,
+                        suggestion: suggestion,
+                        segmentLengthPixels: lovibondResult?.segmentLengthPixels,
                         onConfirm: { stage = .result($0) },
                         onCancel: onDismiss
                     )
@@ -108,7 +110,7 @@ struct CaptureFlowView: View {
                             .cornerRadius(24)
                     }
                     if displayImage != nil {
-                        Button("Measure manually") { stage = .manual }
+                        Button("Measure manually") { stage = .manual(nil) }
                             .font(.system(size: 15, weight: .semibold))
                             .foregroundColor(.white)
                     }

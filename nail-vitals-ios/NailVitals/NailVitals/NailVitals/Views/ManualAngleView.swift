@@ -14,17 +14,23 @@ struct ManualAngleView: View {
     let image: UIImage
     let silhouette: DetectedSilhouette?
     let landmarks: HandLandmarks?
+    /// Automatic cuticle marker to start from, if the user picked one.
+    let suggestion: LovibondCandidate?
+    let segmentLengthPixels: Double?
     let onConfirm: (LovibondCandidate) -> Void
     let onCancel: () -> Void
 
     // Image-pixel coordinates: [nail, cuticle, skin].
     @State private var points: [CGPoint] = []
+    @State private var dragging: Int?
     // Only used when neither the outline nor hand pose can say which side
     // is inside the finger.
     @State private var flipped = false
 
-    private let labels = ["1", "2", "3"]
     private let colors: [Color] = [.yellow, .pink, .cyan]
+    private let loupeSize: CGFloat = 150
+    private let loupeZoom: CGFloat = 4
+    private let snapRadiusPoints: CGFloat = 30
 
     var body: some View {
         GeometryReader { geo in
@@ -36,22 +42,27 @@ struct ManualAngleView: View {
 
                 if points.count == 3 {
                     Path { path in path.addLines(points.map { toView($0, geo.size) }) }
-                        .stroke(Color.white, lineWidth: 2)
+                        .stroke(Color.white.opacity(0.9), lineWidth: 1.5)
                     ForEach(0..<3, id: \.self) { i in
                         dot(i, viewSize: geo.size)
                     }
                 }
 
                 VStack {
-                    Text("Drag 1 onto the nail, 2 onto the cuticle corner, 3 onto the skin just behind it")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .padding(12)
-                        .background(Color.black.opacity(0.6))
-                        .cornerRadius(10)
-                        .padding(.top, 20)
-                        .padding(.horizontal, 16)
+                    if let i = dragging, points.count == 3 {
+                        loupe(center: points[i], viewSize: geo.size)
+                            .padding(.top, 12)
+                    } else {
+                        Text("Drag 1 onto the nail, 2 onto the cuticle corner, 3 onto the skin just behind it")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .padding(12)
+                            .background(Color.black.opacity(0.6))
+                            .cornerRadius(10)
+                            .padding(.top, 20)
+                            .padding(.horizontal, 16)
+                    }
                     Spacer()
                     controls.padding(.bottom, 40)
                 }
@@ -61,12 +72,16 @@ struct ManualAngleView: View {
         .background(Color.black.ignoresSafeArea())
     }
 
+    // MARK: - Angle
+
     private var hasInsideInfo: Bool { silhouette != nil || landmarks != nil }
 
     private var angle: Double? {
         guard points.count == 3 else { return nil }
         return AngleAnalyzer.outsideAngle(nailPoint: points[0], cuticle: points[1], skinPoint: points[2], isInsideFinger: isInsideFinger)
     }
+
+    private var isPlausible: Bool { angle.map { AngleAnalyzer.plausibleRange.contains($0) } ?? false }
 
     private func isInsideFinger(_ p: CGPoint) -> Bool? {
         if let contour = silhouette?.contourPoints { return contains(contour, p) }
@@ -77,12 +92,21 @@ struct ManualAngleView: View {
         return flipped
     }
 
+    // MARK: - Controls
+
     private var controls: some View {
         VStack(spacing: 12) {
             if let angle {
                 Text("\(angle, specifier: "%.1f")°")
                     .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(isPlausible ? .white : .red)
+            }
+            if angle != nil && !isPlausible {
+                Text("That angle isn't realistic. Check the order along the edge: 1 on the nail, 2 at the cuticle, 3 on the skin behind it.")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.red)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
             }
             if !hasInsideInfo {
                 Button(flipped ? "Nail fold bulges outward (tap to flip)" : "Nail fold dips inward (tap to flip)") {
@@ -107,40 +131,129 @@ struct ManualAngleView: View {
                         .background(Color(red: 0, green: 230 / 255, blue: 118 / 255))
                         .cornerRadius(24)
                 }
-                .disabled(angle == nil)
+                .disabled(!isPlausible)
+                .opacity(isPlausible ? 1 : 0.4)
             }
         }
     }
 
-    private func dot(_ i: Int, viewSize: CGSize) -> some View {
-        Text(labels[i])
-            .font(.system(size: 13, weight: .bold))
-            .foregroundColor(.black)
-            .frame(width: 28, height: 28)
-            .background(Circle().fill(colors[i]))
-            .frame(width: 48, height: 48)  // larger touch target
-            .contentShape(Circle())
-            .position(toView(points[i], viewSize))
-            .gesture(DragGesture().onChanged { value in
-                points[i] = toImage(value.location, viewSize)
-            })
-    }
-
     private func confirm() {
-        guard let angle, points.count == 3 else { return }
+        guard let angle, isPlausible else { return }
         onConfirm(LovibondCandidate(side: "manual", angleDegrees: angle, inflectionPoint: points[1], inflectionIndex: 0, step: 0))
     }
 
-    /// Start the dots spread along the finger (from hand pose) so they only
-    /// need nudging onto its edge; otherwise stack them mid-image.
+    // MARK: - Dots and loupe
+
+    private func dot(_ i: Int, viewSize: CGSize) -> some View {
+        ZStack {
+            Circle()
+                .fill(colors[i])
+                .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
+                .frame(width: 12, height: 12)
+            Text("\(i + 1)")
+                .font(.system(size: 12, weight: .bold))
+                .foregroundColor(colors[i])
+                .shadow(color: .black, radius: 2)
+                .offset(x: 13, y: -13)
+        }
+        .frame(width: 44, height: 44)  // finger-sized touch target around a small dot
+        .contentShape(Rectangle())
+        .position(toView(points[i], viewSize))
+        .gesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { value in
+                    dragging = i
+                    points[i] = snapToOutline(toImage(value.location, viewSize), viewSize: viewSize)
+                }
+                .onEnded { _ in dragging = nil }
+        )
+    }
+
+    /// Magnified view around the dot being dragged, so a fingertip doesn't
+    /// hide where it lands.
+    private func loupe(center: CGPoint, viewSize: CGSize) -> some View {
+        let scale = fitTransform(viewSize).scale * loupeZoom
+        func toLoupe(_ p: CGPoint) -> CGPoint {
+            CGPoint(x: loupeSize / 2 + (p.x - center.x) * scale, y: loupeSize / 2 + (p.y - center.y) * scale)
+        }
+        return ZStack(alignment: .topLeading) {
+            Image(uiImage: image)
+                .resizable()
+                .frame(width: image.size.width * scale, height: image.size.height * scale)
+                .offset(x: loupeSize / 2 - center.x * scale, y: loupeSize / 2 - center.y * scale)
+            Path { path in path.addLines(points.map(toLoupe)) }
+                .stroke(Color.white.opacity(0.9), lineWidth: 1.5)
+            ForEach(0..<3, id: \.self) { i in
+                Circle()
+                    .stroke(colors[i], lineWidth: 2)
+                    .frame(width: 10, height: 10)
+                    .position(toLoupe(points[i]))
+            }
+            Path { path in
+                path.move(to: CGPoint(x: loupeSize / 2, y: loupeSize / 2 - 12))
+                path.addLine(to: CGPoint(x: loupeSize / 2, y: loupeSize / 2 + 12))
+                path.move(to: CGPoint(x: loupeSize / 2 - 12, y: loupeSize / 2))
+                path.addLine(to: CGPoint(x: loupeSize / 2 + 12, y: loupeSize / 2))
+            }
+            .stroke(Color.white, lineWidth: 1)
+        }
+        .frame(width: loupeSize, height: loupeSize, alignment: .topLeading)
+        .clipped()
+        .clipShape(Circle())
+        .overlay(Circle().stroke(Color.white, lineWidth: 3))
+        .shadow(radius: 6)
+    }
+
+    // MARK: - Placement
+
+    /// Start around the suggested cuticle on the outline when there is one,
+    /// otherwise spread along the finger (hand pose) so the dots are never
+    /// stacked on top of each other.
     private func initialPoints() -> [CGPoint] {
+        if let s = suggestion, s.step != 0, let contour = silhouette?.contourPoints, contour.indices.contains(s.inflectionIndex) {
+            let d = max(30, segmentLengthPixels ?? 60)
+            return [walk(contour, from: s.inflectionIndex, step: -s.step, distance: d),
+                    contour[s.inflectionIndex],
+                    walk(contour, from: s.inflectionIndex, step: s.step, distance: d)]
+        }
         if let hand = landmarks {
             let t = hand.indexTip.point, d = hand.indexDIP.point
-            return [0.3, 0.6, 0.9].map { f in CGPoint(x: t.x + (d.x - t.x) * f, y: t.y + (d.y - t.y) * f) }
+            let onAxis = [0.15, 0.42, 0.7].map { f in CGPoint(x: t.x + (d.x - t.x) * f, y: t.y + (d.y - t.y) * f) }
+            // Snap the middle dot to whichever edge is nearer, then push the
+            // other two toward that same edge before snapping them.
+            let middle = snapToOutline(onAxis[1], maxDistance: .infinity)
+            let side = CGVector(dx: middle.x - onAxis[1].x, dy: middle.y - onAxis[1].y)
+            return onAxis.enumerated().map { i, p in
+                i == 1 ? middle : snapToOutline(CGPoint(x: p.x + side.dx, y: p.y + side.dy), maxDistance: .infinity)
+            }
         }
         let s = image.size
-        return [0.4, 0.5, 0.6].map { f in CGPoint(x: s.width / 2, y: s.height * f) }
+        return [0.4, 0.47, 0.54].map { f in CGPoint(x: s.width / 2, y: s.height * f) }
     }
+
+    private func walk(_ contour: [CGPoint], from index: Int, step: Int, distance: Double) -> CGPoint {
+        let n = contour.count, start = contour[index]
+        for k in 1..<n {
+            let p = contour[((index + step * k) % n + n) % n]
+            if Double(hypot(p.x - start.x, p.y - start.y)) >= distance { return p }
+        }
+        return start
+    }
+
+    /// Lovibond points all sit on the finger's edge, so a dragged dot snaps
+    /// to the nearest outline point when it's close to one.
+    private func snapToOutline(_ p: CGPoint, viewSize: CGSize) -> CGPoint {
+        snapToOutline(p, maxDistance: snapRadiusPoints / fitTransform(viewSize).scale)
+    }
+
+    private func snapToOutline(_ p: CGPoint, maxDistance: CGFloat) -> CGPoint {
+        guard let contour = silhouette?.contourPoints,
+              let nearest = contour.min(by: { hypot($0.x - p.x, $0.y - p.y) < hypot($1.x - p.x, $1.y - p.y) }),
+              hypot(nearest.x - p.x, nearest.y - p.y) <= maxDistance else { return p }
+        return nearest
+    }
+
+    // MARK: - Geometry helpers
 
     private func distanceToAxis(_ p: CGPoint, _ hand: HandLandmarks) -> CGFloat {
         let a = hand.indexTip.point, b = hand.indexDIP.point
