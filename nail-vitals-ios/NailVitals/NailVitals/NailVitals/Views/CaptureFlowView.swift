@@ -159,13 +159,24 @@ struct CaptureFlowView: View {
     }
 
     private func finish(with confirmed: LovibondCandidate, manualDots: [CGPoint]?) {
-        CaptureRecorder.saveConfirmation(in: captureFolder, confirmed: confirmed, manualDots: manualDots)
+        let signs = measureSigns(at: confirmed)
+        CaptureRecorder.saveConfirmation(in: captureFolder, confirmed: confirmed, manualDots: manualDots, signs: signs)
         sessionReadings = previousReadings
         if AngleAnalyzer.plausibleRange.contains(confirmed.angleDegrees) {
             sessionReadings.append(confirmed.angleDegrees)
             onReading(confirmed.angleDegrees)
         }
         stage = .result(confirmed)
+    }
+
+    /// The hyponychial angle and depth ratio at the confirmed cuticle, which
+    /// need the finger outline and the tip and DIP joints.
+    private func measureSigns(at confirmed: LovibondCandidate) -> FingerSigns? {
+        guard let silhouette, let hand = landmarks else { return nil }
+        let lovibond = AngleAnalyzer.plausibleRange.contains(confirmed.angleDegrees) ? confirmed.angleDegrees : nil
+        return FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: hand.indexTip.point,
+                                           dip: hand.indexDIP.point, cuticle: confirmed.inflectionPoint,
+                                           lovibond: lovibond, isNailSide: { hand.isOnNailSide($0) })
     }
 
     private func runAnalysis() {

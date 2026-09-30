@@ -1,6 +1,6 @@
 // Runs the app's real measurement pipeline (hand pose -> subject-mask outline
 // -> AngleAnalyzer) on photos from disk, on the Mac. From this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter}.swift main.swift -o photo-lab
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns}.swift main.swift -o photo-lab
 //   ./photo-lab photo.jpg [more.jpg ...] [--out folder] [--truth x,y]
 // --truth is the real cuticle in image pixels (e.g. from a saved capture's
 // manual dot 2); the report then includes how far the automatic marker missed.
@@ -31,7 +31,7 @@ func pixelBuffer(from image: CGImage) -> CVPixelBuffer? {
 }
 
 func writeAnnotated(_ image: CGImage, silhouette: DetectedSilhouette?, hand: HandLandmarks?,
-                    result: LovibondResult?, truth: CGPoint?, to path: String) {
+                    result: LovibondResult?, truth: CGPoint?, signs: FingerSigns?, to path: String) {
     let w = image.width, h = image.height
     guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
                               space: CGColorSpaceCreateDeviceRGB(),
@@ -59,6 +59,18 @@ func writeAnnotated(_ image: CGImage, silhouette: DetectedSilhouette?, hand: Han
         }
     }
     if let truth { dot(truth, CGColor(red: 1, green: 0, blue: 0, alpha: 1), 4 * unit) }
+    if let signs {
+        // Hyponychial angle A-B-C in magenta, depth slices in orange.
+        if let a = signs.crease, let b = signs.cuticle, let c = signs.hyponychium {
+            ctx.setStrokeColor(CGColor(red: 1, green: 0.2, blue: 1, alpha: 1)); ctx.setLineWidth(1.5 * unit)
+            ctx.move(to: a); ctx.addLine(to: b); ctx.addLine(to: c); ctx.strokePath()
+            for p in [a, b, c] { dot(p, CGColor(red: 1, green: 0.2, blue: 1, alpha: 1), 4 * unit) }
+        }
+        for slice in [signs.nailBedSlice, signs.jointSlice].compactMap({ $0 }) {
+            ctx.setStrokeColor(CGColor(red: 1, green: 0.55, blue: 0, alpha: 1)); ctx.setLineWidth(1.5 * unit)
+            ctx.move(to: slice.a); ctx.addLine(to: slice.b); ctx.strokePath()
+        }
+    }
 
     guard let out = ctx.makeImage(),
           let dest = CGImageDestinationCreateWithURL(URL(fileURLWithPath: path) as CFURL, "public.png" as CFString, 1, nil) else { return }
@@ -152,7 +164,24 @@ for path in args {
             print("  -> no cuticle dip on the nail side: app asks for manual dots instead of showing a number")
         }
     } else if result == nil { print("  analyzer: no result") }
+
+    // The three clubbing signs, at the confirmed cuticle (the manual dot when
+    // there is one, else the nail-side automatic marker).
+    var signs: FingerSigns?
+    let nailMarker = result?.candidates.first { hand?.isOnNailSide($0.inflectionPoint) == true }
+    if let silhouette, let tip = tipPoint, let dip = dipPoint, let cuticle = truth ?? nailMarker?.inflectionPoint {
+        let isNailSide: ((CGPoint) -> Bool?)? = hand.map { h in { h.isOnNailSide($0) } }
+        var line = "  signs:"
+        for turn in [30.0, 45.0, 60.0] {
+            let s = FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: tip, dip: dip, cuticle: cuticle,
+                                                lovibond: nailMarker?.angleDegrees, isNailSide: isNailSide, turnDegrees: turn)
+            if turn == 45 { signs = s }
+            line += String(format: "  hyponychial(turn %.0f) %.1f°", turn, s.hyponychial ?? .nan)
+        }
+        line += String(format: "  depth ratio %.3f", signs?.depthRatio ?? .nan)
+        print(line)
+    }
     let outPath = (outDir as NSString).appendingPathComponent("\(name)-annotated.png")
-    writeAnnotated(image, silhouette: silhouette, hand: hand, result: result, truth: truth, to: outPath)
+    writeAnnotated(image, silhouette: silhouette, hand: hand, result: result, truth: truth, signs: signs, to: outPath)
     print("  annotated: \(outPath)")
 }

@@ -652,7 +652,7 @@ final class AngleAnalyzer {
     /// OUTSIDE of the finger so clubbing reads above 180. `isInsideFinger`
     /// says whether a point is inside the finger; nil = unknown, in which
     /// case the normal (concave, below 180) reading is assumed.
-    static func outsideAngle(
+    nonisolated static func outsideAngle(
         nailPoint a: CGPoint, cuticle b: CGPoint, skinPoint c: CGPoint,
         isInsideFinger: (CGPoint) -> Bool?
     ) -> Double? {

@@ -8,7 +8,8 @@
 //    photo.jpg          full-resolution photo
 //    capture.json       hand-pose joints + automatic markers (or failure)
 //    confirmation.json  added only if the user confirms a reading; manual
-//                       dots there are the ground truth for tuning
+//                       dots there are the ground truth for tuning, plus
+//                       all three clubbing signs and their points
 //  Saved at analysis time, not on confirm, so captures the user backs out
 //  of are kept too. Visible in the Files app.
 //
@@ -49,6 +50,34 @@ nonisolated struct ConfirmationRecord: Codable {
     let confirmed: CaptureMarker
     /// Nail, cuticle, skin -- only when the user placed the points themselves.
     let manualDots: [[Double]]?
+    let signs: SignsRecord?
+}
+
+nonisolated struct SignsRecord: Codable {
+    let lovibond: Double?
+    let hyponychial: Double?
+    let depthRatio: Double?
+    /// Hyponychial angle points A (crease), B (cuticle), C (hyponychium).
+    let hyponychialPoints: [[Double]]?
+    /// Depth slices at the nail bed and the DIP joint, each [x1, y1, x2, y2].
+    let nailBedSlice: [Double]?
+    let jointSlice: [Double]?
+
+    init(_ s: FingerSigns) {
+        lovibond = s.lovibond
+        hyponychial = s.hyponychial
+        depthRatio = s.depthRatio
+        if let a = s.crease, let b = s.cuticle, let c = s.hyponychium {
+            hyponychialPoints = [a, b, c].map { [Double($0.x), Double($0.y)] }
+        } else {
+            hyponychialPoints = nil
+        }
+        func flat(_ slice: FingerSigns.Slice?) -> [Double]? {
+            slice.map { [$0.a.x, $0.a.y, $0.b.x, $0.b.y].map(Double.init) }
+        }
+        nailBedSlice = flat(s.nailBedSlice)
+        jointSlice = flat(s.jointSlice)
+    }
 }
 
 nonisolated enum CaptureRecorder {
@@ -91,12 +120,13 @@ nonisolated enum CaptureRecorder {
         return folder
     }
 
-    static func saveConfirmation(in folder: URL?, confirmed: LovibondCandidate, manualDots: [CGPoint]?) {
+    static func saveConfirmation(in folder: URL?, confirmed: LovibondCandidate, manualDots: [CGPoint]?, signs: FingerSigns?) {
         guard saveCapturesForTesting, let folder else { return }
         let record = ConfirmationRecord(
             confirmedAt: Date(),
             confirmed: marker(confirmed),
-            manualDots: manualDots?.map { [Double($0.x), Double($0.y)] }
+            manualDots: manualDots?.map { [Double($0.x), Double($0.y)] },
+            signs: signs.map(SignsRecord.init)
         )
         DispatchQueue.global(qos: .utility).async {
             do {

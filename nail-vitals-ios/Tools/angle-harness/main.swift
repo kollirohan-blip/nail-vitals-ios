@@ -1,5 +1,5 @@
 // Synthetic-finger regression test for AngleAnalyzer. Run from this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer}.swift main.swift -o angle-harness && ./angle-harness
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,FingerSigns}.swift main.swift -o angle-harness && ./angle-harness
 import CoreGraphics
 import Foundation
 
@@ -218,3 +218,76 @@ for truth in [150.0, 160.0, 170.0, 180.0, 190.0, 200.0] {
     }
 }
 print(String(format: "worst manual error (outline or axis) = %.1f deg", worstManual))
+
+// MARK: - Hyponychial angle and depth ratio (FingerSignsAnalyzer)
+// Side-view finger pointing up, nail on the right: A (nail-side edge at the
+// DIP joint) -> B (cuticle) -> C (nail free edge), then the tip turns in to
+// the straight pad side. B's height sets the depth ratio, C's direction the
+// hyponychial angle.
+func makeSignsFinger(hyponychial: Double, depthRatio: CGFloat, scale: CGFloat, noise: CGFloat)
+    -> (points: [CGPoint], tip: CGPoint, dip: CGPoint, cuticle: CGPoint) {
+    let cx: CGFloat = 1000, dipY: CGFloat = 2000
+    let half = 100 * scale, l = 300 * scale          // half joint thickness, DIP to tip joint
+    let a = CGPoint(x: cx + half, y: dipY)
+    let b = CGPoint(x: cx - half + 2 * half * depthRatio, y: dipY - 0.62 * l)
+    let ab = CGVector(dx: b.x - a.x, dy: b.y - a.y)
+    let turn = atan2(ab.dy, ab.dx) - (hyponychial - 180) * .pi / 180  // convex (above 180) turns toward the axis
+    let c = CGPoint(x: b.x + 0.4 * l * cos(turn), y: b.y + 0.4 * l * sin(turn))
+    let edgeTurn = turn - 70 * .pi / 180                               // nail free edge
+    let d = CGPoint(x: c.x + 0.12 * l * cos(edgeTurn), y: c.y + 0.12 * l * sin(edgeTurn))
+    let padTop = CGPoint(x: cx - half, y: d.y + 0.25 * l)
+    let bottom = dipY + 1.2 * l
+    let belowA = CGPoint(x: a.x - ab.dx * 0.3, y: a.y - ab.dy * 0.3)  // keep AB straight through the joint
+
+    var pts: [CGPoint] = []
+    func line(_ p: CGPoint, _ q: CGPoint) {
+        let n = max(1, Int(hypot(q.x - p.x, q.y - p.y)))
+        for i in 1...n { let t = CGFloat(i) / CGFloat(n); pts.append(CGPoint(x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t)) }
+    }
+    // Counterclockwise on screen: up the pad side, over the tip, down the nail side.
+    pts.append(CGPoint(x: cx - half, y: bottom))
+    line(pts[0], padTop)
+    let n = Int(hypot(d.x - padTop.x, d.y - padTop.y) * 1.5)
+    let ctrl = CGPoint(x: padTop.x, y: min(padTop.y, d.y) - 0.35 * l)
+    for i in 1...n {  // quadratic curve over the fingertip
+        let t = CGFloat(i) / CGFloat(n), u = 1 - t
+        pts.append(CGPoint(x: u * u * padTop.x + 2 * u * t * ctrl.x + t * t * d.x, y: u * u * padTop.y + 2 * u * t * ctrl.y + t * t * d.y))
+    }
+    line(d, c); line(c, b); line(b, a); line(a, belowA)
+    line(belowA, CGPoint(x: belowA.x, y: bottom))
+    line(CGPoint(x: belowA.x, y: bottom), CGPoint(x: cx - half, y: bottom + 1))
+    let jagged = pts.map { CGPoint(x: ($0.x + gauss() * noise).rounded(), y: ($0.y + gauss() * noise).rounded()) }
+    // Hand-pose tip joint sits inside the pad, a little short of the apex.
+    let apexY = pts.map(\.y).min()!
+    return (jagged, CGPoint(x: cx, y: apexY + 0.12 * (dipY - apexY)), CGPoint(x: cx, y: dipY), b)
+}
+
+print("\nFINGER SIGNS (jagged ±1px, joints jittered ±3% of finger length, 20 trials each, both nail sides)")
+print("scale  true-hypo  mean   worst-err   true-ratio  mean    worst-err")
+var worstHypo = 0.0, worstRatio = 0.0
+for scale in [CGFloat(1), 2] {
+    for (hypo, ratio) in [(175.0, CGFloat(0.85)), (185.0, 0.95), (195.0, 1.1), (180.0, 1.0), (200.0, 0.9)] {
+        var hs: [Double] = [], rs: [Double] = []
+        for trial in 0..<20 {
+            let mirror = trial % 2 == 1
+            var (pts, tip, dip, cut) = makeSignsFinger(hyponychial: hypo, depthRatio: ratio, scale: scale, noise: 1)
+            let l = hypot(tip.x - dip.x, tip.y - dip.y)
+            tip = CGPoint(x: tip.x + gauss() * l * 0.03, y: tip.y + gauss() * l * 0.03)
+            dip = CGPoint(x: dip.x + gauss() * l * 0.03, y: dip.y + gauss() * l * 0.03)
+            if mirror {
+                let flip = { (p: CGPoint) in CGPoint(x: 2000 - p.x, y: p.y) }
+                pts = pts.map(flip).reversed(); tip = flip(tip); dip = flip(dip); cut = flip(cut)
+            }
+            let signs = FingerSignsAnalyzer.measure(contour: pts, tip: tip, dip: dip, cuticle: cut, lovibond: nil,
+                                                    isNailSide: { mirror ? $0.x < 1000 : $0.x > 1000 })
+            if let h = signs.hyponychial { hs.append(h) }
+            if let r = signs.depthRatio { rs.append(r) }
+        }
+        let hMean = hs.reduce(0, +) / Double(max(1, hs.count)), rMean = rs.reduce(0, +) / Double(max(1, rs.count))
+        let hWorst = hs.map { abs($0 - hypo) }.max() ?? .nan, rWorst = rs.map { abs($0 - Double(ratio)) }.max() ?? .nan
+        worstHypo = max(worstHypo, hWorst); worstRatio = max(worstRatio, rWorst)
+        print(String(format: "%3.0fx   %6.0f    %6.1f   %5.1f  (%d/20)  %5.2f     %5.3f   %5.3f  (%d/20)",
+                     Double(scale), hypo, hMean, hWorst, hs.count, Double(ratio), rMean, rWorst, rs.count))
+    }
+}
+print(String(format: "worst: hyponychial %.1f deg, depth ratio %.3f", worstHypo, worstRatio))
