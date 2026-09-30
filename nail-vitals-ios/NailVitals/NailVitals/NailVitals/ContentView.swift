@@ -22,8 +22,7 @@ struct ContentView: View {
             CaptureGuideOverlay(
                 state: camera.captureState,
                 instructionText: instructionText,
-                subText: subText,
-                silhouette: nil
+                subText: subText
             )
 
             VStack {
@@ -63,6 +62,8 @@ struct ContentView: View {
                 .padding(8)
                 .background(Color.black.opacity(0.5))
                 .cornerRadius(6)
+                // Hidden rather than removed so the capture button keeps its place.
+                .opacity(showDebugReadout ? 1 : 0)
                 .padding(.bottom, 100)
             }
         }

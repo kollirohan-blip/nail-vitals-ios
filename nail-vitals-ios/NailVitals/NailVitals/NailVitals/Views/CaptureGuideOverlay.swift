@@ -10,23 +10,10 @@
 //    - Dark backdrop: rgba(0,0,0,0.4) behind camera preview
 //    - Font: SF Pro Display, Medium/Semibold, sentence case
 //
-//  SIMPLIFIED: now ALWAYS shows the fixed placeholder shape instead of
-//  molding to the live detected contour. This is a deliberate UX
-//  simplification, not a detection fix -- the live outline was purely
-//  a VISUAL rendering of whatever SilhouetteDetector found each frame,
-//  and had no effect on the actual guidance logic at all (moveBack/
-//  moveCloser/etc, and the skin%/solid% debug readout, all come from
-//  GuidanceEngine analyzing the SAME real detection either way). A
-//  jagged or oddly-shaped real-time trace could look broken/confusing
-//  even when detection underneath was working correctly, so this
-//  drops that visual noise and relies on the color state (cyan/amber/
-//  green) and text instructions to guide the user instead.
-//
-//  IMPORTANT: this simplification is ONLY for this live guidance
-//  screen. InflectionPointConfirmation (the actual confirm-the-
-//  cuticle step) still uses and displays the real, precisely detected
-//  contour -- that's the one place accuracy actually matters, since
-//  it's what AngleAnalyzer measures the angle from.
+//  Always shows a fixed placeholder finger shape for visual calm; the color
+//  state (cyan/amber/green) and text come from the live hand-pose coaching
+//  in GuidanceEngine. The precise finger outline is only traced on the
+//  captured photo, for measurement.
 //
 import SwiftUI
 import UIKit  // needed for UIImpactFeedbackGenerator -- SwiftUI alone doesn't pull this in
@@ -41,10 +28,6 @@ struct CaptureGuideOverlay: View {
     let state: CaptureState
     let instructionText: String
     let subText: String
-    // Still accepted (ContentView still passes it, and GuidanceEngine
-    // still needs it to compute directions/state) but no longer used
-    // to shape the drawn outline -- see the class-level comment above.
-    let silhouette: DetectedSilhouette?
 
     private var strokeColor: Color {
         switch state {
@@ -94,9 +77,6 @@ struct CaptureGuideOverlay: View {
 
     private var pulseOpacity: Double { 0.85 }
 
-    /// SIMPLIFIED: always the fixed placeholder shape now -- see the
-    /// class-level comment for why. The `silhouette` parameter is kept
-    /// (still needed elsewhere) but intentionally unused here.
     private func outlinePath(viewSize: CGSize) -> Path {
         fingerOutlinePath(viewSize: viewSize)
     }

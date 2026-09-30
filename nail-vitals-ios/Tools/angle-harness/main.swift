@@ -1,14 +1,8 @@
 // Synthetic-finger regression test for AngleAnalyzer. Run from this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/AngleAnalyzer.swift main.swift -o angle-harness && ./angle-harness
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer}.swift main.swift -o angle-harness && ./angle-harness
 import CoreGraphics
 import Foundation
 
-// Stand-in for the app's struct (the real one lives in a UIKit/Vision file).
-struct DetectedSilhouette {
-    let boundingBox: CGRect
-    let contourPoints: [CGPoint]
-    let imageSize: CGSize
-}
 
 let imageSize = CGSize(width: 1080, height: 1920)
 

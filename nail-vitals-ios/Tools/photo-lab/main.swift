@@ -1,6 +1,6 @@
 // Runs the app's real measurement pipeline (hand pose -> subject-mask outline
 // -> AngleAnalyzer) on photos from disk, on the Mac. From this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter}.swift main.swift -o photo-lab
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter}.swift main.swift -o photo-lab
 //   ./photo-lab photo.jpg [more.jpg ...] [--out folder] [--truth x,y]
 // --truth is the real cuticle in image pixels (e.g. from a saved capture's
 // manual dot 2); the report then includes how far the automatic marker missed.
@@ -10,11 +10,6 @@ import CoreImage
 import CoreGraphics
 import ImageIO
 
-struct DetectedSilhouette {
-    let boundingBox: CGRect
-    let contourPoints: [CGPoint]
-    let imageSize: CGSize
-}
 
 func loadUpright(_ path: String) -> CGImage? {
     guard let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil) else { return nil }

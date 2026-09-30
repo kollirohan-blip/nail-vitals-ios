@@ -2,14 +2,9 @@
 //  CameraManager.swift
 //  NailVitals
 //
-//  First real camera code in the project. Sets up AVCaptureSession
-//  and handles permission -- deliberately kept separate from
-//  SilhouetteDetector for now (see architecture doc): get a live
-//  preview working and verified on real hardware FIRST, before wiring
-//  in detection on top of it. This mirrors how we built the Python
-//  prototype in stages rather than everything at once.
-//
-//  STATUS: real code, not a stub -- but untested until run on device.
+//  Camera session, permission, live hand-pose coaching (~4 frames/sec via
+//  HandPoseDetector + GuidanceEngine), and full-resolution still capture
+//  for measurement.
 //
 
 import AVFoundation
@@ -20,10 +15,6 @@ final class CameraManager: NSObject, ObservableObject {
     @Published var permissionGranted = false
     @Published var permissionDenied = false
 
-    // First real wiring of SilhouetteDetector + GuidanceEngine to
-    // live camera frames -- this is the biggest untested piece in the
-    // whole project up to this point. Published so ContentView can
-    // react to it directly.
     @Published var captureState: CaptureState = .searching
     @Published var currentDirections: [GuidanceDirection] = [.noFingerDetected]
 
@@ -35,17 +26,8 @@ final class CameraManager: NSObject, ObservableObject {
     // segmenter gets a fingertip hint that matches the photo.
     @Published private(set) var capturedLandmarks: HandLandmarks?
 
-    // NEW: the frame captured when the user taps the capture button.
-    // Published so ContentView can react (e.g. navigate to a result
-    // flow) once it's set. This is a live preview frame reused for
-    // capture, NOT a dedicated high-resolution AVCapturePhotoOutput
-    // capture -- simpler to wire up first and consistent with how
-    // SilhouetteDetector/AngleAnalyzer already consume CVPixelBuffer
-    // directly, no format conversion needed. TODO/VERIFY: if the
-    // measured angle needs more resolution than the live preview
-    // provides, upgrading to a real AVCapturePhotoOutput capture is
-    // the next step -- but get the full flow working end-to-end on
-    // this simpler path first.
+    // The captured photo (a full-resolution still, or a video frame if the
+    // photo output isn't available). Setting it presents CaptureFlowView.
     @Published private(set) var capturedPixelBuffer: CVPixelBuffer?
 
     // NEW: set by capturePhoto() (called from the main actor, on a UI
@@ -150,10 +132,8 @@ final class CameraManager: NSObject, ObservableObject {
             // preview layer rotates automatically for display, but
             // raw sample buffers from AVCaptureVideoDataOutput do NOT
             // unless we explicitly set the connection's orientation.
-            // Without this, contour coordinates from SilhouetteDetector
-            // would be in landscape space while the screen shows
-            // portrait, causing the live outline to be rotated wrong
-            // relative to what's actually on screen.
+            // Without this, hand-pose coordinates would be in landscape
+            // space while the screen shows portrait.
             // UPDATED: switched from the older videoOrientation API
             // (deprecated in iOS 17) to the newer rotation-angle-based
             // API. 90 degrees is the portrait equivalent of the old

@@ -39,14 +39,9 @@ struct ResultView: View {
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 24)
 
-            // TODO: save-to-history action, reference range context.
-            // Reference data from the Python prototype (post-bugfix,
-            // verified against synthetic ground truth): 115.5-130.3
-            // degrees observed across 5 repeated real trials on a
-            // healthy control finger -- lower than the textbook
-            // ~160-180 degree reference, still under investigation
-            // (see project notes on the semi-automatic confirmation
-            // step this depends on).
+            // The Python prototype's 115-130 deg "healthy finger" readings
+            // came from its cuticle search landing on the fingertip curve
+            // (reproduced on synthetic fingers; fixed in AngleAnalyzer).
         }
         .padding()
     }
