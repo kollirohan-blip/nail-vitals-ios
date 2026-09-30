@@ -17,7 +17,8 @@ struct ManualAngleView: View {
     /// Automatic cuticle marker to start from, if the user picked one.
     let suggestion: LovibondCandidate?
     let segmentLengthPixels: Double?
-    let onConfirm: (LovibondCandidate) -> Void
+    /// The confirmed reading plus the three dots (nail, cuticle, skin).
+    let onConfirm: (LovibondCandidate, [CGPoint]) -> Void
     let onCancel: () -> Void
 
     // Image-pixel coordinates: [nail, cuticle, skin].
@@ -139,7 +140,7 @@ struct ManualAngleView: View {
 
     private func confirm() {
         guard let angle, isPlausible else { return }
-        onConfirm(LovibondCandidate(side: "manual", angleDegrees: angle, inflectionPoint: points[1], inflectionIndex: 0, step: 0))
+        onConfirm(LovibondCandidate(side: "manual", angleDegrees: angle, inflectionPoint: points[1], inflectionIndex: 0, step: 0), points)
     }
 
     // MARK: - Dots and loupe

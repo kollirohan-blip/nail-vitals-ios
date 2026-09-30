@@ -1,0 +1,7 @@
+# Saved captures contain photos of people's hands -- never commit them.
+captures/
+**/captures/
+
+# Built tool binaries
+nail-vitals-ios/Tools/photo-lab/photo-lab
+nail-vitals-ios/Tools/angle-harness/angle-harness

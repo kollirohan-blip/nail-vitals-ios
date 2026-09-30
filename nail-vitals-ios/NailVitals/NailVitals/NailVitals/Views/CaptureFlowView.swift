@@ -60,7 +60,7 @@ struct CaptureFlowView: View {
                         result: result,
                         angleAnalyzer: angleAnalyzer,
                         onConfirm: { confirmed in
-                            stage = .result(confirmed)
+                            finish(with: confirmed, manualDots: nil)
                         },
                         onCancel: onDismiss,
                         onManual: { stage = .manual($0) }
@@ -75,7 +75,7 @@ struct CaptureFlowView: View {
                         landmarks: landmarks,
                         suggestion: suggestion,
                         segmentLengthPixels: lovibondResult?.segmentLengthPixels,
-                        onConfirm: { stage = .result($0) },
+                        onConfirm: { finish(with: $0, manualDots: $1) },
                         onCancel: onDismiss
                     )
                 }
@@ -120,6 +120,14 @@ struct CaptureFlowView: View {
         .onAppear {
             runAnalysis()
         }
+    }
+
+    private func finish(with confirmed: LovibondCandidate, manualDots: [CGPoint]?) {
+        if let image = displayImage {
+            CaptureRecorder.save(image: image, landmarks: landmarks, result: lovibondResult,
+                                 confirmed: confirmed, manualDots: manualDots)
+        }
+        stage = .result(confirmed)
     }
 
     private func runAnalysis() {
