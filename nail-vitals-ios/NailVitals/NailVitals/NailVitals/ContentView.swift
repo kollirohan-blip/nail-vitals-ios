@@ -4,6 +4,8 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
+    /// Confirmed readings of the current session; cleared by "Finish".
+    @State private var sessionReadings: [Double] = []
 
     var body: some View {
         ZStack {
@@ -87,9 +89,17 @@ struct ContentView: View {
             }
         )) {
             if let buffer = camera.capturedPixelBuffer {
-                CaptureFlowView(pixelBuffer: buffer, landmarks: camera.capturedLandmarks, onDismiss: {
-                    camera.resetCapture()
-                })
+                CaptureFlowView(
+                    pixelBuffer: buffer,
+                    landmarks: camera.capturedLandmarks,
+                    onDismiss: { camera.resetCapture() },
+                    previousReadings: sessionReadings,
+                    onReading: { sessionReadings.append($0) },
+                    onFinishSession: {
+                        sessionReadings = []
+                        camera.resetCapture()
+                    }
+                )
             }
         }
     }

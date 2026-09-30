@@ -26,8 +26,15 @@ struct CaptureFlowView: View {
     /// CameraManager.capturedPixelBuffer to nil so a new capture can
     /// be taken.
     let onDismiss: () -> Void
+    /// Readings already confirmed this session (before this capture).
+    var previousReadings: [Double] = []
+    /// Reports a confirmed, plausible reading so the session can keep it.
+    var onReading: (Double) -> Void = { _ in }
+    /// Ends the session (clears its readings) and closes this flow.
+    var onFinishSession: () -> Void = {}
 
     @State private var stage: Stage = .analyzing
+    @State private var sessionReadings: [Double] = []
     @State private var displayImage: UIImage?
     @State private var lovibondResult: LovibondResult?
     @State private var silhouette: DetectedSilhouette?
@@ -86,13 +93,24 @@ struct CaptureFlowView: View {
             case .result(let candidate):
                 VStack {
                     Spacer()
-                    ResultView(candidate: candidate)
+                    ResultView(candidate: candidate, sessionReadings: sessionReadings)
                     Spacer()
-                    Button(action: onDismiss) {
-                        Text("Done")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
-                            .padding()
+                    HStack(spacing: 16) {
+                        Button(action: onFinishSession) {
+                            Text("Finish")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.8))
+                                .padding()
+                        }
+                        Button(action: onDismiss) {
+                            Text("Measure again")
+                                .font(.system(size: 15, weight: .semibold))
+                                .foregroundColor(.black)
+                                .padding(.horizontal, 28)
+                                .padding(.vertical, 12)
+                                .background(Color.white)
+                                .cornerRadius(24)
+                        }
                     }
                     .padding(.bottom, 24)
                 }
@@ -139,6 +157,11 @@ struct CaptureFlowView: View {
 
     private func finish(with confirmed: LovibondCandidate, manualDots: [CGPoint]?) {
         CaptureRecorder.saveConfirmation(in: captureFolder, confirmed: confirmed, manualDots: manualDots)
+        sessionReadings = previousReadings
+        if AngleAnalyzer.plausibleRange.contains(confirmed.angleDegrees) {
+            sessionReadings.append(confirmed.angleDegrees)
+            onReading(confirmed.angleDegrees)
+        }
         stage = .result(confirmed)
     }
 
