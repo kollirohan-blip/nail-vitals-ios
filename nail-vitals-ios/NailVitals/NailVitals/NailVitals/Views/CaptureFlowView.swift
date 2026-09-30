@@ -21,6 +21,8 @@ struct CaptureFlowView: View {
     /// Hand-pose joints from the same photo; the DIP joint picks the finger
     /// in the subject mask and anchors the cuticle search.
     let landmarks: HandLandmarks?
+    /// Which index finger this is; saved with the capture.
+    var hand: MeasuredHand = .right
     /// Called when the user is done with this flow (confirmed a
     /// result, or backed out) -- lets ContentView dismiss and reset
     /// CameraManager.capturedPixelBuffer to nil so a new capture can
@@ -111,7 +113,7 @@ struct CaptureFlowView: View {
                     .padding(.vertical, 16)
                 }
                 .sheet(isPresented: $showAssistant) {
-                    AskAssistantView(context: AssistantContext(readings: resultReadings))
+                    AskAssistantView(context: AssistantContext(readings: resultReadings, hand: hand))
                 }
 
             case .failed(let message):
@@ -199,6 +201,7 @@ struct CaptureFlowView: View {
         let dip = landmarks?.indexDIP.point
         let tip = landmarks?.indexTip.point
         let hand = landmarks
+        let measuredHand = self.hand
         DispatchQueue.global(qos: .userInitiated).async {
             // Made first so manual measurement stays available even when
             // automatic detection fails.
@@ -206,7 +209,7 @@ struct CaptureFlowView: View {
             // Show the photo under the scanning animation while measuring.
             DispatchQueue.main.async { displayImage = image }
             func save(_ result: LovibondResult?, failure: String?) -> URL? {
-                image.flatMap { CaptureRecorder.saveAnalysis(image: $0, landmarks: hand, result: result, failure: failure) }
+                image.flatMap { CaptureRecorder.saveAnalysis(image: $0, landmarks: hand, measuredHand: measuredHand, result: result, failure: failure) }
             }
 
             guard let silhouette = segmenter.segment(pixelBuffer: pixelBuffer, fingertipHint: dip) else {

@@ -67,7 +67,7 @@ struct SplashView: View {
 
 /// A finger pointing up, seen from the side: pad on the left, nail plate on
 /// the right running down to the cuticle, then the skin fold stepping out.
-private struct FingerProfileShape: Shape {
+struct FingerProfileShape: Shape {
     func path(in rect: CGRect) -> Path {
         func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height) }
         var path = Path()

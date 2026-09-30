@@ -51,7 +51,8 @@ struct CaptureGuideOverlay: View {
 
             VStack {
                 if state != .aligned {
-                    poseHint.padding(.top, 12)
+                    // Below the hand picker and guide button.
+                    poseHint.padding(.top, 60)
                 }
                 Spacer()
                 VStack(spacing: 6) {

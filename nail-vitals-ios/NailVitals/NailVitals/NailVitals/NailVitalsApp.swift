@@ -27,7 +27,7 @@ struct NailVitalsApp: App {
                 if showDetectionLab {
                     DetectionLabView()
                 } else {
-                    ContentView()
+                    ContentView(splashFinished: !showSplash)
                 }
                 if showSplash {
                     SplashView { showSplash = false }

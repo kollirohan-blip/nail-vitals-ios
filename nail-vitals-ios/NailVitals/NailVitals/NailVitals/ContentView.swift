@@ -3,9 +3,15 @@
 import SwiftUI
 
 struct ContentView: View {
+    /// False while the opening animation still covers the screen.
+    var splashFinished = true
+
     @StateObject private var camera = CameraManager()
     /// Confirmed readings of the current session; cleared by "Finish".
     @State private var sessionReadings: [FingerSigns] = []
+    @AppStorage("measuredHand") private var hand: MeasuredHand = .right
+    @AppStorage("hasSeenPoseGuide") private var hasSeenPoseGuide = false
+    @State private var showGuide = false
 
     var body: some View {
         ZStack {
@@ -30,6 +36,7 @@ struct ContentView: View {
             )
 
             VStack {
+                topBar
                 Spacer()
                 Button(action: {
                     camera.capturePhoto()
@@ -58,6 +65,13 @@ struct ContentView: View {
         }
         .onAppear {
             camera.checkPermissionAndStart()
+            showGuideOnFirstLaunch()
+        }
+        .onChange(of: splashFinished) { _, _ in showGuideOnFirstLaunch() }
+        // Readings of the two hands differ, so switching starts a new session.
+        .onChange(of: hand) { _, _ in sessionReadings = [] }
+        .sheet(isPresented: $showGuide, onDismiss: { hasSeenPoseGuide = true }) {
+            PoseGuideView()
         }
         .onDisappear {
             camera.stop()
@@ -79,6 +93,7 @@ struct ContentView: View {
                 CaptureFlowView(
                     pixelBuffer: buffer,
                     landmarks: camera.capturedLandmarks,
+                    hand: hand,
                     onDismiss: { camera.resetCapture() },
                     previousReadings: sessionReadings,
                     onReading: { sessionReadings.append($0) },
@@ -89,6 +104,50 @@ struct ContentView: View {
                 )
             }
         }
+    }
+
+    private func showGuideOnFirstLaunch() {
+        if splashFinished && !hasSeenPoseGuide && !showGuide {
+            showGuide = true
+        }
+    }
+
+    /// Which index finger is measured, and the "how to hold it" guide.
+    private var topBar: some View {
+        HStack {
+            HStack(spacing: 2) {
+                ForEach(MeasuredHand.allCases, id: \.self) { option in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) { hand = option }
+                    } label: {
+                        Text(option.label)
+                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .foregroundColor(hand == option ? .black : .white.opacity(0.85))
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 7)
+                            .background(Capsule().fill(hand == option ? Theme.searching : Color.clear))
+                    }
+                }
+            }
+            .padding(3)
+            .background(.ultraThinMaterial, in: Capsule())
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Measured hand")
+            Text("index")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white.opacity(0.8))
+            Spacer()
+            Button { showGuide = true } label: {
+                Image(systemName: "questionmark")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: 36, height: 36)
+                    .background(.ultraThinMaterial, in: Circle())
+            }
+            .accessibilityLabel("How to hold your finger")
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
     }
 
     /// Shutter with a "hold still" ring that fills as alignment steadies;

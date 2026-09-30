@@ -41,6 +41,8 @@ nonisolated struct CaptureRecord: Codable {
     let indexPIP: CaptureJoint?
     let indexMCP: CaptureJoint?
     let thumbTip: CaptureJoint?
+    /// "right" or "left" index finger, as chosen on the camera screen.
+    let measuredHand: String?
     let automaticMarkers: [CaptureMarker]
     let failure: String?
 }
@@ -83,7 +85,8 @@ nonisolated struct SignsRecord: Codable {
 nonisolated enum CaptureRecorder {
     /// Writes the photo and analysis; returns the capture's folder so a later
     /// confirmation can be added to it.
-    static func saveAnalysis(image: UIImage, landmarks: HandLandmarks?, result: LovibondResult?, failure: String?) -> URL? {
+    static func saveAnalysis(image: UIImage, landmarks: HandLandmarks?, measuredHand: MeasuredHand?,
+                             result: LovibondResult?, failure: String?) -> URL? {
         guard saveCapturesForTesting else { return nil }
         func joint(_ j: HandLandmarks.Joint?) -> CaptureJoint? {
             j.map { CaptureJoint(x: Double($0.point.x), y: Double($0.point.y), confidence: Double($0.confidence)) }
@@ -94,6 +97,7 @@ nonisolated enum CaptureRecorder {
             indexTip: joint(landmarks?.indexTip), indexDIP: joint(landmarks?.indexDIP),
             indexPIP: joint(landmarks?.indexPIP), indexMCP: joint(landmarks?.indexMCP),
             thumbTip: joint(landmarks?.thumbTip),
+            measuredHand: measuredHand?.rawValue,
             automaticMarkers: result?.candidates.map(marker) ?? [],
             failure: failure
         )
