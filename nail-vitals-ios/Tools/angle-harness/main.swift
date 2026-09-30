@@ -1,5 +1,5 @@
 // Synthetic-finger regression test for AngleAnalyzer. Run from this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,FingerSigns}.swift main.swift -o angle-harness && ./angle-harness
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,FingerSigns,ClubbingAssessment}.swift main.swift -o angle-harness && ./angle-harness
 import CoreGraphics
 import Foundation
 
@@ -291,3 +291,28 @@ for scale in [CGFloat(1), 2] {
     }
 }
 print(String(format: "worst: hyponychial %.1f deg, depth ratio %.3f", worstHypo, worstRatio))
+
+// MARK: - Combined result (ClubbingAssessment)
+print("\nCOMBINED RESULT (cut-offs 176° / 192° / 1.0, ±3° / ±0.03 counts as close)")
+func verdict(_ readings: [(Double?, Double?, Double?)]) -> ClubbingAssessment.Verdict {
+    ClubbingAssessment(readings: readings.map { FingerSigns(lovibond: $0.0, hyponychial: $0.1, depthRatio: $0.2) }).verdict
+}
+let cases: [(String, [(Double?, Double?, Double?)], ClubbingAssessment.Verdict)] = [
+    ("healthy", [(168, 179, 0.85)], .typical),
+    ("clubbed, all three", [(185, 200, 1.1)], .worthDiscussing),
+    ("two of three", [(182, 196, 0.9)], .worthDiscussing),
+    ("one sign above", [(170, 197, 0.85)], .measureAgain),
+    ("close to a cut-off", [(174.5, 180, 0.85)], .measureAgain),
+    ("only profile, typical", [(168, nil, nil)], .typical),
+    ("only profile, above", [(185, nil, nil)], .measureAgain),
+    ("implausible values ignored", [(168, 260, 3.0)], .typical),
+    ("one outlier of three", [(168, 179, 0.85), (183, 199, 1.08), (169, 180, 0.86)], .typical),
+    ("steady clubbing", [(184, 197, 1.05), (186, 199, 1.1), (181, 195, 1.02)], .worthDiscussing),
+]
+var failures = 0
+for (name, readings, expected) in cases {
+    let got = verdict(readings)
+    if got != expected { failures += 1 }
+    print("\(got == expected ? "ok  " : "FAIL") \(name): \(got.label)")
+}
+print("combined-result failures: \(failures)")

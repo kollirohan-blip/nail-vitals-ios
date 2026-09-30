@@ -2,52 +2,59 @@
 //  ResultView.swift
 //  NailVitals
 //
-//  Shows the measured Lovibond angle after capture. MUST include the
+//  Shows the result after capture: the profile (Lovibond) angle on the
+//  dial, the combined verdict from all three signs (ClubbingAssessment), and
+//  a row with each sign against its published cut-off. MUST include the
 //  "screening aid, not a diagnosis" framing every time -- this is a
 //  legal and ethical requirement stated in the project spec, not
 //  optional copy.
 //
-//  With 3 or more readings in a session, the middle value is the headline:
+//  With 3 or more readings in a session, each sign's middle value is used:
 //  single readings of the same finger vary by a few degrees with pose.
 //
 
 import SwiftUI
 
 struct ResultView: View {
-    let candidate: LovibondCandidate
-    /// Every plausible reading this session, including this one.
-    let sessionReadings: [Double]
-
-    private static let readingsForSteadyResult = 3
+    /// This session's readings, oldest first, ending with the one just taken.
+    let readings: [FingerSigns]
 
     @State private var shown: Double = ResultGauge.minAngle
+    @State private var showAbout = false
 
-    private var headline: Double {
-        sessionReadings.count >= Self.readingsForSteadyResult ? median(sessionReadings) : candidate.angleDegrees
-    }
+    private var assessment: ClubbingAssessment { ClubbingAssessment(readings: readings) }
+    private var steady: Bool { readings.count >= ClubbingAssessment.readingsForSteadyResult }
+    private var headline: Double? { assessment.values[.lovibond] }
 
     var body: some View {
         VStack(spacing: 18) {
-            if AngleAnalyzer.plausibleRange.contains(candidate.angleDegrees) {
+            if headline != nil {
                 VStack(spacing: 14) {
-                    if sessionReadings.count >= Self.readingsForSteadyResult {
-                        Text("Middle of \(sessionReadings.count) readings")
+                    if steady {
+                        Text("Middle of \(readings.count) readings")
                             .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.secondary)
                     }
                     ResultGauge(angle: shown)
                         .frame(width: 260, height: 150)
-                    CountingAngle(value: shown)
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
-                    interpretation
-                    if sessionReadings.count > 1 {
-                        Text("This session: " + sessionReadings.map { String(format: "%.1f°", $0) }.joined(separator: ", "))
-                            .font(.system(size: 13))
+                    VStack(spacing: 2) {
+                        CountingAngle(value: shown)
+                            .font(.system(size: 48, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                        Text("Profile (Lovibond) angle")
+                            .font(.system(size: 13, weight: .medium))
                             .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
                     }
-                    if sessionReadings.count < Self.readingsForSteadyResult {
+                    verdict
+                    signRow
+                    Button {
+                        showAbout = true
+                    } label: {
+                        Label("About these measurements", systemImage: "info.circle")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Theme.searching)
+                    }
+                    if !steady {
                         Text(steadierHint)
                             .font(.system(size: 13))
                             .foregroundColor(.secondary)
@@ -75,56 +82,62 @@ struct ResultView: View {
                 .multilineTextAlignment(.center)
         }
         .padding(.horizontal, 24)
+        .sheet(isPresented: $showAbout) { AboutMeasurementsView() }
         .onAppear {
+            guard let headline else { return }
             withAnimation(.spring(response: 1.1, dampingFraction: 0.8)) {
                 shown = headline
             }
         }
         .onChange(of: headline) { _, newValue in
+            guard let newValue else { return }
             withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) { shown = newValue }
         }
     }
 
     private var steadierHint: String {
-        let remaining = Self.readingsForSteadyResult - sessionReadings.count
-        return "For a steadier result, measure \(remaining) more time\(remaining == 1 ? "" : "s"). The app will use the middle value."
+        let remaining = ClubbingAssessment.readingsForSteadyResult - readings.count
+        return "For a steadier result, measure \(remaining) more time\(remaining == 1 ? "" : "s"). The app will use the middle values."
     }
 
-    /// Short label for a reading, shared with the Q&A screen. Reference
-    /// context around the widely cited 180° threshold (Lovibond: normal
-    /// fingers measure well below 180°; clubbing reaches or exceeds it).
-    /// Readings shift a few degrees between photos, so values just under
-    /// 180° ask for a re-measure rather than reading as clear.
-    static func rangeLabel(for angle: Double) -> String {
-        switch angle {
-        case ..<175: return "Typical range"
-        case ..<180: return "Close to 180°"
-        default: return "At or above 180°"
+    static func color(for verdict: ClubbingAssessment.Verdict) -> Color {
+        switch verdict {
+        case .typical: return Theme.aligned
+        case .measureAgain: return Theme.adjusting
+        case .worthDiscussing: return Theme.attention
         }
     }
 
-    static func rangeColor(for angle: Double) -> Color {
-        switch angle {
-        case ..<175: return Theme.aligned
-        case ..<180: return Theme.adjusting
-        default: return Theme.attention
+    static func color(for status: SignStatus) -> Color {
+        switch status {
+        case .typical: return Theme.aligned
+        case .nearThreshold: return Theme.adjusting
+        case .above: return Theme.attention
         }
     }
 
-    private var interpretation: some View {
+    private var verdict: some View {
+        let a = assessment
         let detail: String
-        switch headline {
-        case ..<175:
-            detail = "Healthy fingers measure below 180°."
-        case ..<180:
-            detail = "Readings this close to 180° can shift by a few degrees. Measure again to confirm."
-        default:
-            detail = "This is the range where clubbing is considered. Worth mentioning to a doctor, along with any symptoms you've noticed."
+        switch a.verdict {
+        case .typical:
+            detail = "The measured signs are in the range seen in healthy fingers."
+        case .measureAgain where steady:
+            detail = a.aboveCount == 1
+                ? "One sign stays above its usual range. One sign alone isn't a clear pattern, but you can mention it at your next checkup."
+                : "A sign stays close to its cut-off. You can mention it at your next checkup."
+        case .measureAgain:
+            detail = a.aboveCount == 1
+                ? "One sign is above its usual range, and single photos vary. Measure again so the app can use the middle values."
+                : "A sign is close to its cut-off, and single photos vary by a few degrees. Measure again to confirm."
+        case .worthDiscussing:
+            detail = "Two or more signs are in the range where clubbing is considered. Clubbing has many causes, and some people are born with it, so only a doctor can say what it means. Mention any symptoms you've noticed."
         }
         return VStack(spacing: 6) {
-            Text(Self.rangeLabel(for: headline))
+            Text(a.verdict.label)
                 .font(.system(size: 20, weight: .semibold, design: .rounded))
-                .foregroundColor(Self.rangeColor(for: headline))
+                .foregroundColor(Self.color(for: a.verdict))
+                .multilineTextAlignment(.center)
             Text(detail)
                 .font(.system(size: 15))
                 .foregroundColor(.white.opacity(0.85))
@@ -132,10 +145,67 @@ struct ResultView: View {
         }
     }
 
-    private func median(_ values: [Double]) -> Double {
-        let sorted = values.sorted()
-        let mid = sorted.count / 2
-        return sorted.count % 2 == 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
+    private var signRow: some View {
+        HStack(spacing: 8) {
+            ForEach(SignKind.allCases, id: \.self) { kind in
+                SignChip(kind: kind, value: assessment.values[kind])
+            }
+        }
+    }
+}
+
+/// One sign: its value, a status icon, and the published cut-off.
+private struct SignChip: View {
+    let kind: SignKind
+    let value: Double?
+
+    private var shortTitle: String {
+        switch kind {
+        case .lovibond: return "Profile"
+        case .hyponychial: return "Hyponychial"
+        case .depthRatio: return "Depth ratio"
+        }
+    }
+
+    var body: some View {
+        VStack(spacing: 4) {
+            if let value {
+                let status = kind.status(of: value)
+                Image(systemName: icon(for: status))
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(ResultView.color(for: status))
+                Text(kind.formatted(value))
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundColor(.white)
+            } else {
+                Image(systemName: "minus.circle")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.secondary)
+                Text("—")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(.secondary)
+            }
+            Text(shortTitle)
+                .font(.system(size: 11, weight: .medium))
+                .foregroundColor(.white.opacity(0.75))
+            Text(value == nil ? "not measured" : "limit \(kind.formattedThreshold)")
+                .font(.system(size: 10))
+                .foregroundColor(.secondary)
+        }
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 10)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private func icon(for status: SignStatus) -> String {
+        switch status {
+        case .typical: return "checkmark.circle.fill"
+        case .nearThreshold: return "circle.lefthalf.filled"
+        case .above: return "exclamationmark.circle.fill"
+        }
     }
 }
 
@@ -153,7 +223,8 @@ private struct CountingAngle: View, Animatable {
     }
 }
 
-/// Semicircular dial from 140° to 220° with colored zones, a 180° tick and
+/// Semicircular dial from 140° to 220° for the profile angle, with zones
+/// around the 176° cut-off (typical, within measurement error, above) and
 /// a needle.
 struct ResultGauge: View, Animatable {
     static let minAngle = 140.0
@@ -169,22 +240,24 @@ struct ResultGauge: View, Animatable {
         GeometryReader { geo in
             let center = CGPoint(x: geo.size.width / 2, y: geo.size.height - 12)
             let radius = min(geo.size.width / 2, geo.size.height) - 16
+            let kind = SignKind.lovibond
+            let low = kind.threshold - kind.margin, high = kind.threshold + kind.margin
             ZStack {
-                zone(from: Self.minAngle, to: 175, color: Theme.aligned, center: center, radius: radius)
-                zone(from: 175, to: 180, color: Theme.adjusting, center: center, radius: radius)
-                zone(from: 180, to: Self.maxAngle, color: Theme.attention, center: center, radius: radius)
+                zone(from: Self.minAngle, to: low, color: Theme.aligned, center: center, radius: radius)
+                zone(from: low, to: high, color: Theme.adjusting, center: center, radius: radius)
+                zone(from: high, to: Self.maxAngle, color: Theme.attention, center: center, radius: radius)
 
                 Path { p in
-                    p.move(to: point(180, center, radius - 16))
-                    p.addLine(to: point(180, center, radius + 12))
+                    p.move(to: point(kind.threshold, center, radius - 16))
+                    p.addLine(to: point(kind.threshold, center, radius + 12))
                 }
                 .stroke(Color.white.opacity(0.8), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                Text("180°")
+                Text(kind.formattedThreshold)
                     .font(.system(size: 11, weight: .semibold, design: .rounded))
                     .foregroundColor(.white.opacity(0.7))
-                    .position(point(180, center, radius + 24))
+                    .position(point(kind.threshold, center, radius + 24))
 
-                let color = ResultView.rangeColor(for: angle)
+                let color = ResultView.color(for: kind.status(of: angle))
                 Path { p in
                     p.move(to: center)
                     p.addLine(to: point(angle, center, radius - 22))

@@ -34,8 +34,8 @@ struct AskAssistantView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
                         disclaimer
-                        if let angle = context.angleDegrees {
-                            contextChip(angle)
+                        if let assessment = context.assessment, let angle = assessment.values[.lovibond] {
+                            contextChip(angle, assessment.verdict)
                         }
                         if messages.isEmpty {
                             suggestionList
@@ -87,8 +87,8 @@ struct AskAssistantView: View {
             .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
     }
 
-    private func contextChip(_ angle: Double) -> some View {
-        Text(String(format: "Your reading: %.1f° · %@", angle, ResultView.rangeLabel(for: angle)))
+    private func contextChip(_ angle: Double, _ verdict: ClubbingAssessment.Verdict) -> some View {
+        Text(String(format: "Your reading: %.1f° · %@", angle, verdict.label))
             .font(.system(size: 13, weight: .semibold))
             .foregroundColor(Theme.searching)
             .padding(.horizontal, 12)
@@ -209,5 +209,9 @@ private struct TypingIndicator: View {
 }
 
 #Preview {
-    AskAssistantView(context: AssistantContext(angleDegrees: 167.2, sessionReadings: [167.2, 169.4, 165.9]))
+    AskAssistantView(context: AssistantContext(readings: [
+        FingerSigns(lovibond: 167.2, hyponychial: 179.5, depthRatio: 0.86),
+        FingerSigns(lovibond: 169.4, hyponychial: 181.0, depthRatio: 0.84),
+        FingerSigns(lovibond: 165.9, hyponychial: 178.2, depthRatio: 0.85),
+    ]))
 }

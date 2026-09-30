@@ -5,7 +5,7 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var camera = CameraManager()
     /// Confirmed readings of the current session; cleared by "Finish".
-    @State private var sessionReadings: [Double] = []
+    @State private var sessionReadings: [FingerSigns] = []
 
     var body: some View {
         ZStack {

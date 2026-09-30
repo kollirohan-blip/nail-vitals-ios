@@ -1,6 +1,6 @@
 // Runs the app's real measurement pipeline (hand pose -> subject-mask outline
 // -> AngleAnalyzer) on photos from disk, on the Mac. From this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns}.swift main.swift -o photo-lab
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment}.swift main.swift -o photo-lab
 //   ./photo-lab photo.jpg [more.jpg ...] [--out folder] [--truth x,y]
 // --truth is the real cuticle in image pixels (e.g. from a saved capture's
 // manual dot 2); the report then includes how far the automatic marker missed.
@@ -96,7 +96,7 @@ let manualDIP = pointArg("--dip")
 
 /// A folder saved by the app's CaptureRecorder: photo.jpg + capture.json. The
 /// user's manual dot 2 (the cuticle) becomes the ground truth.
-func loadCaptureFolder(_ dir: String) -> (photo: String, truth: CGPoint?, summary: String)? {
+func loadCaptureFolder(_ dir: String) -> (photo: String, truth: CGPoint?, summary: String, confirmedAngle: Double?)? {
     let photo = (dir as NSString).appendingPathComponent("photo.jpg")
     guard FileManager.default.fileExists(atPath: photo) else { return nil }
     // Newer captures keep the user's confirmation in confirmation.json; the
@@ -106,15 +106,17 @@ func loadCaptureFolder(_ dir: String) -> (photo: String, truth: CGPoint?, summar
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
     }
-    guard let json = readJSON("confirmation.json") ?? readJSON("capture.json") else { return (photo, nil, "") }
+    guard let json = readJSON("confirmation.json") ?? readJSON("capture.json") else { return (photo, nil, "", nil) }
     var truth: CGPoint?
     if let dots = json["manualDots"] as? [[Double]], dots.count == 3 { truth = CGPoint(x: dots[1][0], y: dots[1][1]) }
     var summary = ""
+    var confirmedAngle: Double?
     if let c = json["confirmed"] as? [String: Any], let side = c["side"] as? String, let angle = c["angle"] as? Double {
         summary = String(format: "  on phone: confirmed %@ %.1f°", side, angle)
         if truth != nil { summary += "  (manual dots = ground truth)" }
+        confirmedAngle = angle
     }
-    return (photo, truth, summary)
+    return (photo, truth, summary, confirmedAngle)
 }
 
 for path in args {
@@ -124,11 +126,13 @@ for path in args {
     var imagePath = path
     var truth = truth
     var savedSummary = ""
+    var confirmedAngle: Double?
     if isDir.boolValue {
         guard let folder = loadCaptureFolder(path) else { print("\(name): no photo.jpg"); continue }
         imagePath = folder.photo
         truth = folder.truth ?? truth
         savedSummary = folder.summary
+        confirmedAngle = folder.confirmedAngle
     }
     guard let image = loadUpright(imagePath), let buffer = pixelBuffer(from: image) else { print("\(name): could not load"); continue }
     let hand = HandPoseDetector().detect(in: buffer)
@@ -180,6 +184,11 @@ for path in args {
         }
         line += String(format: "  depth ratio %.3f", signs?.depthRatio ?? .nan)
         print(line)
+        if var s = signs {
+            // The confirmed profile angle when the user confirmed one on the phone.
+            if let confirmed = confirmedAngle { s.lovibond = confirmed }
+            print("  result: \(ClubbingAssessment(readings: [s]).verdict.label)" + (confirmedAngle == nil ? "  (profile angle from the automatic marker)" : ""))
+        }
     }
     let outPath = (outDir as NSString).appendingPathComponent("\(name)-annotated.png")
     writeAnnotated(image, silhouette: silhouette, hand: hand, result: result, truth: truth, signs: signs, to: outPath)

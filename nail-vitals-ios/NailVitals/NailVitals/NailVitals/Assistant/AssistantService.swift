@@ -13,20 +13,25 @@
 import Foundation
 
 struct AssistantContext {
-    /// The reading the user just confirmed, if any.
-    let angleDegrees: Double?
-    /// Every plausible reading this session.
-    let sessionReadings: [Double]
+    /// The readings behind the result on screen, oldest first.
+    let readings: [FingerSigns]
 
-    /// Plain-text summary a real provider would include with each question.
+    var assessment: ClubbingAssessment? {
+        readings.isEmpty ? nil : ClubbingAssessment(readings: readings)
+    }
+
+    /// Plain-text summary a real provider would include with each question:
+    /// numbers only, never the photo.
     var summary: String {
+        guard let assessment, !assessment.values.isEmpty else { return "" }
         var parts: [String] = []
-        if let angleDegrees {
-            parts.append(String(format: "Latest Lovibond angle: %.1f° (%@).", angleDegrees, ResultView.rangeLabel(for: angleDegrees)))
+        for kind in SignKind.allCases {
+            guard let value = assessment.values[kind] else { continue }
+            var part = "\(kind.title): \(kind.formatted(value)) (clubbing is considered above \(kind.formattedThreshold))"
+            if let count = assessment.readingCounts[kind], count > 1 { part += ", middle of \(count) readings" }
+            parts.append(part + ".")
         }
-        if sessionReadings.count > 1 {
-            parts.append("Session readings: " + sessionReadings.map { String(format: "%.1f°", $0) }.joined(separator: ", ") + ".")
-        }
+        parts.append("Overall result: \(assessment.verdict.label).")
         return parts.joined(separator: " ")
     }
 }

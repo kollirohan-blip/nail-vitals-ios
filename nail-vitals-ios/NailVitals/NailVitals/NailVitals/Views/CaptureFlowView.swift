@@ -27,14 +27,17 @@ struct CaptureFlowView: View {
     /// be taken.
     let onDismiss: () -> Void
     /// Readings already confirmed this session (before this capture).
-    var previousReadings: [Double] = []
+    var previousReadings: [FingerSigns] = []
     /// Reports a confirmed, plausible reading so the session can keep it.
-    var onReading: (Double) -> Void = { _ in }
+    var onReading: (FingerSigns) -> Void = { _ in }
     /// Ends the session (clears its readings) and closes this flow.
     var onFinishSession: () -> Void = {}
 
     @State private var stage: Stage = .analyzing
-    @State private var sessionReadings: [Double] = []
+    @State private var sessionReadings: [FingerSigns] = []
+    /// What the result screen shows: the session including this reading, or
+    /// only this reading when it wasn't usable.
+    @State private var resultReadings: [FingerSigns] = []
     @State private var showAssistant = false
     @State private var displayImage: UIImage?
     @State private var lovibondResult: LovibondResult?
@@ -49,7 +52,7 @@ struct CaptureFlowView: View {
         case analyzing
         case confirming
         case manual(LovibondCandidate?)
-        case result(LovibondCandidate)
+        case result
         case failed(String)
     }
 
@@ -89,35 +92,26 @@ struct CaptureFlowView: View {
                     )
                 }
 
-            case .result(let candidate):
+            case .result:
                 VStack {
-                    Spacer()
-                    ResultView(candidate: candidate, sessionReadings: sessionReadings)
-                    Button {
-                        showAssistant = true
-                    } label: {
-                        Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                            .foregroundColor(Theme.searching)
-                            .padding(.horizontal, 18)
-                            .padding(.vertical, 10)
-                            .glassPanel(cornerRadius: 22)
+                    ScrollView {
+                        VStack {
+                            ResultView(readings: resultReadings)
+                                .padding(.top, 24)
+                            askButton
+                        }
                     }
-                    .padding(.top, 14)
-                    .sheet(isPresented: $showAssistant) {
-                        AskAssistantView(context: AssistantContext(
-                            angleDegrees: AngleAnalyzer.plausibleRange.contains(candidate.angleDegrees) ? candidate.angleDegrees : nil,
-                            sessionReadings: sessionReadings
-                        ))
-                    }
-                    Spacer()
+                    .scrollBounceBehavior(.basedOnSize)
                     HStack(spacing: 12) {
                         Button("Finish", action: onFinishSession)
                             .buttonStyle(GhostButtonStyle())
                         Button("Measure again", action: onDismiss)
                             .buttonStyle(GlowButtonStyle(color: Theme.searching))
                     }
-                    .padding(.bottom, 24)
+                    .padding(.vertical, 16)
+                }
+                .sheet(isPresented: $showAssistant) {
+                    AskAssistantView(context: AssistantContext(readings: resultReadings))
                 }
 
             case .failed(let message):
@@ -158,22 +152,41 @@ struct CaptureFlowView: View {
                               segmentLengthPixels: result.segmentLengthPixels, candidates: nailSide)
     }
 
+    private var askButton: some View {
+        Button {
+            showAssistant = true
+        } label: {
+            Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")
+                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .foregroundColor(Theme.searching)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 10)
+                .glassPanel(cornerRadius: 22)
+        }
+        .padding(.top, 14)
+    }
+
     private func finish(with confirmed: LovibondCandidate, manualDots: [CGPoint]?) {
         let signs = measureSigns(at: confirmed)
         CaptureRecorder.saveConfirmation(in: captureFolder, confirmed: confirmed, manualDots: manualDots, signs: signs)
         sessionReadings = previousReadings
-        if AngleAnalyzer.plausibleRange.contains(confirmed.angleDegrees) {
-            sessionReadings.append(confirmed.angleDegrees)
-            onReading(confirmed.angleDegrees)
+        if SignKind.lovibond.value(in: signs) != nil {
+            sessionReadings.append(signs)
+            onReading(signs)
+            resultReadings = sessionReadings
+        } else {
+            resultReadings = [signs]
         }
-        stage = .result(confirmed)
+        stage = .result
     }
 
-    /// The hyponychial angle and depth ratio at the confirmed cuticle, which
-    /// need the finger outline and the tip and DIP joints.
-    private func measureSigns(at confirmed: LovibondCandidate) -> FingerSigns? {
-        guard let silhouette, let hand = landmarks else { return nil }
+    /// All three signs at the confirmed cuticle. The hyponychial angle and
+    /// depth ratio need the finger outline and the tip and DIP joints.
+    private func measureSigns(at confirmed: LovibondCandidate) -> FingerSigns {
         let lovibond = AngleAnalyzer.plausibleRange.contains(confirmed.angleDegrees) ? confirmed.angleDegrees : nil
+        guard let silhouette, let hand = landmarks else {
+            return FingerSigns(lovibond: lovibond, cuticle: confirmed.inflectionPoint)
+        }
         return FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: hand.indexTip.point,
                                            dip: hand.indexDIP.point, cuticle: confirmed.inflectionPoint,
                                            lovibond: lovibond, isNailSide: { hand.isOnNailSide($0) })
