@@ -12,6 +12,8 @@ enum Theme {
     static let searching = Color(red: 0, green: 229 / 255, blue: 1)          // #00E5FF
     static let adjusting = Color(red: 1, green: 179 / 255, blue: 0)          // #FFB300
     static let aligned = Color(red: 0, green: 230 / 255, blue: 118 / 255)    // #00E676
+    /// Result readings at or above 180°.
+    static let attention = Color(red: 1, green: 107 / 255, blue: 107 / 255)  // #FF6B6B
 
     static func color(for state: CaptureState) -> Color {
         switch state {

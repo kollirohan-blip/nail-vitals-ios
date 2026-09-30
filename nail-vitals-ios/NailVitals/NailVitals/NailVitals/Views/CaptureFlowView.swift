@@ -59,9 +59,7 @@ struct CaptureFlowView: View {
 
             switch stage {
             case .analyzing:
-                ProgressView("Analyzing...")
-                    .tint(.white)
-                    .foregroundColor(.white)
+                MeasuringView(image: displayImage)
 
             case .confirming:
                 if let image = displayImage, let result = lovibondResult {
@@ -99,10 +97,13 @@ struct CaptureFlowView: View {
                         showAssistant = true
                     } label: {
                         Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.system(size: 15, weight: .semibold, design: .rounded))
                             .foregroundColor(Theme.searching)
+                            .padding(.horizontal, 18)
+                            .padding(.vertical, 10)
+                            .glassPanel(cornerRadius: 22)
                     }
-                    .padding(.top, 8)
+                    .padding(.top, 14)
                     .sheet(isPresented: $showAssistant) {
                         AskAssistantView(context: AssistantContext(
                             angleDegrees: AngleAnalyzer.plausibleRange.contains(candidate.angleDegrees) ? candidate.angleDegrees : nil,
@@ -110,47 +111,34 @@ struct CaptureFlowView: View {
                         ))
                     }
                     Spacer()
-                    HStack(spacing: 16) {
-                        Button(action: onFinishSession) {
-                            Text("Finish")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.8))
-                                .padding()
-                        }
-                        Button(action: onDismiss) {
-                            Text("Measure again")
-                                .font(.system(size: 15, weight: .semibold))
-                                .foregroundColor(.black)
-                                .padding(.horizontal, 28)
-                                .padding(.vertical, 12)
-                                .background(Color.white)
-                                .cornerRadius(24)
-                        }
+                    HStack(spacing: 12) {
+                        Button("Finish", action: onFinishSession)
+                            .buttonStyle(GhostButtonStyle())
+                        Button("Measure again", action: onDismiss)
+                            .buttonStyle(GlowButtonStyle(color: Theme.searching))
                     }
                     .padding(.bottom, 24)
                 }
 
             case .failed(let message):
                 VStack(spacing: 20) {
+                    Image(systemName: "hand.raised.fingers.spread")
+                        .font(.system(size: 34))
+                        .foregroundColor(Theme.adjusting)
                     Text(message)
+                        .font(.system(size: 16))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                    Button(action: onDismiss) {
-                        Text("Try Again")
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.black)
-                            .padding(.horizontal, 32)
-                            .padding(.vertical, 12)
-                            .background(Color.white)
-                            .cornerRadius(24)
-                    }
+                    Button("Try again", action: onDismiss)
+                        .buttonStyle(GlowButtonStyle(color: Theme.searching))
                     if displayImage != nil {
                         Button("Measure manually") { stage = .manual(nil) }
-                            .font(.system(size: 15, weight: .semibold))
-                            .foregroundColor(.white)
+                            .buttonStyle(GhostButtonStyle())
                     }
                 }
+                .padding(24)
+                .glassPanel(cornerRadius: 24)
+                .padding(.horizontal, 24)
             }
         }
         .onAppear {
@@ -191,6 +179,8 @@ struct CaptureFlowView: View {
             // Made first so manual measurement stays available even when
             // automatic detection fails.
             let image = makeDisplayImage(from: pixelBuffer)
+            // Show the photo under the scanning animation while measuring.
+            DispatchQueue.main.async { displayImage = image }
             func save(_ result: LovibondResult?, failure: String?) -> URL? {
                 image.flatMap { CaptureRecorder.saveAnalysis(image: $0, landmarks: hand, result: result, failure: failure) }
             }
@@ -253,5 +243,57 @@ struct CaptureFlowView: View {
         let context = CIContext()
         guard let cgImage = context.createCGImage(ciImage, from: ciImage.extent) else { return nil }
         return UIImage(cgImage: cgImage)
+    }
+}
+
+/// The captured photo with a scan line sweeping over it while the
+/// measurement runs.
+private struct MeasuringView: View {
+    let image: UIImage?
+
+    var body: some View {
+        ZStack {
+            if let image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .overlay {
+                        GeometryReader { geo in
+                            TimelineView(.animation) { timeline in
+                                let t = timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 1.8) / 1.8
+                                let y = geo.size.height * CGFloat(t)
+                                ZStack(alignment: .top) {
+                                    LinearGradient(colors: [Theme.searching.opacity(0), Theme.searching.opacity(0.25)],
+                                                   startPoint: .top, endPoint: .bottom)
+                                        .frame(height: 90)
+                                        .offset(y: y - 90)
+                                    Rectangle()
+                                        .fill(Theme.searching)
+                                        .frame(height: 2)
+                                        .shadow(color: Theme.searching, radius: 8)
+                                        .offset(y: y)
+                                }
+                                .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+                            }
+                        }
+                        .clipped()
+                    }
+                    .transition(.opacity)
+            }
+            VStack {
+                Spacer()
+                HStack(spacing: 10) {
+                    ProgressView().tint(.white)
+                    Text("Measuring…")
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                }
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .glassPanel(cornerRadius: 22)
+                .padding(.bottom, 60)
+            }
+        }
+        .animation(.easeIn(duration: 0.25), value: image == nil)
     }
 }

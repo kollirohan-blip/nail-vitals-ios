@@ -159,38 +159,25 @@ struct InflectionPointConfirmation: View {
         VStack(spacing: 12) {
             if let side = selectedSide {
                 Text("\(displayAngle(for: side), specifier: "%.1f")°")
-                    .font(.system(size: 32, weight: .bold))
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
                     .foregroundColor(.white)
+                    .monospacedDigit()
                 Text("Drag the marker if it's not exactly on the cuticle edge")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.white.opacity(0.7))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 32)
             } else {
                 Text("Tap the marker at the cuticle edge")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.white)
             }
 
-            HStack(spacing: 16) {
-                Button(action: onCancel) {
-                    Text("Retake")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding()
-                }
-
-                Button(action: confirm) {
-                    Text("Confirm")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 12)
-                        .background(Color(hex: 0x00E676))
-                        .cornerRadius(24)
-                }
-                .disabled(selectedSide == nil)
-                .opacity(selectedSide == nil ? 0.4 : 1.0)
+            HStack(spacing: 12) {
+                Button("Retake", action: onCancel)
+                    .buttonStyle(GhostButtonStyle())
+                Button("Confirm", action: confirm)
+                    .buttonStyle(GlowButtonStyle())
+                    .disabled(selectedSide == nil)
             }
 
             if let onManual {
@@ -199,6 +186,9 @@ struct InflectionPointConfirmation: View {
                     .foregroundColor(.white.opacity(0.8))
             }
         }
+        .padding(18)
+        .glassPanel(cornerRadius: 24)
+        .padding(.horizontal, 16)
     }
 
     private func displayAngle(for side: String) -> Double {

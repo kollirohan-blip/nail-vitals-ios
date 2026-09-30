@@ -63,9 +63,8 @@ struct ManualAngleView: View {
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
                             .multilineTextAlignment(.center)
-                            .padding(12)
-                            .background(Color.black.opacity(0.6))
-                            .cornerRadius(10)
+                            .padding(14)
+                            .glassPanel(cornerRadius: 16)
                             .padding(.top, 20)
                             .padding(.horizontal, 16)
                     }
@@ -104,43 +103,34 @@ struct ManualAngleView: View {
         VStack(spacing: 12) {
             if let angle {
                 Text("\(angle, specifier: "%.1f")°")
-                    .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(isPlausible ? .white : .red)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundColor(isPlausible ? .white : Theme.attention)
+                    .monospacedDigit()
             }
             if angle != nil && !isPlausible {
                 Text("That angle isn't realistic. Check the order along the edge: 1 on the nail, 2 at the cuticle, 3 further down the skin.")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.red)
+                    .foregroundColor(Theme.attention)
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
             }
             if !hasInsideInfo {
                 Button(flipped ? "Nail fold bulges outward (tap to flip)" : "Nail fold dips inward (tap to flip)") {
                     flipped.toggle()
                 }
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.orange)
+                .foregroundColor(Theme.adjusting)
             }
-            HStack(spacing: 16) {
-                Button(action: onCancel) {
-                    Text("Retake")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding()
-                }
-                Button(action: confirm) {
-                    Text("Confirm")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 12)
-                        .background(Color(red: 0, green: 230 / 255, blue: 118 / 255))
-                        .cornerRadius(24)
-                }
-                .disabled(!isPlausible)
-                .opacity(isPlausible ? 1 : 0.4)
+            HStack(spacing: 12) {
+                Button("Retake", action: onCancel)
+                    .buttonStyle(GhostButtonStyle())
+                Button("Confirm", action: confirm)
+                    .buttonStyle(GlowButtonStyle())
+                    .disabled(!isPlausible)
             }
         }
+        .padding(18)
+        .glassPanel(cornerRadius: 24)
+        .padding(.horizontal, 16)
     }
 
     private func confirm() {
