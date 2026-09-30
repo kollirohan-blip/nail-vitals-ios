@@ -15,12 +15,20 @@ let showDebugReadout = false
 
 @main
 struct NailVitalsApp: App {
+    @State private var showSplash = true
+
     var body: some Scene {
         WindowGroup {
-            if showDetectionLab {
-                DetectionLabView()
-            } else {
-                ContentView()
+            ZStack {
+                if showDetectionLab {
+                    DetectionLabView()
+                } else {
+                    ContentView()
+                }
+                if showSplash {
+                    SplashView { showSplash = false }
+                        .zIndex(1)
+                }
             }
         }
     }
