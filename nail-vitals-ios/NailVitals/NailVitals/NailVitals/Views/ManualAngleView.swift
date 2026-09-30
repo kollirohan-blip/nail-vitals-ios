@@ -57,7 +57,7 @@ struct ManualAngleView: View {
                         loupe(center: points[i], viewSize: geo.size)
                             .padding(.top, 12)
                     } else {
-                        Text("Drag 1 onto the nail, 2 onto the cuticle corner, 3 onto the skin just behind it")
+                        Text("On the nail edge: 1 halfway up the nail, 2 exactly on the cuticle, 3 on the skin about as far below 2 as 1 is above it")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
                             .multilineTextAlignment(.center)
@@ -106,7 +106,7 @@ struct ManualAngleView: View {
                     .foregroundColor(isPlausible ? .white : .red)
             }
             if angle != nil && !isPlausible {
-                Text("That angle isn't realistic. Check the order along the edge: 1 on the nail, 2 at the cuticle, 3 on the skin behind it.")
+                Text("That angle isn't realistic. Check the order along the edge: 1 on the nail, 2 at the cuticle, 3 further down the skin.")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.red)
                     .multilineTextAlignment(.center)
