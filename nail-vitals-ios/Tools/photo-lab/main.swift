@@ -75,11 +75,17 @@ var args = Array(CommandLine.arguments.dropFirst())
 var outDir = FileManager.default.currentDirectoryPath
 var truth: CGPoint?
 if let i = args.firstIndex(of: "--out"), i + 1 < args.count { outDir = args[i + 1]; args.removeSubrange(i...i + 1) }
-if let i = args.firstIndex(of: "--truth"), i + 1 < args.count {
+func pointArg(_ flag: String) -> CGPoint? {
+    guard let i = args.firstIndex(of: flag), i + 1 < args.count else { return nil }
     let v = args[i + 1].split(separator: ",").compactMap { Double($0) }
-    if v.count == 2 { truth = CGPoint(x: v[0], y: v[1]) }
     args.removeSubrange(i...i + 1)
+    return v.count == 2 ? CGPoint(x: v[0], y: v[1]) : nil
 }
+truth = pointArg("--truth")
+// For photos where hand pose finds no hand (e.g. a single cropped finger):
+// hand-placed fingertip and DIP joint in image pixels.
+let manualTip = pointArg("--tip")
+let manualDIP = pointArg("--dip")
 
 /// A folder saved by the app's CaptureRecorder: photo.jpg + capture.json. The
 /// user's manual dot 2 (the cuticle) becomes the ground truth.
@@ -119,9 +125,11 @@ for path in args {
     }
     guard let image = loadUpright(imagePath), let buffer = pixelBuffer(from: image) else { print("\(name): could not load"); continue }
     let hand = HandPoseDetector().detect(in: buffer)
+    let tipPoint = manualTip ?? hand?.indexTip.point
+    let dipPoint = manualDIP ?? hand?.indexDIP.point
     let segmenter = FingerMaskSegmenter()
-    let silhouette = segmenter.segment(pixelBuffer: buffer, fingertipHint: hand?.indexDIP.point)
-    let result = silhouette.flatMap { AngleAnalyzer().analyze($0, dipHint: hand?.indexDIP.point, tipHint: hand?.indexTip.point) }
+    let silhouette = segmenter.segment(pixelBuffer: buffer, fingertipHint: dipPoint)
+    let result = silhouette.flatMap { AngleAnalyzer().analyze($0, dipHint: dipPoint, tipHint: tipPoint) }
 
     print("== \(name)  \(image.width)x\(image.height)")
     if !savedSummary.isEmpty { print(savedSummary) }
@@ -130,9 +138,10 @@ for path in args {
                      hand.minIndexConfidence, hand.indexTip.point.x, hand.indexTip.point.y,
                      hand.indexDIP.point.x, hand.indexDIP.point.y, hand.fingerLengthFraction * 100))
     } else { print("  hand: none") }
+    if manualTip != nil || manualDIP != nil { print("  using hand-placed tip/DIP") }
     let d = segmenter.lastDiagnostics
     print("  mask: instances \(d.instanceCount)  outline points \(d.contourPointCount)  \(Int(d.maskMs + d.contourMs)) ms  \(silhouette == nil ? "NO OUTLINE" : "")")
-    if let result, let dip = hand?.indexDIP.point {
+    if let result, let dip = dipPoint {
         let apex = result.fingertip
         let l = hypot(dip.x - apex.x, dip.y - apex.y)
         for c in result.candidates {
@@ -141,6 +150,11 @@ for path in args {
             var line = String(format: "  %@ marker (%@): %.1f°  at (%.0f,%.0f) = %.2f of tip-to-DIP", c.side, nailSide, c.angleDegrees, c.inflectionPoint.x, c.inflectionPoint.y, frac)
             if let truth { line += String(format: "  miss %.0f px", hypot(c.inflectionPoint.x - truth.x, c.inflectionPoint.y - truth.y)) }
             print(line)
+        }
+        // Mirrors CaptureFlowView.foundNoCuticleDip.
+        let shown = result.candidates.filter { hand?.isOnNailSide($0.inflectionPoint) != false }
+        if !shown.isEmpty, shown.allSatisfy({ $0.angleDegrees >= 180 }) {
+            print("  -> no cuticle dip on the nail side: app asks for manual dots instead of showing a number")
         }
     } else if result == nil { print("  analyzer: no result") }
     let outPath = (outDir as NSString).appendingPathComponent("\(name)-annotated.png")

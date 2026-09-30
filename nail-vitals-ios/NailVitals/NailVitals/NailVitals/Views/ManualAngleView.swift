@@ -17,6 +17,8 @@ struct ManualAngleView: View {
     /// Automatic cuticle marker to start from, if the user picked one.
     let suggestion: LovibondCandidate?
     let segmentLengthPixels: Double?
+    /// Why the user was sent here, shown above the instructions.
+    var note: String? = nil
     /// The confirmed reading plus the three dots (nail, cuticle, skin).
     let onConfirm: (LovibondCandidate, [CGPoint]) -> Void
     let onCancel: () -> Void
@@ -57,7 +59,7 @@ struct ManualAngleView: View {
                         loupe(center: points[i], viewSize: geo.size)
                             .padding(.top, 12)
                     } else {
-                        Text("On the nail edge: 1 halfway up the nail, 2 exactly on the cuticle, 3 on the skin about as far below 2 as 1 is above it")
+                        Text((note.map { $0 + "\n" } ?? "") + "On the nail edge: 1 halfway up the nail, 2 exactly on the cuticle, 3 on the skin about as far below 2 as 1 is above it")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
                             .multilineTextAlignment(.center)

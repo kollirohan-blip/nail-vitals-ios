@@ -32,6 +32,7 @@ struct CaptureFlowView: View {
     @State private var lovibondResult: LovibondResult?
     @State private var silhouette: DetectedSilhouette?
     @State private var captureFolder: URL?
+    @State private var manualNote: String?
 
     private let segmenter = FingerMaskSegmenter()
     private let angleAnalyzer = AngleAnalyzer()
@@ -76,6 +77,7 @@ struct CaptureFlowView: View {
                         landmarks: landmarks,
                         suggestion: suggestion,
                         segmentLengthPixels: lovibondResult?.segmentLengthPixels,
+                        note: manualNote,
                         onConfirm: { finish(with: $0, manualDots: $1) },
                         onCancel: onDismiss
                     )
@@ -182,9 +184,24 @@ struct CaptureFlowView: View {
                 self.captureFolder = folder
                 self.silhouette = silhouette
                 self.lovibondResult = result
-                self.stage = .confirming
+                if foundNoCuticleDip(result) {
+                    self.manualNote = "Couldn't find the nail-fold angle automatically, so please place the points yourself."
+                    self.stage = .manual(nil)
+                } else {
+                    self.stage = .confirming
+                }
             }
         }
+    }
+
+    /// A normal cuticle shows up as an inward dip on the nail side (reads
+    /// below 180). With no dip, the automatic marker falls back to the bend
+    /// of the fingertip itself: on web photos of clubbed fingers seen from
+    /// the side it read above 180 with the marker near the tip, not at the
+    /// cuticle. That number isn't a real measurement, so ask for the dots.
+    private func foundNoCuticleDip(_ result: LovibondResult) -> Bool {
+        let shown = nailSideOnly(result).candidates
+        return !shown.isEmpty && shown.allSatisfy { $0.angleDegrees >= 180 }
     }
 
     /// Converts the captured CVPixelBuffer into a UIImage for display
