@@ -79,8 +79,11 @@ struct AskAssistantView: View {
     }
 
     private var disclaimer: some View {
-        Label("Answers are general information, not medical advice. This app doesn't diagnose any condition — talk to a doctor about any concerns.",
-              systemImage: "info.circle")
+        var text = "Answers are general information, not medical advice. This app doesn't diagnose any condition — talk to a doctor about any concerns."
+        if let answeredBy = provider.answeredBy {
+            text = "Answers come from \(answeredBy). Your questions and result numbers are sent to it, never your photo. " + text
+        }
+        return Label(text, systemImage: "info.circle")
             .font(.system(size: 13))
             .foregroundColor(.secondary)
             .padding(12)

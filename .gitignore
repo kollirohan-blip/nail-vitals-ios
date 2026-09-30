@@ -8,3 +8,9 @@ nail-vitals-ios/Tools/angle-harness/angle-harness
 
 # Test photos (web images + teammates) -- private, never commit
 testset/
+
+# Assistant server address + app token, written by server/gemini-proxy/setup.sh
+**/AssistantConfig.plist
+# Wrangler build/cache output
+server/gemini-proxy/.wrangler/
+server/gemini-proxy/node_modules/
