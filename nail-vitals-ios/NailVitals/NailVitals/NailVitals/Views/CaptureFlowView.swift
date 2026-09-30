@@ -35,6 +35,7 @@ struct CaptureFlowView: View {
 
     @State private var stage: Stage = .analyzing
     @State private var sessionReadings: [Double] = []
+    @State private var showAssistant = false
     @State private var displayImage: UIImage?
     @State private var lovibondResult: LovibondResult?
     @State private var silhouette: DetectedSilhouette?
@@ -94,6 +95,20 @@ struct CaptureFlowView: View {
                 VStack {
                     Spacer()
                     ResultView(candidate: candidate, sessionReadings: sessionReadings)
+                    Button {
+                        showAssistant = true
+                    } label: {
+                        Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundColor(Theme.searching)
+                    }
+                    .padding(.top, 8)
+                    .sheet(isPresented: $showAssistant) {
+                        AskAssistantView(context: AssistantContext(
+                            angleDegrees: AngleAnalyzer.plausibleRange.contains(candidate.angleDegrees) ? candidate.angleDegrees : nil,
+                            sessionReadings: sessionReadings
+                        ))
+                    }
                     Spacer()
                     HStack(spacing: 16) {
                         Button(action: onFinishSession) {

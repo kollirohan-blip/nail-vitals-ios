@@ -71,15 +71,25 @@ struct ResultView: View {
     /// normal fingers measure well below 180°; clubbing reaches or exceeds
     /// it). Readings shift a few degrees between photos, so values just
     /// under 180° ask for a re-measure rather than reading as clear.
+    /// Short label for a reading, shared with the Q&A screen.
+    static func rangeLabel(for angle: Double) -> String {
+        switch angle {
+        case ..<175: return "Typical range"
+        case ..<180: return "Close to 180°"
+        default: return "At or above 180°"
+        }
+    }
+
     private var interpretation: some View {
-        let (title, detail): (String, String)
+        let title = Self.rangeLabel(for: headline)
+        let detail: String
         switch headline {
         case ..<175:
-            (title, detail) = ("Typical range", "Healthy fingers measure below 180°.")
+            detail = "Healthy fingers measure below 180°."
         case ..<180:
-            (title, detail) = ("Close to 180°", "Readings this close to 180° can shift by a few degrees. Measure again to confirm.")
+            detail = "Readings this close to 180° can shift by a few degrees. Measure again to confirm."
         default:
-            (title, detail) = ("At or above 180°", "This is the range where clubbing is considered. Worth mentioning to a doctor, along with any symptoms you've noticed.")
+            detail = "This is the range where clubbing is considered. Worth mentioning to a doctor, along with any symptoms you've noticed."
         }
         return VStack(spacing: 6) {
             Text(title).font(.system(size: 20, weight: .semibold))
