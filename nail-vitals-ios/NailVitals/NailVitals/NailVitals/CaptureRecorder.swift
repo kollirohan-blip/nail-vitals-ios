@@ -25,6 +25,7 @@ nonisolated struct CaptureRecord: Codable {
     let indexDIP: Joint?
     let indexPIP: Joint?
     let indexMCP: Joint?
+    let thumbTip: Joint?
     let automaticMarkers: [Marker]
     let confirmed: Marker
     /// Nail, cuticle, skin -- only when the user placed the points themselves.
@@ -46,6 +47,7 @@ nonisolated enum CaptureRecorder {
             imageWidth: Int(image.size.width), imageHeight: Int(image.size.height),
             indexTip: joint(landmarks?.indexTip), indexDIP: joint(landmarks?.indexDIP),
             indexPIP: joint(landmarks?.indexPIP), indexMCP: joint(landmarks?.indexMCP),
+            thumbTip: joint(landmarks?.thumbTip),
             automaticMarkers: result?.candidates.map(marker) ?? [],
             confirmed: marker(confirmed),
             manualDots: manualDots?.map { [Double($0.x), Double($0.y)] }

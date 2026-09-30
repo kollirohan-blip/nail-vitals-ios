@@ -132,7 +132,8 @@ for path in args {
         let l = hypot(dip.x - apex.x, dip.y - apex.y)
         for c in result.candidates {
             let frac = hypot(c.inflectionPoint.x - apex.x, c.inflectionPoint.y - apex.y) / l
-            var line = String(format: "  %@ marker: %.1f°  at (%.0f,%.0f) = %.2f of tip-to-DIP", c.side, c.angleDegrees, c.inflectionPoint.x, c.inflectionPoint.y, frac)
+            let nailSide = hand?.isOnNailSide(c.inflectionPoint).map { $0 ? "NAIL side" : "pad side" } ?? "side unknown"
+            var line = String(format: "  %@ marker (%@): %.1f°  at (%.0f,%.0f) = %.2f of tip-to-DIP", c.side, nailSide, c.angleDegrees, c.inflectionPoint.x, c.inflectionPoint.y, frac)
             if let truth { line += String(format: "  miss %.0f px", hypot(c.inflectionPoint.x - truth.x, c.inflectionPoint.y - truth.y)) }
             print(line)
         }

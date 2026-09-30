@@ -7,7 +7,8 @@ set -euo pipefail
 DEST="${1:-captures}"
 export DEVELOPER_DIR="${DEVELOPER_DIR:-/Users/sowjanyakolli/Downloads/rohan-hosa-project1/Xcode 2.app/Contents/Developer}"
 
-DEVICE=$(xcrun devicectl list devices 2>/dev/null | grep ' connected ' | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1)
+# The phone lists as "connected" or "available (paired)" depending on state.
+DEVICE=$(xcrun devicectl list devices 2>/dev/null | grep -E ' (connected|available)' | grep -oE '[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}' | head -1 || true)
 if [ -z "$DEVICE" ]; then
     echo "No connected iPhone found. Plug it in and unlock it." >&2
     exit 1

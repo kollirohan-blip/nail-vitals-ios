@@ -62,6 +62,11 @@ struct InflectionPointConfirmation: View {
             }
         }
         .background(Color.black.ignoresSafeArea())
+        .onAppear {
+            if selectedSide == nil, result.candidates.count == 1 {
+                selectedSide = result.candidates[0].side
+            }
+        }
     }
 
     // MARK: - Image

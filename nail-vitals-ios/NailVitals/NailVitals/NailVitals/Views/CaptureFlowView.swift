@@ -57,7 +57,7 @@ struct CaptureFlowView: View {
                 if let image = displayImage, let result = lovibondResult {
                     InflectionPointConfirmation(
                         image: image,
-                        result: result,
+                        result: nailSideOnly(result),
                         angleAnalyzer: angleAnalyzer,
                         onConfirm: { confirmed in
                             finish(with: confirmed, manualDots: nil)
@@ -120,6 +120,18 @@ struct CaptureFlowView: View {
         .onAppear {
             runAnalysis()
         }
+    }
+
+    /// The pad-side marker isn't a Lovibond angle at all (on device it read
+    /// 194-199, a false clubbing flag if tapped), so show only the nail-side
+    /// one when hand pose can tell which side that is. The full result is
+    /// still what gets saved.
+    private func nailSideOnly(_ result: LovibondResult) -> LovibondResult {
+        guard let hand = landmarks else { return result }
+        let nailSide = result.candidates.filter { hand.isOnNailSide($0.inflectionPoint) == true }
+        guard !nailSide.isEmpty else { return result }
+        return LovibondResult(fingertip: result.fingertip, tipIndex: result.tipIndex, contourPoints: result.contourPoints,
+                              segmentLengthPixels: result.segmentLengthPixels, candidates: nailSide)
     }
 
     private func finish(with confirmed: LovibondCandidate, manualDots: [CGPoint]?) {

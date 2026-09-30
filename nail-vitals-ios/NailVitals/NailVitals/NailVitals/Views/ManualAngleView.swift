@@ -212,7 +212,10 @@ struct ManualAngleView: View {
     /// stacked on top of each other.
     private func initialPoints() -> [CGPoint] {
         if let s = suggestion, s.step != 0, let contour = silhouette?.contourPoints, contour.indices.contains(s.inflectionIndex) {
-            let d = max(30, segmentLengthPixels ?? 60)
+            // Dots 1 and 3 well away from the cuticle: on device, dots started
+            // one fit-window apart ended up 16-60px from dot 2, too short a
+            // baseline for a steady angle.
+            let d = max(60, (segmentLengthPixels ?? 60) * 2.5)
             return [walk(contour, from: s.inflectionIndex, step: -s.step, distance: d),
                     contour[s.inflectionIndex],
                     walk(contour, from: s.inflectionIndex, step: s.step, distance: d)]
@@ -220,6 +223,19 @@ struct ManualAngleView: View {
         if let hand = landmarks {
             let t = hand.indexTip.point, d = hand.indexDIP.point
             let onAxis = [0.15, 0.42, 0.7].map { f in CGPoint(x: t.x + (d.x - t.x) * f, y: t.y + (d.y - t.y) * f) }
+            // Known nail side (thumb found): start from just outside the
+            // finger on that side and snap onto the nail edge.
+            let length = hypot(d.x - t.x, d.y - t.y)
+            if silhouette != nil, length > 0 {
+                var normal = CGVector(dx: -(d.y - t.y) / length, dy: (d.x - t.x) / length)
+                let probe = CGPoint(x: onAxis[1].x + normal.dx * length, y: onAxis[1].y + normal.dy * length)
+                if let nailSide = hand.isOnNailSide(probe) {
+                    if !nailSide { normal = CGVector(dx: -normal.dx, dy: -normal.dy) }
+                    return onAxis.map { p in
+                        snapToOutline(CGPoint(x: p.x + normal.dx * length * 0.6, y: p.y + normal.dy * length * 0.6), maxDistance: .infinity)
+                    }
+                }
+            }
             // Snap the middle dot to whichever edge is nearer, then push the
             // other two toward that same edge before snapping them.
             let middle = snapToOutline(onAxis[1], maxDistance: .infinity)

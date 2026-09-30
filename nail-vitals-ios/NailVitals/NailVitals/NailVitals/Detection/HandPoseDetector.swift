@@ -23,7 +23,21 @@ nonisolated struct HandLandmarks {
     let indexPIP: Joint
     let indexMCP: Joint
     let wrist: Joint?
+    let thumbTip: Joint?
     let imageSize: CGSize
+
+    /// Whether an image point lies on the nail (back-of-hand) side of the
+    /// index finger. In the side-view pose the nail faces away from the
+    /// thumb, so it's the side of the finger axis opposite the thumb tip.
+    /// nil when the thumb wasn't found or sits on the axis.
+    func isOnNailSide(_ p: CGPoint) -> Bool? {
+        guard let thumb = thumbTip?.point else { return nil }
+        let a = indexMCP.point, b = indexTip.point
+        func side(_ q: CGPoint) -> CGFloat { (b.x - a.x) * (q.y - a.y) - (b.y - a.y) * (q.x - a.x) }
+        let thumbSide = side(thumb)
+        guard abs(thumbSide) > 1e-6 else { return nil }
+        return side(p) * thumbSide < 0
+    }
 
     var minIndexConfidence: Float {
         min(indexTip.confidence, indexDIP.confidence, indexPIP.confidence, indexMCP.confidence)
@@ -83,6 +97,7 @@ nonisolated final class HandPoseDetector {
         return HandLandmarks(
             indexTip: tip, indexDIP: dip, indexPIP: pip, indexMCP: mcp,
             wrist: joint(try? observation.recognizedPoint(.wrist)),
+            thumbTip: joint(try? observation.recognizedPoint(.thumbTip)),
             imageSize: imageSize
         )
     }
