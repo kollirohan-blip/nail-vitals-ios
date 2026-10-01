@@ -38,6 +38,10 @@ struct InflectionPointConfirmation: View {
     /// Passes the selected (possibly dragged) marker, if any, so manual
     /// placement can start from it.
     var onManual: ((LovibondCandidate?) -> Void)? = nil
+    /// Set when no cuticle dip was found: the single marker is an estimate,
+    /// explained by this note, and shows "no dip" instead of an angle until
+    /// it's dragged.
+    var noDipNote: String? = nil
 
     @State private var selectedSide: String?
     // side -> contour index, populated once the user drags that side
@@ -157,7 +161,17 @@ struct InflectionPointConfirmation: View {
 
     private var controls: some View {
         VStack(spacing: 12) {
-            if let side = selectedSide {
+            if let noDipNote {
+                Text(noDipNote)
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.white.opacity(0.85))
+                    .multilineTextAlignment(.center)
+            }
+            if let side = selectedSide, noDipNote != nil, liveAngles[side] == nil {
+                Text("No cuticle dip")
+                    .font(.system(size: 26, weight: .bold))
+                    .foregroundColor(.white)
+            } else if let side = selectedSide {
                 Text("\(displayAngle(for: side), specifier: "%.1f")°")
                     .font(.system(size: 32, weight: .bold))
                     .foregroundColor(.white)

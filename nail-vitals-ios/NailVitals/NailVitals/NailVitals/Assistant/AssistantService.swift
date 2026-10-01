@@ -33,7 +33,10 @@ struct AssistantContext {
         var parts = ["Measured finger: \(hand.rawValue) index."]
         for kind in SignKind.allCases {
             guard let value = assessment.values[kind] else { continue }
-            var part = "\(kind.title): \(kind.formatted(value)) (clubbing is considered above \(kind.formattedThreshold))"
+            let noDip = kind == .lovibond && readings.last?.noCuticleDip == true
+            var part = noDip
+                ? "\(kind.title): no cuticle dip found, i.e. Lovibond's angle is obliterated (180 or more); a finger turned toward the camera can also hide the dip"
+                : "\(kind.title): \(kind.formatted(value)) (clubbing is considered above \(kind.formattedThreshold))"
             if let count = assessment.readingCounts[kind], count > 1 { part += ", middle of \(count) readings" }
             parts.append(part + ".")
         }

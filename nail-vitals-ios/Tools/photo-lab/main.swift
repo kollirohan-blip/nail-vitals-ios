@@ -117,6 +117,11 @@ let manualDIP = pointArg("--dip")
 // hyponychial angle and the result line (default: the app's).
 var drawTurn = 30.0
 if let i = args.firstIndex(of: "--turn"), i + 1 < args.count, let t = Double(args[i + 1]) { drawTurn = t; args.removeSubrange(i...i + 1) }
+// --estimate-cuticle f: also measure with the cuticle taken f of the way
+// from the fingertip to the DIP joint (no dip needed), to test that
+// estimate against the found or hand-placed cuticle.
+var estimateFraction: Double?
+if let i = args.firstIndex(of: "--estimate-cuticle"), i + 1 < args.count { estimateFraction = Double(args[i + 1]); args.removeSubrange(i...i + 1) }
 // --report: compare the app with Label-mode labels (see Report.swift).
 let makeReport = args.contains("--report")
 args.removeAll { $0 == "--report" }
@@ -178,6 +183,7 @@ for path in args {
 
     print("== \(name)  \(image.width)x\(image.height)")
     if !savedSummary.isEmpty { print(savedSummary) }
+    if visionHand?.isClearlyTurned == true { print("  -> hand clearly turned: the app asks for a retake (no measurement)") }
     if let hand {
         print(String(format: "  hand: conf %.2f  tip (%.0f,%.0f)  dip (%.0f,%.0f)  finger length %.0f%% of height",
                      hand.minIndexConfidence, hand.indexTip.point.x, hand.indexTip.point.y,
@@ -224,22 +230,55 @@ for path in args {
     // there is one, else the nail-side automatic marker).
     var signs: FingerSigns?
     let nailMarker = result?.candidates.first { hand?.isOnNailSide($0.inflectionPoint) == true }
-    if let silhouette, let tip = tipPoint, let dip = dipPoint, let cuticle = truth ?? nailMarker?.inflectionPoint {
+    // Same as the app: no cuticle dip on the nail side -> the cuticle is
+    // estimated and the profile angle counts as obliterated (180).
+    let shownMarkers = result?.candidates.filter { hand?.isOnNailSide($0.inflectionPoint) != false } ?? []
+    let noDip = !shownMarkers.isEmpty && shownMarkers.allSatisfy { $0.angleDegrees >= 180 }
+    var estimated: CGPoint?
+    if noDip, truth == nil, let result, let silhouette, let hand, let tip = tipPoint, let dip = dipPoint {
+        estimated = FingerSignsAnalyzer.estimatedCuticle(contour: silhouette.contourPoints, apex: result.fingertip, tip: tip, dip: dip,
+                                                         isNailSide: { hand.isOnNailSide($0) })
+        if estimated != nil { print("  -> app estimates the cuticle and asks for one confirmation") }
+    }
+    if let silhouette, let tip = tipPoint, let dip = dipPoint, let cuticle = truth ?? estimated ?? nailMarker?.inflectionPoint {
         var isNailSide: ((CGPoint) -> Bool?)? = hand.map { h in { h.isOnNailSide($0) } }
         if let side = manualNailSide { isNailSide = { ($0.x > dip.x) == (side == "right") } }
         var line = "  signs:"
         for turn in [30.0, 45.0, 60.0] {
             let s = FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: tip, dip: dip, cuticle: cuticle,
                                                 lovibond: nailMarker?.angleDegrees, isNailSide: isNailSide, turnDegrees: turn)
-            if turn == drawTurn { signs = s }
+            if turn == drawTurn {
+                signs = s
+                if estimated != nil { signs?.noCuticleDip = true; signs?.lovibond = 180 }
+            }
             line += String(format: "  hyponychial(turn %.0f) %.1f°", turn, s.hyponychial ?? .nan)
         }
         line += String(format: "  depth ratio %.3f", signs?.depthRatio ?? .nan)
         print(line)
+        if let f = estimateFraction, let result {
+            let apex = result.fingertip
+            let est = CGPoint(x: apex.x + (dip.x - apex.x) * f, y: apex.y + (dip.y - apex.y) * f)
+            let e = FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: tip, dip: dip, cuticle: est,
+                                                lovibond: nil, isNailSide: isNailSide, turnDegrees: drawTurn)
+            let along = { (q: CGPoint) in hypot(q.x - apex.x, q.y - apex.y) / hypot(dip.x - apex.x, dip.y - apex.y) }
+            // Profile angle at the estimated cuticle: the local angle there.
+            if let b = e.cuticle, let nailCandidate = result.candidates.first(where: { hand?.isOnNailSide($0.inflectionPoint) == true }) {
+                let pts = result.contourPoints
+                let i = pts.indices.min { hypot(pts[$0].x - b.x, pts[$0].y - b.y) < hypot(pts[$1].x - b.x, pts[$1].y - b.y) }!
+                let p = AngleAnalyzer().recomputeAngle(points: pts, tipIndex: result.tipIndex, userConfirmedIndex: i,
+                                                       step: nailCandidate.step, segmentLengthPixels: result.segmentLengthPixels)
+                print(String(format: "  estimated cuticle profile angle: %.1f°  (found/used: %.1f°)", p ?? .nan, nailMarker?.angleDegrees ?? .nan))
+            }
+            print(String(format: "  estimated cuticle (%.2f): hyponychial %.1f°  depth ratio %.3f  | used cuticle at %.2f: hyponychial %.1f°  depth ratio %.3f",
+                         f, e.hyponychial ?? .nan, e.depthRatio ?? .nan, along(cuticle), signs?.hyponychial ?? .nan, signs?.depthRatio ?? .nan))
+        }
         if var s = signs {
             // The confirmed profile angle when the user confirmed one on the phone.
-            if let confirmed = confirmedAngle { s.lovibond = confirmed }
-            print("  result: \(ClubbingAssessment(readings: [s]).verdict.label)" + (confirmedAngle == nil ? "  (profile angle from the automatic marker)" : ""))
+            if let confirmed = confirmedAngle, !s.noCuticleDip { s.lovibond = confirmed }
+            let how = s.noCuticleDip ? "  (no cuticle dip: profile counted as 180+, cuticle estimated)"
+                : (confirmedAngle == nil ? "  (profile angle from the automatic marker)" : "")
+            print(String(format: "  app: profile %@  hyponychial %.1f°  depth ratio %.3f", s.noCuticleDip ? "no dip (180+)" : String(format: "%.1f°", s.lovibond ?? .nan), s.hyponychial ?? .nan, s.depthRatio ?? .nan))
+            print("  result: \(ClubbingAssessment(readings: [s]).verdict.label)" + how)
         }
     }
     let outPath = (outDir as NSString).appendingPathComponent("\(name)-annotated.png")
@@ -252,9 +291,16 @@ for path in args {
         var app: [SignKind: Double] = [:]
         var status = "failed"
         let shown = result?.candidates.filter { hand?.isOnNailSide($0.inflectionPoint) != false } ?? []
-        if let result, let silhouette, let hand, let marker = nailMarker {
-            if !shown.isEmpty, shown.allSatisfy({ $0.angleDegrees >= 180 }) {
-                status = "needs dots"
+        if visionHand?.isClearlyTurned == true {
+            status = "retake (turned)"
+        } else if let result, let silhouette, let hand, let marker = nailMarker {
+            if noDip {
+                status = estimated == nil ? "needs dots" : "auto (no dip)"
+                if let s = signs, estimated != nil {
+                    app[.lovibond] = 180
+                    app[.hyponychial] = SignKind.hyponychial.value(in: s)
+                    app[.depthRatio] = SignKind.depthRatio.value(in: s)
+                }
             } else {
                 status = "auto"
                 let s = FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: hand.indexTip.point, dip: hand.indexDIP.point,

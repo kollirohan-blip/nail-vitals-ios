@@ -36,6 +36,7 @@ struct AboutMeasurementsView: View {
                         bullet("One sign just under its cut-off on its own shows amber but counts as typical: single photos of healthy fingers often land there.")
                         bullet("Otherwise: typical range.")
                         bullet("After 3 readings, the app uses the middle value of each sign, since single photos vary by a few degrees.")
+                        bullet("No dip at the cuticle means Lovibond's angle is gone (180° or more), which counts as that sign. The other two signs are then measured where the cuticle usually sits, about halfway from the fingertip to the last joint. A finger turned toward the camera can also hide the dip, so the app asks you to retake if your hand looks turned.")
                     }
 
                     section("Why a doctor, not just the app") {

@@ -66,6 +66,9 @@ nonisolated struct SignsRecord: Codable {
     let lovibond: Double?
     let hyponychial: Double?
     let depthRatio: Double?
+    /// No cuticle dip: profile recorded as obliterated (180 or more) and
+    /// the cuticle estimated.
+    let noCuticleDip: Bool
     /// Hyponychial angle points A (crease), B (cuticle), C (hyponychium).
     let hyponychialPoints: [[Double]]?
     /// Depth slices at the nail bed and the DIP joint, each [x1, y1, x2, y2].
@@ -76,6 +79,7 @@ nonisolated struct SignsRecord: Codable {
         lovibond = s.lovibond
         hyponychial = s.hyponychial
         depthRatio = s.depthRatio
+        noCuticleDip = s.noCuticleDip
         if let a = s.crease, let b = s.cuticle, let c = s.hyponychium {
             hyponychialPoints = [a, b, c].map { [Double($0.x), Double($0.y)] }
         } else {

@@ -37,6 +37,14 @@ nonisolated struct HandLandmarks {
     /// the index finger's length. Seen exactly from the side they line up
     /// behind each other (near 0); turning the back of the hand toward the
     /// camera spreads them out.
+    /// The back of the hand is clearly turned toward the camera. On real
+    /// captures, side views spread 0.05-0.28 and clearly turned hands
+    /// 0.50-0.70; small turns overlap with side views and aren't caught.
+    var isClearlyTurned: Bool {
+        guard let spread = knuckleSpread, let little = littleMCP, little.confidence >= 0.3 else { return false }
+        return spread > 0.42
+    }
+
     var knuckleSpread: Double? {
         guard let little = littleMCP else { return nil }
         let length = hypot(indexTip.point.x - indexMCP.point.x, indexTip.point.y - indexMCP.point.y)

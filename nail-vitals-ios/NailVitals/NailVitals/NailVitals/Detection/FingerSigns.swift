@@ -31,6 +31,11 @@ nonisolated struct FingerSigns: Equatable {
     var lovibond: Double?
     var hyponychial: Double?
     var depthRatio: Double?
+    /// No cuticle dip on the nail side: Lovibond's angle is "obliterated"
+    /// (at or above 180, Lovibond 1938), recorded as lovibond = 180. A
+    /// turned finger can also hide the dip; the other two signs, measured
+    /// at an estimated cuticle, decide with it.
+    var noCuticleDip = false
 
     /// A, B, C of the hyponychial angle (image pixels).
     var crease: CGPoint?
@@ -120,6 +125,25 @@ nonisolated enum FingerSignsAnalyzer {
             }
         }
         return points.last
+    }
+
+    /// Where the cuticle sits on healthy side-view captures: 0.50 (SD 0.05,
+    /// n 34) of the way from the fingertip's apex to the DIP joint.
+    static let typicalCuticleFraction: CGFloat = 0.50
+
+    /// The nail-side edge at the typical cuticle position, for when the
+    /// outline shows no cuticle dip. The hyponychial angle and depth ratio
+    /// barely depend on the exact spot (on 34 healthy photos: hyponychial
+    /// +0.6 SD 0.9 deg vs the found cuticle; on 2 clubbed side views within
+    /// 0.2 deg of the hand-placed cuticle); the local profile angle does,
+    /// so it isn't measured there.
+    static func estimatedCuticle(contour: [CGPoint], apex: CGPoint, tip: CGPoint, dip: CGPoint,
+                                 isNailSide: (CGPoint) -> Bool?) -> CGPoint? {
+        guard let frame = FingerFrame(tip: tip, dip: dip),
+              let nailOnPlus = isNailSide(frame.point(along: 0, across: frame.length)) else { return nil }
+        let target = CGPoint(x: apex.x + (dip.x - apex.x) * typicalCuticleFraction,
+                             y: apex.y + (dip.y - apex.y) * typicalCuticleFraction)
+        return edgePoint(contour, frame, at: frame.along(target), side: nailOnPlus ? 1 : -1)
     }
 
     // MARK: - Geometry

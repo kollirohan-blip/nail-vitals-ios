@@ -25,6 +25,12 @@ struct ResultView: View {
     private var assessment: ClubbingAssessment { ClubbingAssessment(readings: readings) }
     private var steady: Bool { readings.count >= ClubbingAssessment.readingsForSteadyResult }
     private var headline: Double? { assessment.values[.lovibond] }
+    /// The profile reading is "no cuticle dip" (Lovibond's angle
+    /// obliterated) rather than a measured angle: the latest reading, or
+    /// most of the session once the middle value is used.
+    private var noDipHeadline: Bool {
+        steady ? readings.filter(\.noCuticleDip).count * 2 > readings.count : readings.last?.noCuticleDip == true
+    }
 
     var body: some View {
         VStack(spacing: 18) {
@@ -38,12 +44,21 @@ struct ResultView: View {
                     ResultGauge(angle: shown)
                         .frame(width: 260, height: 150)
                     VStack(spacing: 2) {
-                        CountingAngle(value: shown)
-                            .font(.system(size: 48, weight: .bold))
-                            .foregroundColor(.white)
-                        Text("Profile (Lovibond) angle")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.secondary)
+                        if noDipHeadline {
+                            Text("≥180°")
+                                .font(.system(size: 48, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("No cuticle dip: Lovibond's sign")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.secondary)
+                        } else {
+                            CountingAngle(value: shown)
+                                .font(.system(size: 48, weight: .bold))
+                                .foregroundColor(.white)
+                            Text("Profile (Lovibond) angle")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.secondary)
+                        }
                     }
                     verdict
                     signRow
@@ -135,12 +150,15 @@ struct ResultView: View {
         case .worthDiscussing:
             detail = "Two or more signs are in the range where clubbing is considered. Clubbing has many causes, and some people are born with it, so only a doctor can say what it means. Mention any symptoms you've noticed."
         }
+        let fullDetail = noDipHeadline
+            ? detail + " No cuticle dip was found: clubbing does this, and so can a finger turned toward the camera."
+            : detail
         return VStack(spacing: 6) {
             Text(a.verdict.label)
                 .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(Self.color(for: a.verdict))
                 .multilineTextAlignment(.center)
-            Text(detail)
+            Text(fullDetail)
                 .font(.system(size: 15))
                 .foregroundColor(.white.opacity(0.85))
                 .multilineTextAlignment(.center)
@@ -150,7 +168,8 @@ struct ResultView: View {
     private var signRow: some View {
         HStack(spacing: 8) {
             ForEach(SignKind.allCases, id: \.self) { kind in
-                SignChip(kind: kind, value: assessment.values[kind])
+                SignChip(kind: kind, value: assessment.values[kind],
+                         valueText: kind == .lovibond && noDipHeadline ? "≥180°" : nil)
             }
         }
     }
@@ -160,6 +179,8 @@ struct ResultView: View {
 private struct SignChip: View {
     let kind: SignKind
     let value: Double?
+    /// Shown instead of the number (e.g. "≥180°" for no cuticle dip).
+    var valueText: String? = nil
 
     private var shortTitle: String {
         switch kind {
@@ -176,7 +197,7 @@ private struct SignChip: View {
                 Image(systemName: icon(for: status))
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(ResultView.color(for: status))
-                Text(kind.formatted(value))
+                Text(valueText ?? kind.formatted(value))
                     .font(.system(size: 16, weight: .semibold))
                     .monospacedDigit()
                     .foregroundColor(.white)

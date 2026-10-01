@@ -49,6 +49,9 @@ struct CaptureFlowView: View {
     @State private var silhouette: DetectedSilhouette?
     @State private var captureFolder: URL?
     @State private var manualNote: String?
+    /// No cuticle dip: the confirmation shows one marker at the estimated
+    /// cuticle instead of the analyzer's candidates.
+    @State private var noDipResult: LovibondResult?
     /// The joints actually used: hand pose's, or ones found from the
     /// outline when hand pose missed the raised finger.
     @State private var resolvedLandmarks: HandLandmarks?
@@ -78,13 +81,14 @@ struct CaptureFlowView: View {
                 if let image = displayImage, let result = lovibondResult {
                     InflectionPointConfirmation(
                         image: image,
-                        result: nailSideOnly(result),
+                        result: noDipResult ?? nailSideOnly(result),
                         angleAnalyzer: angleAnalyzer,
                         onConfirm: { confirmed in
                             finish(with: confirmed, manualDots: nil)
                         },
                         onCancel: onDismiss,
-                        onManual: { stage = .manual($0) }
+                        onManual: { stage = .manual($0) },
+                        noDipNote: noDipResult == nil ? nil : "No cuticle dip found: the nail runs straight out of the skin fold. Clubbing does this, and so does a finger turned toward the camera. If you can see the flat of the nail, tap Retake and turn it sideways. Otherwise check the marker is at the cuticle (drag it if not) and confirm."
                     )
                 }
 
@@ -194,12 +198,41 @@ struct CaptureFlowView: View {
     /// depth ratio need the finger outline and the tip and DIP joints.
     private func measureSigns(at confirmed: LovibondCandidate) -> FingerSigns {
         let lovibond = AngleAnalyzer.plausibleRange.contains(confirmed.angleDegrees) ? confirmed.angleDegrees : nil
-        guard let silhouette, let hand = joints else {
-            return FingerSigns(lovibond: lovibond, cuticle: confirmed.inflectionPoint)
+        var signs: FingerSigns
+        if let silhouette, let hand = joints {
+            signs = FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: hand.indexTip.point,
+                                                dip: hand.indexDIP.point, cuticle: confirmed.inflectionPoint,
+                                                lovibond: lovibond, isNailSide: { hand.isOnNailSide($0) })
+        } else {
+            signs = FingerSigns(lovibond: lovibond, cuticle: confirmed.inflectionPoint)
         }
-        return FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: hand.indexTip.point,
-                                           dip: hand.indexDIP.point, cuticle: confirmed.inflectionPoint,
-                                           lovibond: lovibond, isNailSide: { hand.isOnNailSide($0) })
+        // The estimated marker, confirmed as is (or dragged to a spot that
+        // still shows no dip): Lovibond's angle is obliterated, 180 or more.
+        if confirmed.side == Self.estimatedSide, confirmed.angleDegrees >= 180 {
+            signs.noCuticleDip = true
+            signs.lovibond = confirmed.angleDegrees
+        }
+        return signs
+    }
+
+    static let estimatedSide = "estimated"
+
+    /// A marker at the typical cuticle position on the nail-side edge, for
+    /// captures with no cuticle dip. Its angle is 180 (obliterated) until
+    /// the user drags it, when the confirmation recomputes the local angle.
+    private func estimatedCandidate(_ result: LovibondResult, silhouette: DetectedSilhouette) -> LovibondCandidate? {
+        guard let hand = joints,
+              let point = FingerSignsAnalyzer.estimatedCuticle(contour: silhouette.contourPoints, apex: result.fingertip,
+                                                               tip: hand.indexTip.point, dip: hand.indexDIP.point,
+                                                               isNailSide: { hand.isOnNailSide($0) }),
+              let index = result.contourPoints.indices.min(by: {
+                  hypot(result.contourPoints[$0].x - point.x, result.contourPoints[$0].y - point.y)
+                      < hypot(result.contourPoints[$1].x - point.x, result.contourPoints[$1].y - point.y)
+              })
+        else { return nil }
+        let step = nailSideOnly(result).candidates.first?.step ?? 1
+        return LovibondCandidate(side: Self.estimatedSide, angleDegrees: 180, inflectionPoint: result.contourPoints[index],
+                                 inflectionIndex: index, step: step)
     }
 
     private func runAnalysis() {
@@ -220,6 +253,18 @@ struct CaptureFlowView: View {
                 image.flatMap { CaptureRecorder.saveAnalysis(image: $0, landmarks: hand, measuredHand: measuredHand,
                                                              participant: participant, skinTone: skinTone,
                                                              result: result, failure: failure) }
+            }
+
+            // A turned hand hides the cuticle dip and changes every angle;
+            // the live guide blocks it, and this catches it in the photo.
+            if visionHand?.isClearlyTurned == true {
+                let folder = save(nil, failure: "hand turned")
+                DispatchQueue.main.async {
+                    displayImage = image
+                    captureFolder = folder
+                    stage = .failed("Your hand looks turned, with the back of the hand toward the camera. Turn it so the nail faces sideways and try again.")
+                }
+                return
             }
 
             guard let silhouette = segmenter.segment(pixelBuffer: pixelBuffer, fingertipHint: visionHand?.indexDIP.point) else {
@@ -256,8 +301,16 @@ struct CaptureFlowView: View {
                 self.silhouette = silhouette
                 self.lovibondResult = result
                 if foundNoCuticleDip(result) {
-                    self.manualNote = "No cuticle dip found. That happens when the finger is turned toward the camera, and with clubbing. If you can see the flat of the nail in this photo, tap Retake and turn the nail to face sideways. Otherwise, place the points yourself."
-                    self.stage = .manual(nil)
+                    if let estimated = estimatedCandidate(result, silhouette: silhouette) {
+                        self.noDipResult = LovibondResult(fingertip: result.fingertip, tipIndex: result.tipIndex,
+                                                          contourPoints: result.contourPoints,
+                                                          segmentLengthPixels: result.segmentLengthPixels,
+                                                          candidates: [estimated])
+                        self.stage = .confirming
+                    } else {
+                        self.manualNote = "No cuticle dip found, and the nail side couldn't be told apart. If you can see the flat of the nail, tap Retake and turn it sideways. Otherwise, place the points yourself."
+                        self.stage = .manual(nil)
+                    }
                 } else {
                     self.stage = .confirming
                 }
