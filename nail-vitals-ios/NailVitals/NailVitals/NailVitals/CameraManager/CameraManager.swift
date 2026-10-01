@@ -19,6 +19,8 @@ final class CameraManager: NSObject, ObservableObject {
     /// 0...1 toward "aligned": how much of the required steady hold is done.
     @Published var alignedProgress: Double = 0
     @Published var currentDirections: [GuidanceDirection] = [.noFingerDetected]
+    /// How well the finger fills the hologram guide, 0...1.
+    @Published var fit: Double = 0
 
     // Hand-pose landmarks for the latest processed frame (nil = no hand),
     // and how long the model took on it.
@@ -347,6 +349,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
             self.currentDirections = guidance.directions
+            self.fit = guidance.fit
             self.handLandmarks = landmarks
             self.handPoseMs = poseMs
 

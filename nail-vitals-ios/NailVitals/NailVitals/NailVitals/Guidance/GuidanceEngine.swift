@@ -3,10 +3,10 @@
 //  NailVitals
 //
 //  Live capture coaching from Apple's hand-pose joints (HandPoseDetector):
-//  finger size in frame, centering, tilt, finger straightness, and fingertip
-//  near the top edge. Replaced the original port of guidance_logic.py, which
-//  worked from an edge-detected silhouette and depended on wall color,
-//  lighting and skin tone.
+//  how well the finger fills the on-screen hologram "glove" (GuidanceTarget:
+//  position, size), plus tilt, straightness and a turned hand. Every photo
+//  then comes out at about the same framing, which is what the reference
+//  study fixed with a bar and a camera at 12 cm.
 //
 
 import CoreGraphics
@@ -18,6 +18,7 @@ enum GuidanceDirection: Equatable {
     case moveRight
     case straighten(degrees: Double)
     case moveHandDown
+    case moveUp
     /// The back of the hand is turned toward the camera; the nail needs to
     /// face sideways for the side-view measurements.
     case turnToSide
@@ -30,21 +31,43 @@ struct GuidanceResult {
     let centerOffset: Double
     let tiltDegrees: Double
     let directions: [GuidanceDirection]
+    /// How well the finger fills the hologram, 0...1.
+    var fit: Double = 0
+}
+
+/// Where the hologram finger sits, in the camera frame's own coordinates
+/// (0...1, top-left origin): the index fingertip joint, and the finger's
+/// tip-to-knuckle length as a share of the frame height. Real captures
+/// read 27-43%; 40% gives the nail plenty of pixels.
+nonisolated enum GuidanceTarget {
+    static let tip = CGPoint(x: 0.5, y: 0.28)
+    static let length: CGFloat = 0.40
+    /// Hand pose's DIP and PIP joints along the tip-to-knuckle line.
+    static let dipFraction: CGFloat = 0.27
+    static let pipFraction: CGFloat = 0.53
+
+    static func tip(in size: CGSize) -> CGPoint { CGPoint(x: tip.x * size.width, y: tip.y * size.height) }
+    static func mcp(in size: CGSize) -> CGPoint { CGPoint(x: tip.x * size.width, y: (tip.y + length) * size.height) }
+    static func dip(in size: CGSize) -> CGPoint { CGPoint(x: tip.x * size.width, y: (tip.y + length * dipFraction) * size.height) }
 }
 
 // nonisolated: called synchronously from CameraManager's captureOutput on a
 // background queue; only let-constant thresholds, no shared mutable state.
 nonisolated final class GuidanceEngine {
 
-    // Starting values from the Detection Lab (finger read 26-34% of frame
-    // height at a comfortable distance, joint confidence 0.75-0.89); tune
-    // with more device readings. centerTolerance carries over from the
-    // Python prototype's calibration.
+    // Joint confidence from the Detection Lab (0.75-0.89 on good frames);
+    // tilt and bend limits from early device testing.
     private let minJointConfidence: Float = 0.3
-    private let targetFingerLength: ClosedRange<Double> = 0.25...0.65
-    private let centerTolerance: Double = 0.20
     private let maxLandmarkTiltDegrees: Double = 20
     private let maxPIPBendDegrees: Double = 30
+
+    /// Fit at or above this counts as "in the glove".
+    static let alignedFit = 0.7
+    /// Mean joint distance from the hologram (as a share of its length)
+    /// at which the fit reaches 0.
+    private let zeroFitError: Double = 0.35
+    private let maxSizeError: Double = 0.15
+    private let maxShiftError: Double = 0.12
 
     nonisolated func analyze(landmarks: HandLandmarks?) -> GuidanceResult {
         guard let hand = landmarks, hand.minIndexConfidence >= minJointConfidence else {
@@ -55,28 +78,44 @@ nonisolated final class GuidanceEngine {
         let offset = Double(hand.indexDIP.point.x / hand.imageSize.width) - 0.5
         let tilt = hand.tiltFromVerticalDegrees
 
+        // Distances from the hologram's joints, as a share of its length.
+        let frame = hand.imageSize
+        let targetLength = Double(GuidanceTarget.length * frame.height)
+        func error(_ p: CGPoint, _ t: CGPoint) -> Double { Double(hypot(p.x - t.x, p.y - t.y)) / targetLength }
+        let meanError = (error(hand.indexTip.point, GuidanceTarget.tip(in: frame))
+                         + error(hand.indexDIP.point, GuidanceTarget.dip(in: frame))
+                         + error(hand.indexMCP.point, GuidanceTarget.mcp(in: frame))) / 3
+        let fit = max(0, min(1, 1 - meanError / zeroFitError))
+
+        let scale = size / Double(GuidanceTarget.length)
+        let shift = Double((hand.indexTip.point.x + hand.indexMCP.point.x) / 2 - GuidanceTarget.tip.x * frame.width) / targetLength
+        let lift = Double(hand.indexTip.point.y - GuidanceTarget.tip(in: frame).y) / targetLength
+
         var directions: [GuidanceDirection] = []
-        if size < targetFingerLength.lowerBound {
-            directions.append(.moveCloser)
-        } else if size > targetFingerLength.upperBound {
-            directions.append(.moveBack)
-        }
-        if abs(offset) > centerTolerance {
-            directions.append(offset > 0 ? .moveLeft : .moveRight)
+        if hand.isClearlyTurned {
+            directions.append(.turnToSide)
         }
         if tilt > maxLandmarkTiltDegrees || pipBendDegrees(hand) > maxPIPBendDegrees {
             directions.append(.straighten(degrees: tilt))
         }
-        if hand.indexTip.point.y < hand.imageSize.height * 0.05 {
+        if scale < 1 - maxSizeError {
+            directions.append(.moveCloser)
+        } else if scale > 1 + maxSizeError {
+            directions.append(.moveBack)
+        }
+        if abs(shift) > maxShiftError {
+            directions.append(shift > 0 ? .moveLeft : .moveRight)
+        }
+        if lift > maxShiftError {
+            directions.append(.moveUp)
+        } else if lift < -maxShiftError {
             directions.append(.moveHandDown)
         }
-        if hand.isClearlyTurned {
-            directions.append(.turnToSide)
-        }
         if directions.isEmpty {
-            directions = [.looksGood]
+            // Each part is close enough; together they may still be off.
+            directions = fit >= Self.alignedFit ? [.looksGood] : [abs(shift) >= abs(lift) ? (shift > 0 ? .moveLeft : .moveRight) : (lift > 0 ? .moveUp : .moveHandDown)]
         }
-        return GuidanceResult(fingerLengthFraction: size, centerOffset: offset, tiltDegrees: tilt, directions: directions)
+        return GuidanceResult(fingerLengthFraction: size, centerOffset: offset, tiltDegrees: tilt, directions: directions, fit: fit)
     }
 
     /// How far the finger bends at the middle knuckle (0 = straight).

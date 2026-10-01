@@ -2,10 +2,10 @@
 //  CaptureGuideOverlay.swift
 //  NailVitals
 //
-//  Live capture overlay: corner brackets that follow the real fingertip
-//  (from the hand-pose joints), colored by capture state -- cyan searching,
-//  amber adjusting, green aligned (brackets tighten and a check appears).
-//  With no hand in view, the brackets rest in the middle as a target.
+//  Live capture overlay: the hologram "glove" (HologramGuide) where the
+//  finger should go, the glowing live outline of the real finger sliding
+//  into it, and one short line of instruction. Colored by capture state --
+//  cyan searching, amber adjusting, green aligned.
 //
 
 import SwiftUI
@@ -20,28 +20,35 @@ enum CaptureState {
 struct CaptureGuideOverlay: View {
     let state: CaptureState
     let instructionText: String
-    let subText: String
     let hand: HandLandmarks?
-    /// Live glowing finger outline; when nil, the corner brackets show.
+    /// Live glowing finger outline (the real finger), when found.
     var outline: FingerOutline? = nil
+    /// How well the finger fills the hologram, 0...1.
+    var fit: Double = 0
+    /// The most useful next move, for the arrow beside the hologram.
+    var direction: GuidanceDirection? = nil
+    /// Which hand is being measured, for the hologram's nail side until
+    /// hand pose can tell from the thumb.
+    var measuredHand: MeasuredHand = .right
+    /// Shown under the instruction while searching only.
+    var hint: String? = nil
 
     private var color: Color { Theme.color(for: state) }
 
     var body: some View {
         ZStack {
             // Same full-screen coordinate space as the aspect-fill preview,
-            // so the brackets line up with the finger on screen.
+            // so the hologram and outline line up with the finger on screen.
             GeometryReader { geometry in
                 ZStack {
                     Color.black.opacity(0.25)
+                    HologramGuide(state: state, fit: fit, nailOnRight: nailOnRight, direction: direction,
+                                  frameSize: hand?.imageSize ?? outline?.imageSize ?? CGSize(width: 1080, height: 1920))
                     if let outline {
                         let mapping = PreviewMapping(imageSize: outline.imageSize, viewSize: geometry.size)
                         LiveFingerOutline(points: outline.points.map(mapping.toView),
                                           cuticle: outline.cuticle.map(mapping.toView),
                                           state: state)
-                            .transition(.opacity)
-                    } else {
-                        reticle(in: targetRect(viewSize: geometry.size))
                             .transition(.opacity)
                     }
                 }
@@ -50,19 +57,23 @@ struct CaptureGuideOverlay: View {
             .ignoresSafeArea()
 
             VStack {
-                if state != .aligned {
-                    // Below the hand picker and guide button.
-                    poseHint.padding(.top, 60)
-                }
                 Spacer()
                 VStack(spacing: 6) {
-                    Text(instructionText)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundColor(color == Theme.searching ? .white : color)
-                    Text(subText)
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundColor(.white.opacity(0.75))
-                        .multilineTextAlignment(.center)
+                    HStack(spacing: 8) {
+                        if let symbol = direction.flatMap(DirectionCue.init)?.symbol ?? (state == .aligned ? "checkmark.circle.fill" : nil) {
+                            Image(systemName: symbol)
+                                .font(.system(size: 16, weight: .bold))
+                        }
+                        Text(instructionText)
+                            .font(.system(size: 18, weight: .semibold))
+                    }
+                    .foregroundColor(color == Theme.searching ? .white : color)
+                    if let hint, state == .searching {
+                        Text(hint)
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(.white.opacity(0.75))
+                            .multilineTextAlignment(.center)
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
@@ -79,80 +90,13 @@ struct CaptureGuideOverlay: View {
         }
     }
 
-    private func reticle(in rect: CGRect) -> some View {
-        let aligned = state == .aligned
-        return ZStack(alignment: .topTrailing) {
-            CornerBrackets(armLength: min(30, rect.width * 0.28))
-                .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
-                .shadow(color: color.opacity(0.7), radius: 8)
-            if aligned {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 26))
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, Theme.aligned)
-                    .offset(x: 13, y: -13)
-                    .transition(.scale.combined(with: .opacity))
-            }
+    /// Nail side for the hologram: away from the thumb once hand pose sees
+    /// it, otherwise the usual side for the chosen hand (right index held
+    /// up in front of the back camera, palm to the left: nail on the right).
+    private var nailOnRight: Bool {
+        if let hand, let side = hand.isOnNailSide(CGPoint(x: hand.indexTip.point.x + 100, y: hand.indexTip.point.y)) {
+            return side
         }
-        .frame(width: rect.width, height: rect.height)
-        .scaleEffect(aligned ? 0.92 : 1)
-        .phaseAnimator([1.0, 0.45]) { content, phase in
-            content.opacity(state == .searching ? phase : 1)
-        } animation: { _ in .easeInOut(duration: 1.1) }
-        .position(x: rect.midX, y: rect.midY)
-        .animation(.easeOut(duration: 0.25), value: rect)
-        .animation(.spring(response: 0.35, dampingFraction: 0.6), value: aligned)
-    }
-
-    /// Box around the fingertip's end segment (tip to DIP joint, extended a
-    /// little past the tip since the tip joint sits inside the pad), mapped
-    /// with the preview's aspect-fill scaling. A centered target when no
-    /// hand is found.
-    private func targetRect(viewSize: CGSize) -> CGRect {
-        guard let hand else {
-            let size = CGSize(width: 150, height: 220)
-            return CGRect(x: (viewSize.width - size.width) / 2, y: viewSize.height * 0.4 - size.height / 2,
-                          width: size.width, height: size.height)
-        }
-        let mapping = PreviewMapping(imageSize: hand.imageSize, viewSize: viewSize)
-        let tip = mapping.toView(hand.indexTip.point), dip = mapping.toView(hand.indexDIP.point)
-        let length = max(hypot(tip.x - dip.x, tip.y - dip.y), 40)
-        let top = min(tip.y, dip.y) - length * 0.45
-        let bottom = max(tip.y, dip.y) + length * 0.3
-        let width = max(length * 1.15, 90)
-        return CGRect(x: (tip.x + dip.x) / 2 - width / 2, y: top, width: width, height: bottom - top)
-    }
-
-    private var poseHint: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "hand.point.up.left.fill")
-                .font(.system(size: 15))
-            Text("Side view: nail edge facing left or right")
-                .font(.system(size: 13, weight: .medium))
-        }
-        .foregroundColor(.white)
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: Capsule())
-        .transition(.opacity)
-    }
-}
-
-/// Four L-shaped corners of a rectangle.
-private struct CornerBrackets: Shape {
-    let armLength: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        let a = min(armLength, rect.width / 2, rect.height / 2)
-        var path = Path()
-        for (corner, dx, dy) in [(CGPoint(x: rect.minX, y: rect.minY), 1.0, 1.0),
-                                 (CGPoint(x: rect.maxX, y: rect.minY), -1.0, 1.0),
-                                 (CGPoint(x: rect.minX, y: rect.maxY), 1.0, -1.0),
-                                 (CGPoint(x: rect.maxX, y: rect.maxY), -1.0, -1.0)] {
-            path.move(to: CGPoint(x: corner.x + a * dx, y: corner.y))
-            path.addLine(to: corner)
-            path.addLine(to: CGPoint(x: corner.x, y: corner.y + a * dy))
-        }
-        return path
+        return measuredHand == .right
     }
 }

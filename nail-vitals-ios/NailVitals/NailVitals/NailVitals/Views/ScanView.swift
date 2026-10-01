@@ -21,6 +21,8 @@ struct ScanView: View {
     @State private var sessionReadings: [FingerSigns] = []
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
     @State private var showGuide = false
+    @AppStorage("voiceGuidance") private var voiceOn = true
+    @State private var voice = VoiceCoach()
     // Study tagging (testing builds): the selected person and skin tone.
     @AppStorage(StudyRoster.currentKey) private var participant = "P1"
     @AppStorage(StudyRoster.listKey) private var participantsJSON = ""
@@ -47,9 +49,12 @@ struct ScanView: View {
             CaptureGuideOverlay(
                 state: camera.captureState,
                 instructionText: instructionText,
-                subText: subText,
                 hand: camera.handLandmarks,
-                outline: camera.liveOutline
+                outline: camera.liveOutline,
+                fit: camera.fit,
+                direction: camera.currentDirections.first,
+                measuredHand: hand,
+                hint: "Hold your index finger up, side on, in the glowing finger"
             )
 
             VStack {
@@ -93,7 +98,28 @@ struct ScanView: View {
             }
         }
         .onAppear { camera.checkPermissionAndStart() }
-        .onDisappear { camera.stop() }
+        .onDisappear {
+            camera.stop()
+            voice.stop()
+        }
+        // Spoken cues while framing (not while a photo is being measured).
+        .onChange(of: camera.currentDirections) { _, directions in
+            guard voiceOn, camera.capturedPixelBuffer == nil else { return }
+            voice.update(directions.first)
+        }
+        // Light ticks as the finger fills the glove.
+        .onChange(of: camera.fit) { old, new in
+            if [0.4, 0.6].contains(where: { old < $0 && new >= $0 }) {
+                UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+        }
+        // The photo is taken: a success buzz and "Got it".
+        .onChange(of: camera.capturedPixelBuffer != nil) { _, captured in
+            guard captured else { return }
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            if voiceOn { voice.speak("Got it.") }
+        }
+        .onChange(of: voiceOn) { _, on in if !on { voice.stop() } }
         // Readings of the two hands differ, so switching starts a new session.
         .onChange(of: hand) { _, _ in sessionReadings = [] }
         .sheet(isPresented: $showGuide) { PoseGuideView() }
@@ -159,6 +185,9 @@ struct ScanView: View {
                     } label: {
                         Label(camera.torchOn ? "Light off" : "Light on", systemImage: camera.torchOn ? "flashlight.off.fill" : "flashlight.on.fill")
                     }
+                }
+                Toggle(isOn: $voiceOn) {
+                    Label("Voice guidance", systemImage: voiceOn ? "speaker.wave.2.fill" : "speaker.slash.fill")
                 }
                 Button { showGuide = true } label: {
                     Label("How to hold your finger", systemImage: "questionmark.circle")
@@ -257,26 +286,19 @@ struct ScanView: View {
 
     private var instructionText: String {
         guard let first = camera.currentDirections.first else {
-            return "Align your finger with the outline"
+            return "Fit your finger into the glow"
         }
         switch first {
-        case .noFingerDetected: return "Point your index finger up"
+        case .noFingerDetected: return "Fit your finger into the glow"
         case .moveCloser: return "Move closer"
-        case .moveBack: return "Move back a little"
+        case .moveBack: return "Move back"
         case .moveLeft: return "Move left"
         case .moveRight: return "Move right"
-        case .straighten: return "Straighten your finger and point it up"
-        case .turnToSide: return "Turn your hand so the nail faces sideways"
-        case .moveHandDown: return "Move your hand down slightly"
-        case .looksGood: return "Perfect, hold still"
-        }
-    }
-
-    private var subText: String {
-        switch camera.captureState {
-        case .searching: return "Turn your hand so the camera sees the side of your finger"
-        case .adjusting: return "Turn until the nail looks like a thin edge, not a flat surface"
-        case .aligned: return autoCaptureEnabled ? "Hold still, the photo takes itself" : "Hold still and tap the button"
+        case .straighten: return "Straighten your finger"
+        case .turnToSide: return "Turn your hand sideways"
+        case .moveHandDown: return "Move your hand down"
+        case .moveUp: return "Move your hand up"
+        case .looksGood: return autoCaptureEnabled ? "Perfect, hold still" : "Perfect, tap the button"
         }
     }
 
