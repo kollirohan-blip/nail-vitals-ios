@@ -3,9 +3,9 @@
 //  NailVitals
 //
 //  Short spoken cues while framing, so nobody has to read the screen with
-//  a finger held up: "Move closer", "Turn your hand sideways", "Hold
+//  a finger held up: "Move closer", "Turn your finger fully sideways", "Hold
 //  still", "Got it". Speaks only when the advice changes, at most one cue
-//  every 2.5 seconds (the "find the glove" reminder every 6), and can be
+//  every 2.5 seconds (the "hold your finger up" reminder every 6), and can be
 //  muted from the camera screen's menu.
 //
 
@@ -57,7 +57,7 @@ final class VoiceCoach {
 
     static func phrase(for direction: GuidanceDirection) -> String? {
         switch direction {
-        case .noFingerDetected: return "Hold your index finger up, inside the glowing finger."
+        case .noFingerDetected: return "Hold your index finger up, side on, inside the frame."
         case .moveCloser: return "Move closer."
         case .moveBack: return "Move back."
         case .moveLeft: return "Move left."
@@ -65,7 +65,7 @@ final class VoiceCoach {
         case .moveUp: return "Move up."
         case .moveHandDown: return "Move down."
         case .straighten: return "Straighten your finger."
-        case .turnToSide: return "Turn your hand sideways."
+        case .turnToSide: return "Turn your finger fully sideways."
         case .looksGood: return "Hold still."
         }
     }

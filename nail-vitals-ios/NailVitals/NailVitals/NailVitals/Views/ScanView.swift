@@ -23,6 +23,7 @@ struct ScanView: View {
     @State private var showGuide = false
     @AppStorage("voiceGuidance") private var voiceOn = true
     @State private var voice = VoiceCoach()
+    @State private var haptics = Haptics()
     // Study tagging (testing builds): the selected person and skin tone.
     @AppStorage(StudyRoster.currentKey) private var participant = "P1"
     @AppStorage(StudyRoster.listKey) private var participantsJSON = ""
@@ -52,9 +53,7 @@ struct ScanView: View {
                 hand: camera.handLandmarks,
                 outline: camera.liveOutline,
                 fit: camera.fit,
-                direction: camera.currentDirections.first,
-                measuredHand: hand,
-                hint: "Hold your index finger up, side on, in the glowing finger"
+                direction: camera.currentDirections.first
             )
 
             VStack {
@@ -97,7 +96,10 @@ struct ScanView: View {
                 .padding(.bottom, 100)
             }
         }
-        .onAppear { camera.checkPermissionAndStart() }
+        .onAppear {
+            camera.checkPermissionAndStart()
+            haptics.prepare()
+        }
         .onDisappear {
             camera.stop()
             voice.stop()
@@ -107,16 +109,22 @@ struct ScanView: View {
             guard voiceOn, camera.capturedPixelBuffer == nil else { return }
             voice.update(directions.first)
         }
-        // Light ticks as the finger fills the glove.
+        // Light ticks as the finger fills the target. None once a photo
+        // is under way: a buzz during the exposure can blur it.
         .onChange(of: camera.fit) { old, new in
-            if [0.4, 0.6].contains(where: { old < $0 && new >= $0 }) {
-                UIImpactFeedbackGenerator(style: .light).impactOccurred()
-            }
+            guard !camera.captureInFlight else { return }
+            haptics.fitChanged(from: old, to: new)
         }
-        // The photo is taken: a success buzz and "Got it".
+        // Locked on: a success buzz as the glove turns green. The automatic
+        // photo comes about 0.75 s later, after the buzz has finished.
+        .onChange(of: camera.captureState) { _, state in
+            guard state == .aligned, !camera.captureInFlight else { return }
+            haptics.locked()
+        }
+        // The photo has been delivered: a thump and "Got it".
         .onChange(of: camera.capturedPixelBuffer != nil) { _, captured in
             guard captured else { return }
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
+            haptics.shutter()
             if voiceOn { voice.speak("Got it.") }
         }
         .onChange(of: voiceOn) { _, on in if !on { voice.stop() } }
@@ -286,16 +294,16 @@ struct ScanView: View {
 
     private var instructionText: String {
         guard let first = camera.currentDirections.first else {
-            return "Fit your finger into the glow"
+            return "Hold your index finger up here"
         }
         switch first {
-        case .noFingerDetected: return "Fit your finger into the glow"
+        case .noFingerDetected: return "Hold your index finger up here"
         case .moveCloser: return "Move closer"
         case .moveBack: return "Move back"
         case .moveLeft: return "Move left"
         case .moveRight: return "Move right"
         case .straighten: return "Straighten your finger"
-        case .turnToSide: return "Turn your hand sideways"
+        case .turnToSide: return "Turn your finger fully sideways"
         case .moveHandDown: return "Move your hand down"
         case .moveUp: return "Move your hand up"
         case .looksGood: return autoCaptureEnabled ? "Perfect, hold still" : "Perfect, tap the button"

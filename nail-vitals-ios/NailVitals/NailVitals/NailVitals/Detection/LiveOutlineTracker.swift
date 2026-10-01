@@ -20,6 +20,12 @@ nonisolated struct FingerOutline: Equatable {
     let points: [CGPoint]
     /// Roughly where the cuticle will be measured, on the nail side.
     let cuticle: CGPoint?
+    /// The outline's fingertip (farthest point along the finger).
+    var tip: CGPoint? = nil
+    /// The nail-side edge at the DIP joint's level: where the knuckle
+    /// crease is. From geometry (hand pose + outline), so it never depends
+    /// on seeing the crease itself.
+    var crease: CGPoint? = nil
     let imageSize: CGSize
 }
 
@@ -57,7 +63,10 @@ nonisolated final class LiveOutlineTracker {
               let arc = fingerArc(contour, hand: hand) else { return (nil, visionHand) }
 
         let points = resample(smooth(arc), count: Self.pointCount)
-        return (FingerOutline(points: points, cuticle: expectedCuticle(on: points, hand: hand), imageSize: imageSize), hand)
+        return (FingerOutline(points: points, cuticle: expectedCuticle(on: points, hand: hand),
+                              tip: tipPoint(on: points, hand: hand),
+                              crease: nailSidePoint(on: points, hand: hand, fractionToDIP: 1.0),
+                              imageSize: imageSize), hand)
     }
 
     /// White where the label mask equals `label`, black elsewhere.
@@ -144,13 +153,28 @@ nonisolated final class LiveOutlineTracker {
     /// of the way from the fingertip to the DIP joint -- where the cuticle
     /// sat on real side-view captures. nil when the nail side is unknown.
     private func expectedCuticle(on points: [CGPoint], hand: HandLandmarks) -> CGPoint? {
+        nailSidePoint(on: points, hand: hand, fractionToDIP: 0.42)
+    }
+
+    /// The nail-side outline point `fractionToDIP` of the way from the
+    /// tip joint to the DIP joint. nil when the nail side is unknown.
+    private func nailSidePoint(on points: [CGPoint], hand: HandLandmarks, fractionToDIP: CGFloat) -> CGPoint? {
         let tip = hand.indexTip.point, dip = hand.indexDIP.point
         let length = hypot(dip.x - tip.x, dip.y - tip.y)
         guard length > 0 else { return nil }
         let axis = CGVector(dx: (dip.x - tip.x) / length, dy: (dip.y - tip.y) / length)
         func along(_ p: CGPoint) -> CGFloat { (p.x - tip.x) * axis.dx + (p.y - tip.y) * axis.dy }
-        let target = length * 0.42
+        let target = length * fractionToDIP
         return points.filter { hand.isOnNailSide($0) == true }
             .min { abs(along($0) - target) < abs(along($1) - target) }
+    }
+
+    /// The outline point farthest toward the fingertip.
+    private func tipPoint(on points: [CGPoint], hand: HandLandmarks) -> CGPoint? {
+        let tip = hand.indexTip.point, dip = hand.indexDIP.point
+        let length = hypot(dip.x - tip.x, dip.y - tip.y)
+        guard length > 0 else { return nil }
+        let axis = CGVector(dx: (tip.x - dip.x) / length, dy: (tip.y - dip.y) / length)
+        return points.max { ($0.x - dip.x) * axis.dx + ($0.y - dip.y) * axis.dy < ($1.x - dip.x) * axis.dx + ($1.y - dip.y) * axis.dy }
     }
 }

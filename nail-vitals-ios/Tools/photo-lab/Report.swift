@@ -184,7 +184,7 @@ enum Report {
         }
         let single = auto.map { ClubbingAssessment(readings: [FingerSigns(lovibond: $0.app[.lovibond], hyponychial: $0.app[.hyponychial], depthRatio: $0.app[.depthRatio])]).verdict.label }
         text += "\nSingle-photo results: " + Set(single).sorted().map { v in "\(v) \(single.filter { $0 == v }.count)" }.joined(separator: ", ") + "\n"
-        text += "Published healthy reference: hyponychial 178.9 (SD 4.7), Husarik 2002; depth ratio about 0.9, Myers & Farquhar 2001.\n"
+        text += "Published healthy reference: hyponychial 178.9 (SD 4.7), Husarik 2002; depth ratio cut-off 1.0 (healthy fingers stay below it), Myers & Farquhar 2001.\n"
 
         try? text.write(toFile: (dir as NSString).appendingPathComponent("report.txt"), atomically: true, encoding: .utf8)
         print(text)

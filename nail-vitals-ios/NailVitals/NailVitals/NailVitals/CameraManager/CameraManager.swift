@@ -45,7 +45,7 @@ final class CameraManager: NSObject, ObservableObject {
     static let exposureRange: ClosedRange<Float> = -2...1
     /// A capture has been started and not yet reset; stops the automatic
     /// capture and a button tap from both firing.
-    private var captureInFlight = false
+    @Published private(set) var captureInFlight = false
     /// Extra steady frames after "aligned" before the automatic capture
     /// (about 0.75 s at the processing rate).
     private let autoCaptureHoldFrames = 3
