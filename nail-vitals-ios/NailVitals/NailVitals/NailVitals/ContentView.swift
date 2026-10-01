@@ -137,6 +137,18 @@ struct ContentView: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.8))
             Spacer()
+            if camera.hasTorch {
+                Button { camera.setTorch(!camera.torchOn) } label: {
+                    Image(systemName: camera.torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundColor(camera.torchOn ? .black : .white)
+                        .frame(width: 36, height: 36)
+                        .background {
+                            if camera.torchOn { Circle().fill(Theme.adjusting) } else { Circle().fill(.ultraThinMaterial) }
+                        }
+                }
+                .accessibilityLabel(camera.torchOn ? "Turn light off" : "Turn light on")
+            }
             Button { showGuide = true } label: {
                 Image(systemName: "questionmark")
                     .font(.system(size: 15, weight: .bold))
@@ -203,7 +215,7 @@ struct ContentView: View {
         switch camera.captureState {
         case .searching: return "Turn your hand so the camera sees the side of your finger"
         case .adjusting: return "Turn until the nail looks like a thin edge, not a flat surface"
-        case .aligned: return "Hold still and tap the button"
+        case .aligned: return autoCaptureEnabled ? "Hold still, the photo takes itself" : "Hold still and tap the button"
         }
     }
 

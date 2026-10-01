@@ -35,6 +35,15 @@ final class CameraManager: NSObject, ObservableObject {
     // The captured photo (a full-resolution still, or a video frame if the
     // photo output isn't available). Setting it presents CaptureFlowView.
     @Published private(set) var capturedPixelBuffer: CVPixelBuffer?
+    /// The phone's flashlight, as soft even light on the finger.
+    @Published private(set) var torchOn = false
+    /// A capture has been started and not yet reset; stops the automatic
+    /// capture and a button tap from both firing.
+    private var captureInFlight = false
+    /// Extra steady frames after "aligned" before the automatic capture
+    /// (about 0.75 s at the processing rate).
+    private let autoCaptureHoldFrames = 3
+    private var videoDevice: AVCaptureDevice?
 
     // NEW: set by capturePhoto() (called from the main actor, on a UI
     // button tap) and read+cleared inside captureOutput. Dispatched
@@ -129,6 +138,8 @@ final class CameraManager: NSObject, ObservableObject {
                 return
             }
 
+            DispatchQueue.main.async { self.videoDevice = device }
+
             do {
                 let input = try AVCaptureDeviceInput(device: device)
                 if self.session.canAddInput(input) {
@@ -192,6 +203,8 @@ final class CameraManager: NSObject, ObservableObject {
     /// the NEXT video frame (captureRequested is only ever touched on
     /// frameProcessingQueue -- see the property comment above).
     func capturePhoto() {
+        guard !captureInFlight else { return }
+        captureInFlight = true
         sessionQueue.async { [weak self] in
             guard let self else { return }
             guard self.photoOutputReady else {
@@ -220,7 +233,31 @@ final class CameraManager: NSObject, ObservableObject {
     func resetCapture() {
         capturedPixelBuffer = nil
         capturedLandmarks = nil
+        captureInFlight = false
+        consecutiveAlignedCount = 0
     }
+
+    /// Turns the flashlight on at low brightness, or off. Low and steady
+    /// light evens out shadows on the finger without glare.
+    func setTorch(_ on: Bool) {
+        guard let device = videoDevice, device.hasTorch else { return }
+        torchOn = on
+        sessionQueue.async {
+            do {
+                try device.lockForConfiguration()
+                if on {
+                    try device.setTorchModeOn(level: 0.3)
+                } else {
+                    device.torchMode = .off
+                }
+                device.unlockForConfiguration()
+            } catch {
+                print("CameraManager: torch failed: \(error)")
+            }
+        }
+    }
+
+    var hasTorch: Bool { videoDevice?.hasTorch ?? false }
 
     /// Maps a GuidanceResult's directions to the simpler CaptureState
     /// enum the overlay UI already knows how to display.
@@ -305,7 +342,15 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             } else {
                 self.captureState = rawState
             }
-            self.alignedProgress = min(1, Double(self.consecutiveAlignedCount) / Double(self.requiredConsecutiveAligned))
+            // With automatic capture the ring keeps filling through the
+            // short hold after "aligned", then the photo is taken.
+            let holdFrames = autoCaptureEnabled ? self.autoCaptureHoldFrames : 0
+            let fullHold = self.requiredConsecutiveAligned + holdFrames
+            self.alignedProgress = min(1, Double(self.consecutiveAlignedCount) / Double(fullHold))
+            if autoCaptureEnabled, rawState == .aligned, self.consecutiveAlignedCount >= fullHold,
+               self.capturedPixelBuffer == nil {
+                self.capturePhoto()
+            }
         }
     }
 }
