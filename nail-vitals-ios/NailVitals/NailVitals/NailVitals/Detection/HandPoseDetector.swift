@@ -29,6 +29,9 @@ nonisolated struct HandLandmarks {
     var middleMCP: Joint? = nil
     var littleMCP: Joint? = nil
     let imageSize: CGSize
+    /// Found from the hand outline because hand pose missed the raised
+    /// finger (OutlineFingerFinder); the joint positions are estimates.
+    var fromOutline = false
 
     /// How far apart the index and little-finger knuckles look, relative to
     /// the index finger's length. Seen exactly from the side they line up

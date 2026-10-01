@@ -46,6 +46,11 @@ struct CaptureFlowView: View {
     @State private var silhouette: DetectedSilhouette?
     @State private var captureFolder: URL?
     @State private var manualNote: String?
+    /// The joints actually used: hand pose's, or ones found from the
+    /// outline when hand pose missed the raised finger.
+    @State private var resolvedLandmarks: HandLandmarks?
+
+    private var joints: HandLandmarks? { resolvedLandmarks ?? landmarks }
 
     private let segmenter = FingerMaskSegmenter()
     private let angleAnalyzer = AngleAnalyzer()
@@ -85,7 +90,7 @@ struct CaptureFlowView: View {
                     ManualAngleView(
                         image: image,
                         silhouette: silhouette,
-                        landmarks: landmarks,
+                        landmarks: joints,
                         suggestion: suggestion,
                         segmentLengthPixels: lovibondResult?.segmentLengthPixels,
                         note: manualNote,
@@ -147,7 +152,7 @@ struct CaptureFlowView: View {
     /// one when hand pose can tell which side that is. The full result is
     /// still what gets saved.
     private func nailSideOnly(_ result: LovibondResult) -> LovibondResult {
-        guard let hand = landmarks else { return result }
+        guard let hand = joints else { return result }
         let nailSide = result.candidates.filter { hand.isOnNailSide($0.inflectionPoint) == true }
         guard !nailSide.isEmpty else { return result }
         return LovibondResult(fingertip: result.fingertip, tipIndex: result.tipIndex, contourPoints: result.contourPoints,
@@ -186,7 +191,7 @@ struct CaptureFlowView: View {
     /// depth ratio need the finger outline and the tip and DIP joints.
     private func measureSigns(at confirmed: LovibondCandidate) -> FingerSigns {
         let lovibond = AngleAnalyzer.plausibleRange.contains(confirmed.angleDegrees) ? confirmed.angleDegrees : nil
-        guard let silhouette, let hand = landmarks else {
+        guard let silhouette, let hand = joints else {
             return FingerSigns(lovibond: lovibond, cuticle: confirmed.inflectionPoint)
         }
         return FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: hand.indexTip.point,
@@ -198,9 +203,7 @@ struct CaptureFlowView: View {
         // Off the main thread -- real Vision + geometry work, even
         // though it's a one-shot (not per-frame) operation, shouldn't
         // block the UI while it runs.
-        let dip = landmarks?.indexDIP.point
-        let tip = landmarks?.indexTip.point
-        let hand = landmarks
+        let visionHand = landmarks
         let measuredHand = self.hand
         DispatchQueue.global(qos: .userInitiated).async {
             // Made first so manual measurement stays available even when
@@ -208,11 +211,12 @@ struct CaptureFlowView: View {
             let image = makeDisplayImage(from: pixelBuffer)
             // Show the photo under the scanning animation while measuring.
             DispatchQueue.main.async { displayImage = image }
+            var hand = visionHand
             func save(_ result: LovibondResult?, failure: String?) -> URL? {
                 image.flatMap { CaptureRecorder.saveAnalysis(image: $0, landmarks: hand, measuredHand: measuredHand, result: result, failure: failure) }
             }
 
-            guard let silhouette = segmenter.segment(pixelBuffer: pixelBuffer, fingertipHint: dip) else {
+            guard let silhouette = segmenter.segment(pixelBuffer: pixelBuffer, fingertipHint: visionHand?.indexDIP.point) else {
                 let folder = save(nil, failure: "no outline")
                 DispatchQueue.main.async {
                     displayImage = image
@@ -222,7 +226,13 @@ struct CaptureFlowView: View {
                 return
             }
 
-            guard let result = angleAnalyzer.analyze(silhouette, dipHint: dip, tipHint: tip) else {
+            // Hand pose can miss the raised finger (rings, an OK-sign hand);
+            // then the finger is found from the outline instead.
+            hand = OutlineFingerFinder.resolve(visionHand, contour: silhouette.contourPoints, imageSize: silhouette.imageSize)
+            let resolved = hand
+            DispatchQueue.main.async { self.resolvedLandmarks = resolved }
+
+            guard let result = angleAnalyzer.analyze(silhouette, dipHint: hand?.indexDIP.point, tipHint: hand?.indexTip.point) else {
                 let folder = save(nil, failure: "no angle")
                 DispatchQueue.main.async {
                     displayImage = image
@@ -240,7 +250,7 @@ struct CaptureFlowView: View {
                 self.silhouette = silhouette
                 self.lovibondResult = result
                 if foundNoCuticleDip(result) {
-                    self.manualNote = "Couldn't find the nail-fold angle automatically, so please place the points yourself."
+                    self.manualNote = "No cuticle dip found. That happens when the finger is turned toward the camera, and with clubbing. If you can see the flat of the nail in this photo, tap Retake and turn the nail to face sideways. Otherwise, place the points yourself."
                     self.stage = .manual(nil)
                 } else {
                     self.stage = .confirming

@@ -43,6 +43,9 @@ nonisolated struct CaptureRecord: Codable {
     let thumbTip: CaptureJoint?
     /// "right" or "left" index finger, as chosen on the camera screen.
     let measuredHand: String?
+    /// True when hand pose missed the raised finger and the joints were
+    /// estimated from the outline.
+    let jointsFromOutline: Bool?
     let automaticMarkers: [CaptureMarker]
     let failure: String?
 }
@@ -98,6 +101,7 @@ nonisolated enum CaptureRecorder {
             indexPIP: joint(landmarks?.indexPIP), indexMCP: joint(landmarks?.indexMCP),
             thumbTip: joint(landmarks?.thumbTip),
             measuredHand: measuredHand?.rawValue,
+            jointsFromOutline: landmarks?.fromOutline,
             automaticMarkers: result?.candidates.map(marker) ?? [],
             failure: failure
         )

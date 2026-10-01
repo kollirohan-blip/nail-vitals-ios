@@ -28,7 +28,10 @@ nonisolated final class LiveOutlineTracker {
 
     private(set) nonisolated(unsafe) var lastDurationMs: Double = 0
 
-    func outline(in pixelBuffer: CVPixelBuffer, hand: HandLandmarks) -> FingerOutline? {
+    /// The outline of the raised finger, and the joints it belongs to:
+    /// hand pose's, or -- when hand pose missed the raised finger or found
+    /// no hand -- joints found from the outline (OutlineFingerFinder).
+    func outline(in pixelBuffer: CVPixelBuffer, hand visionHand: HandLandmarks?) -> (outline: FingerOutline?, hand: HandLandmarks?) {
         let start = CFAbsoluteTimeGetCurrent()
         defer { lastDurationMs = (CFAbsoluteTimeGetCurrent() - start) * 1000 }
 
@@ -37,18 +40,24 @@ nonisolated final class LiveOutlineTracker {
         do {
             try VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:]).perform([request])
         } catch {
-            return nil
+            return (nil, visionHand)
         }
+        // The hand's subject: where hand pose saw a finger or thumb, else
+        // whatever is in the middle of the frame.
+        let hints = [visionHand?.indexDIP.point, visionHand?.thumbTip?.point, CGPoint(x: imageSize.width / 2, y: imageSize.height / 2)]
         guard let observation = request.results?.first,
-              let label = MaskGeometry.instanceLabel(in: observation.instanceMask, at: hand.indexDIP.point, imageSize: imageSize),
-              let mask = binaryMask(observation.instanceMask, keeping: label) else { return nil }
+              let (label, hint) = hints.lazy.compactMap({ hint in
+                  hint.flatMap { h in MaskGeometry.instanceLabel(in: observation.instanceMask, at: h, imageSize: imageSize).map { ($0, h) } }
+              }).first,
+              let mask = binaryMask(observation.instanceMask, keeping: label) else { return (nil, visionHand) }
 
         let contours = MaskGeometry.contours(of: mask, maximumDimension: max(mask.width, mask.height), imageSize: imageSize)
-        guard let contour = MaskGeometry.pickContour(contours, containing: hand.indexDIP.point),
-              let arc = fingerArc(contour, hand: hand) else { return nil }
+        guard let contour = MaskGeometry.pickContour(contours, containing: hint),
+              let hand = OutlineFingerFinder.resolve(visionHand, contour: contour, imageSize: imageSize),
+              let arc = fingerArc(contour, hand: hand) else { return (nil, visionHand) }
 
         let points = resample(smooth(arc), count: Self.pointCount)
-        return FingerOutline(points: points, cuticle: expectedCuticle(on: points, hand: hand), imageSize: imageSize)
+        return (FingerOutline(points: points, cuticle: expectedCuticle(on: points, hand: hand), imageSize: imageSize), hand)
     }
 
     /// White where the label mask equals `label`, black elsewhere.

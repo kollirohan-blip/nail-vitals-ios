@@ -65,6 +65,10 @@ final class CameraManager: NSObject, ObservableObject {
     private let outlineTracker = LiveOutlineTracker()
     private nonisolated(unsafe) var outlineBusy = false
     private nonisolated(unsafe) var outlineFrameCount = 0
+    /// Joints found from the outline when hand pose missed the raised
+    /// finger, and when; used for coaching until hand pose finds it again.
+    /// Only touched on frameProcessingQueue.
+    private nonisolated(unsafe) var outlineJoints: (hand: HandLandmarks, at: Date)?
 
     // Throttling: running full detection on every frame (30-60fps)
     // would be wasteful and likely too slow for this pipeline (it
@@ -255,9 +259,10 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
 
-        let landmarks = handPoseDetector.detect(in: pixelBuffer)
+        let visionLandmarks = handPoseDetector.detect(in: pixelBuffer)
         let poseMs = handPoseDetector.lastDurationMs
-        updateLiveOutline(pixelBuffer: pixelBuffer, landmarks: landmarks)
+        updateLiveOutline(pixelBuffer: pixelBuffer, landmarks: visionLandmarks)
+        let landmarks = jointsForCoaching(vision: visionLandmarks, now: now)
 
         // NEW: if the user tapped capture since the last frame, save
         // THIS frame as the captured photo. Checked/cleared here on
@@ -306,23 +311,37 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 }
 
 extension CameraManager {
-    /// Called on frameProcessingQueue for each processed frame.
+    /// Called on frameProcessingQueue for each processed frame. Also runs
+    /// when hand pose found nothing, so the outline can find the finger.
     nonisolated func updateLiveOutline(pixelBuffer: CVPixelBuffer, landmarks: HandLandmarks?) {
         outlineFrameCount += 1
-        guard liveOutlineEnabled else { return }
-        guard let landmarks else {
-            DispatchQueue.main.async { [weak self] in self?.publishOutline(nil, ms: nil) }
-            return
-        }
         guard !outlineBusy, outlineFrameCount % 2 == 0 else { return }
         outlineBusy = true
         outlineQueue.async { [weak self] in
             guard let self else { return }
-            let outline = self.outlineTracker.outline(in: pixelBuffer, hand: landmarks)
+            let (outline, hand) = self.outlineTracker.outline(in: pixelBuffer, hand: landmarks)
             let ms = self.outlineTracker.lastDurationMs
-            self.frameProcessingQueue.async { self.outlineBusy = false }
-            DispatchQueue.main.async { self.publishOutline(outline, ms: ms) }
+            self.frameProcessingQueue.async {
+                self.outlineBusy = false
+                if let hand, hand.fromOutline {
+                    self.outlineJoints = (hand, Date())
+                } else if hand != nil {
+                    self.outlineJoints = nil  // hand pose has the right finger again
+                }
+            }
+            DispatchQueue.main.async { self.publishOutline(liveOutlineEnabled ? outline : nil, ms: ms) }
         }
+    }
+
+    /// Hand pose's joints, unless the outline recently showed that hand
+    /// pose is missing the raised finger (no hand, low confidence, or its
+    /// "index" is a curled finger): then the outline's joints.
+    nonisolated func jointsForCoaching(vision: HandLandmarks?, now: Date) -> HandLandmarks? {
+        guard let (outlineHand, at) = outlineJoints, now.timeIntervalSince(at) < 0.8 else { return vision }
+        guard let vision, vision.minIndexConfidence >= 0.3 else { return outlineHand }
+        let tipGap = hypot(vision.indexTip.point.x - outlineHand.indexTip.point.x, vision.indexTip.point.y - outlineHand.indexTip.point.y)
+        let length = hypot(outlineHand.indexTip.point.x - outlineHand.indexMCP.point.x, outlineHand.indexTip.point.y - outlineHand.indexMCP.point.y)
+        return tipGap > length * 0.3 ? outlineHand : vision
     }
 
     /// Keeps the last outline briefly through a missed update, so it

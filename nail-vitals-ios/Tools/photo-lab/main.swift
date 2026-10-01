@@ -1,6 +1,6 @@
 // Runs the app's real measurement pipeline (hand pose -> subject-mask outline
 // -> AngleAnalyzer) on photos from disk, on the Mac. From this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment}.swift main.swift -o photo-lab
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder}.swift main.swift -o photo-lab
 //   ./photo-lab photo.jpg [more.jpg ...] [--out folder] [--truth x,y]
 // --truth is the real cuticle in image pixels (e.g. from a saved capture's
 // manual dot 2); the report then includes how far the automatic marker missed.
@@ -139,11 +139,15 @@ for path in args {
         confirmedAngle = folder.confirmedAngle
     }
     guard let image = loadUpright(imagePath), let buffer = pixelBuffer(from: image) else { print("\(name): could not load"); continue }
-    let hand = HandPoseDetector().detect(in: buffer)
+    let visionHand = HandPoseDetector().detect(in: buffer)
+    let segmenter = FingerMaskSegmenter()
+    let silhouette = segmenter.segment(pixelBuffer: buffer, fingertipHint: manualDIP ?? visionHand?.indexDIP.point)
+    // Same as the app: hand pose's index finger if it is the raised finger
+    // in the outline, otherwise the finger found from the outline.
+    let hand = OutlineFingerFinder.resolve(visionHand, contour: silhouette?.contourPoints,
+                                           imageSize: CGSize(width: image.width, height: image.height))
     let tipPoint = manualTip ?? hand?.indexTip.point
     let dipPoint = manualDIP ?? hand?.indexDIP.point
-    let segmenter = FingerMaskSegmenter()
-    let silhouette = segmenter.segment(pixelBuffer: buffer, fingertipHint: dipPoint)
     let result = silhouette.flatMap { AngleAnalyzer().analyze($0, dipHint: dipPoint, tipHint: tipPoint) }
 
     print("== \(name)  \(image.width)x\(image.height)")
@@ -156,6 +160,21 @@ for path in args {
                      hand.knuckleSpread ?? .nan, hand.littleMCP?.confidence ?? 0))
     } else { print("  hand: none") }
     if manualTip != nil || manualDIP != nil { print("  using hand-placed tip/DIP") }
+    if let contour = silhouette?.contourPoints, let f = OutlineFingerFinder.raisedFinger(in: contour), let v = visionHand {
+        print(String(format: "  outline finger: apex (%.0f,%.0f) base (%.0f,%.0f) width %.0f | hand pose tip (%.0f,%.0f) dip (%.0f,%.0f)",
+                     f.apex.x, f.apex.y, f.base.x, f.base.y, f.width, v.indexTip.point.x, v.indexTip.point.y, v.indexDIP.point.x, v.indexDIP.point.y))
+    }
+    if hand?.fromOutline == true {
+        print(String(format: "  hand pose missed the raised finger (index conf %.2f): joints from the outline%@",
+                     visionHand?.minIndexConfidence ?? 0, hand?.thumbTip == nil ? ", no thumb (nail side unknown)" : ""))
+    }
+    // Calibration: where hand pose's joints sit along the outline's finger.
+    if let v = visionHand, !(hand?.fromOutline ?? true), let contour = silhouette?.contourPoints,
+       let f = OutlineFingerFinder.raisedFinger(in: contour) {
+        func frac(_ p: CGPoint) -> CGFloat { ((f.apex.x - p.x) * f.axis.dx + (f.apex.y - p.y) * f.axis.dy) / f.length }
+        print(String(format: "  calib: finger %.0f px long, %.0f wide; joints at tip %.2f dip %.2f pip %.2f mcp %.2f",
+                     f.length, f.width, frac(v.indexTip.point), frac(v.indexDIP.point), frac(v.indexPIP.point), frac(v.indexMCP.point)))
+    }
     let d = segmenter.lastDiagnostics
     print("  mask: instances \(d.instanceCount)  outline points \(d.contourPointCount)  \(Int(d.maskMs + d.contourMs)) ms  \(silhouette == nil ? "NO OUTLINE" : "")")
     if let result, let dip = dipPoint {
