@@ -46,6 +46,10 @@ nonisolated struct CaptureRecord: Codable {
     /// True when hand pose missed the raised finger and the joints were
     /// estimated from the outline.
     let jointsFromOutline: Bool?
+    /// Study participant code (e.g. "P3") and optional rough skin-tone
+    /// group, set on the camera screen's Study panel; no names.
+    let participant: String?
+    let skinTone: String?
     let automaticMarkers: [CaptureMarker]
     let failure: String?
 }
@@ -89,6 +93,7 @@ nonisolated enum CaptureRecorder {
     /// Writes the photo and analysis; returns the capture's folder so a later
     /// confirmation can be added to it.
     static func saveAnalysis(image: UIImage, landmarks: HandLandmarks?, measuredHand: MeasuredHand?,
+                             participant: String? = nil, skinTone: String? = nil,
                              result: LovibondResult?, failure: String?) -> URL? {
         guard saveCapturesForTesting else { return nil }
         func joint(_ j: HandLandmarks.Joint?) -> CaptureJoint? {
@@ -102,6 +107,8 @@ nonisolated enum CaptureRecorder {
             thumbTip: joint(landmarks?.thumbTip),
             measuredHand: measuredHand?.rawValue,
             jointsFromOutline: landmarks?.fromOutline,
+            participant: participant,
+            skinTone: skinTone,
             automaticMarkers: result?.candidates.map(marker) ?? [],
             failure: failure
         )

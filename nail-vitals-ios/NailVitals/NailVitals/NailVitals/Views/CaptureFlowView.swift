@@ -23,6 +23,9 @@ struct CaptureFlowView: View {
     let landmarks: HandLandmarks?
     /// Which index finger this is; saved with the capture.
     var hand: MeasuredHand = .right
+    /// Study participant code and skin-tone group, saved with the capture.
+    var participant: String?
+    var skinTone: String?
     /// Called when the user is done with this flow (confirmed a
     /// result, or backed out) -- lets ContentView dismiss and reset
     /// CameraManager.capturedPixelBuffer to nil so a new capture can
@@ -205,6 +208,7 @@ struct CaptureFlowView: View {
         // block the UI while it runs.
         let visionHand = landmarks
         let measuredHand = self.hand
+        let participant = self.participant, skinTone = self.skinTone
         DispatchQueue.global(qos: .userInitiated).async {
             // Made first so manual measurement stays available even when
             // automatic detection fails.
@@ -213,7 +217,9 @@ struct CaptureFlowView: View {
             DispatchQueue.main.async { displayImage = image }
             var hand = visionHand
             func save(_ result: LovibondResult?, failure: String?) -> URL? {
-                image.flatMap { CaptureRecorder.saveAnalysis(image: $0, landmarks: hand, measuredHand: measuredHand, result: result, failure: failure) }
+                image.flatMap { CaptureRecorder.saveAnalysis(image: $0, landmarks: hand, measuredHand: measuredHand,
+                                                             participant: participant, skinTone: skinTone,
+                                                             result: result, failure: failure) }
             }
 
             guard let silhouette = segmenter.segment(pixelBuffer: pixelBuffer, fingertipHint: visionHand?.indexDIP.point) else {

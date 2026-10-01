@@ -12,6 +12,10 @@ struct ContentView: View {
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
     @AppStorage("hasSeenPoseGuide") private var hasSeenPoseGuide = false
     @State private var showGuide = false
+    // Study bookkeeping (testing builds only): who is being measured.
+    @AppStorage(StudyPanelView.participantKey) private var participant = "P1"
+    @AppStorage(StudyPanelView.skinToneKey) private var skinTone = ""
+    @State private var showStudy = false
 
     var body: some View {
         ZStack {
@@ -87,6 +91,11 @@ struct ContentView: View {
         .sheet(isPresented: $showGuide, onDismiss: { hasSeenPoseGuide = true }) {
             PoseGuideView()
         }
+        .sheet(isPresented: $showStudy) {
+            StudyPanelView()
+        }
+        // A new person starts a new session.
+        .onChange(of: participant) { _, _ in sessionReadings = [] }
         .onDisappear {
             camera.stop()
         }
@@ -108,6 +117,8 @@ struct ContentView: View {
                     pixelBuffer: buffer,
                     landmarks: camera.capturedLandmarks,
                     hand: hand,
+                    participant: saveCapturesForTesting ? participant : nil,
+                    skinTone: saveCapturesForTesting && !skinTone.isEmpty ? skinTone : nil,
                     onDismiss: { camera.resetCapture() },
                     previousReadings: sessionReadings,
                     onReading: { sessionReadings.append($0) },
@@ -178,6 +189,18 @@ struct ContentView: View {
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.8))
             Spacer()
+            if saveCapturesForTesting {
+                Button { showStudy = true } label: {
+                    Text(participant)
+                        .font(.system(size: 13, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .frame(height: 36)
+                        .background(.ultraThinMaterial, in: Capsule())
+                }
+                .accessibilityLabel("Study participant \(participant)")
+            }
             if camera.hasTorch {
                 Button { withAnimation(.easeInOut(duration: 0.2)) { camera.setTorch(!camera.torchOn) } } label: {
                     Image(systemName: camera.torchOn ? "flashlight.on.fill" : "flashlight.off.fill")

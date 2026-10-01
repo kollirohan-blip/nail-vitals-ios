@@ -1,5 +1,5 @@
 // Synthetic-finger regression test for AngleAnalyzer. Run from this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,FingerSigns,ClubbingAssessment}.swift main.swift -o angle-harness && ./angle-harness
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,FingerSigns,ClubbingAssessment,HumanLabel}.swift main.swift -o angle-harness && ./angle-harness
 import CoreGraphics
 import Foundation
 
@@ -318,3 +318,29 @@ for (name, readings, expected) in cases {
     print("\(got == expected ? "ok  " : "FAIL") \(name): \(got.label)")
 }
 print("combined-result failures: \(failures)")
+
+// MARK: - Human labels (HumanLabel): the same synthetic fingers, points placed exactly
+print("\nHUMAN LABEL MATH (points placed exactly on the synthetic finger, both nail sides)")
+var worstLabel = (h: 0.0, r: 0.0)
+for (hypo, ratio) in [(175.0, CGFloat(0.85)), (185.0, 0.95), (195.0, 1.1)] {
+    for mirror in [false, true] {
+        let flip = { (p: CGPoint) in mirror ? CGPoint(x: 2000 - p.x, y: p.y) : p }
+        // Rebuild the construction points of makeSignsFinger (scale 1).
+        let cx: CGFloat = 1000, dipY: CGFloat = 2000, half: CGFloat = 100, l: CGFloat = 300
+        let a = CGPoint(x: cx + half, y: dipY)
+        let b = CGPoint(x: cx - half + 2 * half * ratio, y: dipY - 0.62 * l)
+        let ab = CGVector(dx: b.x - a.x, dy: b.y - a.y)
+        let turn = atan2(ab.dy, ab.dx) - (hypo - 180) * .pi / 180
+        let c = CGPoint(x: b.x + 0.4 * l * cos(turn), y: b.y + 0.4 * l * sin(turn))
+        let label = HumanLabel(labeler: "test", points: [
+            .cuticle: flip(b), .freeEdge: flip(c), .crease: flip(a),
+            .nail: flip(CGPoint(x: (b.x + c.x) / 2, y: (b.y + c.y) / 2)), .skin: flip(CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)),
+            .cuticleAcross: flip(CGPoint(x: cx - half, y: b.y)), .creaseAcross: flip(CGPoint(x: cx - half, y: a.y)),
+        ])
+        worstLabel.h = max(worstLabel.h, abs((label.hyponychial ?? .nan) - hypo))
+        worstLabel.r = max(worstLabel.r, abs((label.depthRatio ?? .nan) - Double(ratio)))
+        print(String(format: "%@  hyponychial %.1f (true %.0f)  depth ratio %.3f (true %.2f)  profile %.1f", mirror ? "left " : "right",
+                     label.hyponychial ?? .nan, hypo, label.depthRatio ?? .nan, Double(ratio), label.profile ?? .nan))
+    }
+}
+print(String(format: "worst human-label math error: hyponychial %.2f deg, depth ratio %.4f", worstLabel.h, worstLabel.r))
