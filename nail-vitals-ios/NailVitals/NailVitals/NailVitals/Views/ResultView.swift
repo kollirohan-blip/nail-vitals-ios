@@ -176,7 +176,7 @@ struct ResultView: View {
 }
 
 /// One sign: its value, a status icon, and the published cut-off.
-private struct SignChip: View {
+struct SignChip: View {
     let kind: SignKind
     let value: Double?
     /// Shown instead of the number (e.g. "≥180°" for no cuticle dip).

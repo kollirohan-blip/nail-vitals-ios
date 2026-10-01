@@ -33,10 +33,14 @@ struct CaptureFlowView: View {
     let onDismiss: () -> Void
     /// Readings already confirmed this session (before this capture).
     var previousReadings: [FingerSigns] = []
+    /// Readings in a full session; the combined result shows after the last.
+    var targetReadings = 3
     /// Reports a confirmed, plausible reading so the session can keep it.
     var onReading: (FingerSigns) -> Void = { _ in }
-    /// Ends the session (clears its readings) and closes this flow.
+    /// Ends the session (saves its readings) and closes this flow.
     var onFinishSession: () -> Void = {}
+    /// Throws the session's readings away and goes back to the camera.
+    var onStartOver: () -> Void = {}
 
     @State private var stage: Stage = .analyzing
     @State private var sessionReadings: [FingerSigns] = []
@@ -66,6 +70,11 @@ struct CaptureFlowView: View {
         case confirming
         case manual(LovibondCandidate?)
         case result
+        /// A reading was saved and more are needed: a short "saved" screen,
+        /// then back to the camera.
+        case saved(Int)
+        /// The confirmed reading wasn't usable; it doesn't count.
+        case unusable
         case failed(String)
     }
 
@@ -117,9 +126,9 @@ struct CaptureFlowView: View {
                     }
                     .scrollBounceBehavior(.basedOnSize)
                     HStack(spacing: 12) {
-                        Button("Finish", action: onFinishSession)
+                        Button("Start over", action: onStartOver)
                             .buttonStyle(GhostButtonStyle())
-                        Button("Measure again", action: onDismiss)
+                        Button("Done", action: onFinishSession)
                             .buttonStyle(GlowButtonStyle(color: Theme.searching))
                     }
                     .padding(.vertical, 16)
@@ -127,6 +136,15 @@ struct CaptureFlowView: View {
                 .sheet(isPresented: $showAssistant) {
                     AskAssistantView(context: AssistantContext(readings: resultReadings, hand: hand))
                 }
+
+            case .saved(let count):
+                ReadingSavedView(count: count, target: targetReadings,
+                                 onContinue: onDismiss,
+                                 onShowResult: { withAnimation(.easeInOut(duration: 0.3)) { stage = .result } })
+
+            case .unusable:
+                ReadingSavedView(count: nil, target: targetReadings,
+                                 onContinue: onDismiss, onShowResult: nil)
 
             case .failed(let message):
                 VStack(spacing: 20) {
@@ -184,14 +202,17 @@ struct CaptureFlowView: View {
         let signs = measureSigns(at: confirmed)
         CaptureRecorder.saveConfirmation(in: captureFolder, confirmed: confirmed, manualDots: manualDots, signs: signs)
         sessionReadings = previousReadings
-        if SignKind.lovibond.value(in: signs) != nil {
-            sessionReadings.append(signs)
-            onReading(signs)
-            resultReadings = sessionReadings
-        } else {
-            resultReadings = [signs]
+        guard SignKind.lovibond.value(in: signs) != nil else {
+            // Not a usable reading: say so and go back for another.
+            withAnimation(.easeInOut(duration: 0.3)) { stage = .unusable }
+            return
         }
-        stage = .result
+        sessionReadings.append(signs)
+        onReading(signs)
+        resultReadings = sessionReadings
+        withAnimation(.easeInOut(duration: 0.3)) {
+            stage = sessionReadings.count >= targetReadings ? .result : .saved(sessionReadings.count)
+        }
     }
 
     /// All three signs at the confirmed cuticle. The hyponychial angle and
@@ -391,5 +412,78 @@ private struct MeasuringView: View {
             }
         }
         .animation(.easeIn(duration: 0.25), value: image == nil)
+    }
+}
+
+/// Between readings: a check mark, "Reading 1 of 3 saved", and back to the
+/// camera on its own after a moment (or right away with a tap). For an
+/// unusable reading (count nil): "That one didn't work" instead.
+private struct ReadingSavedView: View {
+    let count: Int?
+    let target: Int
+    let onContinue: () -> Void
+    let onShowResult: (() -> Void)?
+
+    @State private var appeared = false
+    @State private var ring: CGFloat = 0
+
+    var body: some View {
+        VStack(spacing: 22) {
+            ZStack {
+                Circle()
+                    .stroke(Color.white.opacity(0.12), lineWidth: 6)
+                Circle()
+                    .trim(from: 0, to: ring)
+                    .stroke(count == nil ? Theme.adjusting : Theme.aligned, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+                    .shadow(color: (count == nil ? Theme.adjusting : Theme.aligned).opacity(0.7), radius: 10)
+                Image(systemName: count == nil ? "arrow.counterclockwise" : "checkmark")
+                    .font(.system(size: 44, weight: .bold))
+                    .foregroundColor(count == nil ? Theme.adjusting : Theme.aligned)
+                    .scaleEffect(appeared ? 1 : 0.4)
+                    .opacity(appeared ? 1 : 0)
+            }
+            .frame(width: 120, height: 120)
+
+            VStack(spacing: 8) {
+                Text(count.map { "Reading \($0) of \(target) saved" } ?? "That one didn't work")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.white)
+                Text(count == nil
+                     ? "The measurement wasn't reliable. Let's take it again."
+                     : "Keep the same pose for the next one.")
+                    .font(.system(size: 16))
+                    .foregroundColor(.white.opacity(0.75))
+                    .multilineTextAlignment(.center)
+            }
+            .opacity(appeared ? 1 : 0)
+            .offset(y: appeared ? 0 : 10)
+
+            HStack(spacing: 6) {
+                ForEach(0..<target, id: \.self) { i in
+                    Capsule()
+                        .fill(i < (count ?? 0) ? Theme.aligned : Color.white.opacity(0.25))
+                        .frame(width: 26, height: 6)
+                }
+            }
+
+            VStack(spacing: 10) {
+                Button("Next reading", action: onContinue)
+                    .buttonStyle(GlowButtonStyle(color: Theme.searching))
+                if let onShowResult {
+                    Button("Show result now", action: onShowResult)
+                        .buttonStyle(GhostButtonStyle())
+                }
+            }
+            .padding(.top, 6)
+        }
+        .padding(24)
+        .task {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) { appeared = true }
+            withAnimation(.easeInOut(duration: 2.2)) { ring = 1 }
+            // Back to the camera on its own once the ring fills.
+            try? await Task.sleep(for: .milliseconds(2400))
+            if !Task.isCancelled { onContinue() }
+        }
     }
 }
