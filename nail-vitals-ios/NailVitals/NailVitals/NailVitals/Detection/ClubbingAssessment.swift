@@ -4,8 +4,10 @@
 //
 //  Turns the three side-view signs into one result, using the published
 //  cut-offs (Myers & Farquhar, "Does this patient have clubbing?", JAMA
-//  2001): profile (Lovibond) angle above 176 deg, hyponychial angle above
-//  192 deg, phalangeal depth ratio above 1.0.
+//  2001: "in individuals without clubbing, values for these indices do not
+//  exceed 176 degrees, 192 degrees, and 1.0"): profile (Lovibond) angle,
+//  hyponychial angle, phalangeal depth ratio. The same review suggests
+//  further evaluation when the profile angle exceeds 180 or the ratio 1.0.
 //   - Worth discussing with a doctor: at least 2 signs above their cut-off,
 //     so one noisy sign can't raise a flag alone.
 //   - Measure again: exactly 1 above, or 2 or more within their
@@ -39,8 +41,9 @@ nonisolated enum SignKind: CaseIterable {
         }
     }
 
-    /// About how much one photo reading can move with pose and outline
-    /// noise (photo angles are within about 3 deg of a goniometer).
+    /// About how much one photo reading of the same finger moves with pose
+    /// and outline noise (repeat photos: within-person SD about 1.5-4 deg
+    /// on the profile angle, 0.02-0.03 on the ratio).
     var margin: Double {
         switch self {
         case .lovibond, .hyponychial: return 3

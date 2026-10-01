@@ -13,8 +13,9 @@
 //     192 deg in clubbing (Husarik et al., Swiss Med Wkly 2002, photos of
 //     the radial side of the index finger).
 //   - Phalangeal depth ratio: finger thickness at the nail bed (cuticle
-//     level) / thickness at the DIP joint. Normal about 0.895, above 1.0 in
-//     clubbing (Myers & Farquhar, JAMA 2001).
+//     level) / thickness at the DIP joint. Below 1.0 in people without
+//     clubbing (Myers & Farquhar, JAMA 2001); our healthy photos averaged
+//     0.84.
 //  Plain geometry only, so Tools/angle-harness can test it.
 //
 

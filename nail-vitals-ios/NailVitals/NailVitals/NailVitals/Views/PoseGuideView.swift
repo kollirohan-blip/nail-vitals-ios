@@ -3,9 +3,9 @@
 //  NailVitals
 //
 //  "How to hold your finger": shown once after the first launch and from
-//  the "?" button on the camera screen. People measuring themselves got
-//  results as good as trained staff when given a short written guide with
-//  pictures, so this is part of the measurement, not decoration.
+//  the "?" button on the camera screen. The reference study (Husarik 2002)
+//  fixed the finger's position to avoid rotation; a home user has only
+//  these instructions, so they are part of the measurement.
 //
 
 import SwiftUI

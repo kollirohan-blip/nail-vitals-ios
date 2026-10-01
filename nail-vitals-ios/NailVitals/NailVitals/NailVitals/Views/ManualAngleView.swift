@@ -59,7 +59,7 @@ struct ManualAngleView: View {
                         loupe(center: points[i], viewSize: geo.size)
                             .padding(.top, 12)
                     } else {
-                        Text((note.map { $0 + "\n" } ?? "") + "On the nail edge: 1 halfway up the nail, 2 exactly on the cuticle, 3 on the skin about as far below 2 as 1 is above it")
+                        Text((note.map { $0 + "\n" } ?? "") + "On the nail edge: 1 about a quarter of the way up the nail, 2 exactly on the cuticle, 3 on the skin the same distance below 2")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.white)
                             .multilineTextAlignment(.center)
@@ -228,17 +228,18 @@ struct ManualAngleView: View {
     /// stacked on top of each other.
     private func initialPoints() -> [CGPoint] {
         if let s = suggestion, s.step != 0, let contour = silhouette?.contourPoints, contour.indices.contains(s.inflectionIndex) {
-            // Dots 1 and 3 well away from the cuticle: on device, dots started
-            // one fit-window apart ended up 16-60px from dot 2, too short a
-            // baseline for a steady angle.
-            let d = max(60, (segmentLengthPixels ?? 60) * 2.5)
+            // Dots 1 and 3 about one fit window from the cuticle -- the
+            // stretch the automatic angle uses, about a quarter of the nail
+            // -- but never closer than 60 px (shorter baselines made the
+            // hand-placed angle jumpy on device).
+            let d = max(60, (segmentLengthPixels ?? 60) * 1.2)
             return [walk(contour, from: s.inflectionIndex, step: -s.step, distance: d),
                     contour[s.inflectionIndex],
                     walk(contour, from: s.inflectionIndex, step: s.step, distance: d)]
         }
         if let hand = landmarks {
             let t = hand.indexTip.point, d = hand.indexDIP.point
-            let onAxis = [0.15, 0.42, 0.7].map { f in CGPoint(x: t.x + (d.x - t.x) * f, y: t.y + (d.y - t.y) * f) }
+            let onAxis = [0.28, 0.42, 0.56].map { f in CGPoint(x: t.x + (d.x - t.x) * f, y: t.y + (d.y - t.y) * f) }
             // Known nail side (thumb found): start from just outside the
             // finger on that side and snap onto the nail edge.
             let length = hypot(d.x - t.x, d.y - t.y)

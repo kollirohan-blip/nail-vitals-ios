@@ -8,12 +8,15 @@
 //
 //  Points, all on the side-view photo:
 //    cuticle       where the nail meets the skin fold (B)
-//    nail          on the nail's edge, partway to the tip
-//    skin          on the skin fold's edge, about as far below the cuticle
-//    crease        nail-side edge level with the last joint's crease (A):
-//                  the fold line on the pad side where the fingertip
-//                  bends, carried straight across to the nail side
-//    freeEdge      nail-side edge where the nail ends at the tip (C)
+//    nail          on the nail's edge, about a quarter of the way to the
+//                  nail tip (the app fits its nail line over about that
+//                  stretch, so the profile angle is the same measurement)
+//    skin          on the skin fold's edge, the same distance below
+//    crease        the distal digital crease (A): nail-side edge over the
+//                  last joint, on the back of the finger (Regan 1967;
+//                  "back surface of the distal interphalangeal joint")
+//    freeEdge      nail-side edge where the nail ends at the tip: the
+//                  hyponychium, skin under the nail's free edge (D)
 //    cuticleAcross opposite edge, straight across from the cuticle
 //    creaseAcross  opposite edge, straight across from the crease
 //
@@ -29,12 +32,12 @@ nonisolated struct HumanLabel: Codable, Equatable {
         var instruction: String {
             switch self {
             case .cuticle: return "Tap the cuticle: where the nail meets the skin fold, on the nail's edge."
-            case .nail: return "Tap the nail's edge about halfway from the cuticle to the tip."
-            case .skin: return "Tap the skin's edge below the cuticle, about as far as the last point is above it."
-            case .crease: return "Find the fold line on the pad side where the fingertip bends (the last joint's crease). Tap the nail-side edge straight across from it."
+            case .nail: return "Tap the nail's edge about a quarter of the way from the cuticle to the nail tip."
+            case .skin: return "Tap the skin's edge the same short distance below the cuticle."
+            case .crease: return "Tap the nail-side edge over the last joint: the skin crease on the back of the finger, where it bends."
             case .freeEdge: return "Tap the nail-side edge where the nail ends at the tip."
             case .cuticleAcross: return "Tap the opposite edge of the finger, straight across from the cuticle."
-            case .creaseAcross: return "Tap the pad-side edge right at that fold line."
+            case .creaseAcross: return "Tap the opposite edge, straight across from the crease."
             }
         }
 

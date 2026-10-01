@@ -3,8 +3,10 @@
 //  NailVitals
 //
 //  Which index finger is being measured. The right index is the usual
-//  standard in clubbing studies; right and left can differ by about 2 deg,
-//  so readings from the two hands are never mixed in one session.
+//  standard in clubbing studies (Bentley 1976, Husarik 2002). In 26
+//  healthy people the hyponychial angle read 178.6 right vs 180.4 left
+//  (not significant, Husarik 2002), so readings from the two hands are
+//  kept apart.
 //
 
 import Foundation

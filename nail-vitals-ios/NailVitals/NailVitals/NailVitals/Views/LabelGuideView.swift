@@ -20,11 +20,11 @@ struct LabelGuideView: View {
                         .frame(width: 300, height: 380)
                     VStack(alignment: .leading, spacing: 10) {
                         tip("Cuticle", "where the nail meets the skin fold, on the nail's edge.")
-                        tip("Nail", "on the nail's edge, about halfway from the cuticle to the tip.")
-                        tip("Skin", "on the skin's edge below the cuticle, about as far as the nail point is above it.")
-                        tip("Crease", "find the fold line on the pad side where the fingertip bends (the last joint's crease), usually 1 to 1½ nail-lengths below the cuticle. Tap the nail-side edge straight across from it. Not the wrinkles on the back of the knuckle: those sit a few millimeters higher.")
+                        tip("Nail", "on the nail's edge, about a quarter of the way from the cuticle to the nail tip.")
+                        tip("Skin", "on the skin's edge, the same short distance below the cuticle.")
+                        tip("Crease", "on the nail-side edge over the last joint: the skin crease on the back of the finger, where it bends. Usually about 1 to 1½ nail-lengths below the cuticle.")
                         tip("Nail tip", "on the nail side, where the nail ends at the fingertip.")
-                        tip("Across", "the pad-side edge straight across from the cuticle, then right at the fold line.")
+                        tip("Across", "the opposite edge, straight across from the cuticle, then straight across from the crease.")
                     }
                     .padding(16)
                     .glassPanel(cornerRadius: 18)
@@ -56,9 +56,9 @@ struct LabelGuideView: View {
 struct LabelGuideDiagram: View {
     // Unit coordinates (x across, y down) in the drawing's box.
     private static let freeEdge = CGPoint(x: 0.66, y: 0.12)
-    private static let nail = CGPoint(x: 0.70, y: 0.22)
+    private static let nail = CGPoint(x: 0.705, y: 0.275)
     private static let cuticle = CGPoint(x: 0.72, y: 0.33)
-    private static let skin = CGPoint(x: 0.735, y: 0.43)
+    private static let skin = CGPoint(x: 0.728, y: 0.385)
     private static let crease = CGPoint(x: 0.75, y: 0.62)
     private static let cuticleAcross = CGPoint(x: 0.24, y: 0.33)
     private static let creaseAcross = CGPoint(x: 0.24, y: 0.62)
@@ -74,9 +74,9 @@ struct LabelGuideDiagram: View {
                     path.addLine(to: p(CGPoint(x: 0.24, y: 0.2)))
                     path.addQuadCurve(to: p(CGPoint(x: 0.45, y: 0.04)), control: p(CGPoint(x: 0.25, y: 0.04)))
                     path.addQuadCurve(to: p(Self.freeEdge), control: p(CGPoint(x: 0.62, y: 0.04)))
-                    path.addLine(to: p(Self.nail))
+                    path.addLine(to: p(CGPoint(x: 0.70, y: 0.22)))
                     path.addLine(to: p(Self.cuticle))
-                    path.addLine(to: p(Self.skin))
+                    path.addLine(to: p(CGPoint(x: 0.735, y: 0.43)))
                     path.addQuadCurve(to: p(Self.crease), control: p(CGPoint(x: 0.745, y: 0.53)))
                     path.addQuadCurve(to: p(CGPoint(x: 0.76, y: 1.0)), control: p(CGPoint(x: 0.77, y: 0.8)))
                 }
@@ -85,7 +85,7 @@ struct LabelGuideDiagram: View {
                 // Nail plate seen edge-on, and the skin fold over it.
                 Path { path in
                     path.move(to: p(Self.freeEdge))
-                    path.addLine(to: p(Self.nail))
+                    path.addLine(to: p(CGPoint(x: 0.70, y: 0.22)))
                     path.addLine(to: p(Self.cuticle))
                     path.addLine(to: p(CGPoint(x: 0.665, y: 0.34)))
                     path.addLine(to: p(CGPoint(x: 0.64, y: 0.22)))
@@ -94,16 +94,14 @@ struct LabelGuideDiagram: View {
                 }
                 .fill(Color.white.opacity(0.25))
 
-                // The last joint's fold line, on the pad side.
+                // Skin crease on the back of the finger over the last joint.
                 Path { path in
-                    path.move(to: p(CGPoint(x: 0.24, y: 0.62)))
-                    path.addQuadCurve(to: p(CGPoint(x: 0.36, y: 0.615)), control: p(CGPoint(x: 0.30, y: 0.635)))
+                    for y in [0.605, 0.62, 0.635] {
+                        path.move(to: p(CGPoint(x: 0.64, y: y + 0.008)))
+                        path.addQuadCurve(to: p(CGPoint(x: 0.75, y: y)), control: p(CGPoint(x: 0.69, y: y - 0.01)))
+                    }
                 }
-                .stroke(Color.white.opacity(0.8), lineWidth: 2)
-                Text("fold line")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.75))
-                    .position(p(CGPoint(x: 0.36, y: 0.665)))
+                .stroke(Color.white.opacity(0.6), lineWidth: 1.5)
 
                 // Measurement lines.
                 Path { path in
@@ -118,7 +116,7 @@ struct LabelGuideDiagram: View {
                 marker(p(Self.skin), "Skin", .cyan, dx: 32)
                 marker(p(Self.crease), "Crease", Theme.aligned, dx: 42)
                 marker(p(Self.cuticleAcross), "Across", .white, dx: -38)
-                marker(p(Self.creaseAcross), "Across (fold)", .white, dx: -50)
+                marker(p(Self.creaseAcross), "Across", .white, dx: -38)
             }
         }
     }
