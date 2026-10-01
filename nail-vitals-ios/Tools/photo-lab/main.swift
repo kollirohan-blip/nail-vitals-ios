@@ -95,6 +95,10 @@ let manualTip = pointArg("--tip")
 let manualDIP = pointArg("--dip")
 // For photos where hand pose finds the wrong hand or finger: which side of
 // the image the nail is on (left or right of the DIP joint).
+// Profile turn (degrees) that marks the nail's free edge for the drawn
+// hyponychial angle and the result line (default: the app's).
+var drawTurn = 30.0
+if let i = args.firstIndex(of: "--turn"), i + 1 < args.count, let t = Double(args[i + 1]) { drawTurn = t; args.removeSubrange(i...i + 1) }
 var manualNailSide: String?
 if let i = args.firstIndex(of: "--nail-side"), i + 1 < args.count { manualNailSide = args[i + 1]; args.removeSubrange(i...i + 1) }
 
@@ -205,7 +209,7 @@ for path in args {
         for turn in [30.0, 45.0, 60.0] {
             let s = FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: tip, dip: dip, cuticle: cuticle,
                                                 lovibond: nailMarker?.angleDegrees, isNailSide: isNailSide, turnDegrees: turn)
-            if turn == 45 { signs = s }
+            if turn == drawTurn { signs = s }
             line += String(format: "  hyponychial(turn %.0f) %.1f°", turn, s.hyponychial ?? .nan)
         }
         line += String(format: "  depth ratio %.3f", signs?.depthRatio ?? .nan)

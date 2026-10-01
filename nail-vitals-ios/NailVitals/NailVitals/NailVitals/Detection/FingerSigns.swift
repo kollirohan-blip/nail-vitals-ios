@@ -52,9 +52,12 @@ nonisolated enum FingerSignsAnalyzer {
     ///     which needs the nail side, is left out.
     ///   - turnDegrees: how far the nail-side profile turns in over the
     ///     fingertip where the nail's free edge (the hyponychium) is taken.
+    ///     30 deg put it at the visible free edge on real captures (45 went
+    ///     past it toward the tip); 33 healthy photos then averaged 180.6
+    ///     (SD 4.2), against the published 178.9 (SD 4.7).
     static func measure(contour: [CGPoint], tip: CGPoint, dip: CGPoint, cuticle: CGPoint,
                         lovibond: Double?, isNailSide: ((CGPoint) -> Bool?)?,
-                        turnDegrees: Double = 45) -> FingerSigns {
+                        turnDegrees: Double = 30) -> FingerSigns {
         var signs = FingerSigns(lovibond: lovibond, cuticle: cuticle)
         guard let frame = FingerFrame(tip: tip, dip: dip), contour.count > 3 else { return signs }
 
