@@ -4,9 +4,14 @@
 //
 //  Label mode: a person places the seven HumanLabel points on a saved
 //  photo, one at a time, with a magnifier. Blind on purpose -- no app
-//  markers, no outline snapping, no numbers -- so the labels are an
-//  independent check of the app. The view zooms to the finger using the
-//  saved joint positions (framing only; nothing is drawn from them).
+//  markers and no numbers -- so the labels are an independent check of
+//  the app. The view zooms to the finger using the saved joint positions.
+//
+//  Points snap onto the finger's edge (the photo's subject outline, drawn
+//  faintly): every point lies on the edge by definition, and on the first
+//  real labels, fingertip taps landed 5-7 px inside it, which alone moved
+//  the short-baseline profile angle by 10-18 deg. Where along the edge
+//  each point goes stays the person's call; the raw taps are saved too.
 //
 
 import SwiftUI
@@ -26,6 +31,8 @@ struct LabelingView: View {
     @State private var saveError: String?
     @State private var shownImage: Shown?
     @State private var showGuide = false
+    @State private var edge: [CGPoint] = []                        // finger outline, full-photo pixels
+    @State private var rawPoints: [HumanLabel.Point: CGPoint] = [:] // taps before snapping
 
     private let steps = HumanLabel.Point.allCases
     private let loupeSize: CGFloat = 150
@@ -44,6 +51,11 @@ struct LabelingView: View {
                         .frame(width: geo.size.width, height: geo.size.height)
                         .contentShape(Rectangle())
                         .gesture(drag(viewSize: geo.size))
+                    if edge.count > 2 {
+                        Path { path in path.addLines(edge.map { toView($0, geo.size) }); path.closeSubpath() }
+                            .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                            .allowsHitTesting(false)
+                    }
                     guides(viewSize: geo.size)
                     ForEach(steps.filter { points[$0] != nil }, id: \.self) { p in
                         dot(p, viewSize: geo.size)
@@ -222,7 +234,9 @@ struct LabelingView: View {
                 }
                 guard let p = dragging else { return }
                 let target = CGPoint(x: value.location.x + grabOffset.width, y: value.location.y + grabOffset.height)
-                points[p] = toImage(target, viewSize)
+                let raw = toImage(target, viewSize)
+                rawPoints[p] = raw
+                points[p] = snapToEdge(raw, viewSize: viewSize)
                 saveError = nil
             }
             .onEnded { _ in dragging = nil }
@@ -247,7 +261,7 @@ struct LabelingView: View {
 
     private func load() async {
         let folder = self.folder, labeler = self.labeler
-        let loaded = await Task.detached(priority: .userInitiated) { () -> (UIImage?, CGRect?, HumanLabel?) in
+        let loaded = await Task.detached(priority: .userInitiated) { () -> (UIImage?, CGRect?, HumanLabel?, CGPoint?) in
             let image = UIImage(contentsOfFile: folder.appendingPathComponent("photo.jpg").path)
             var focus: CGRect?
             if let image,
@@ -263,8 +277,16 @@ struct LabelingView: View {
                 let clipped = box.intersection(CGRect(origin: .zero, size: image.size))
                 focus = clipped.width > 50 && clipped.height > 50 ? clipped : nil
             }
-            return (image, focus, HumanLabelStore.load(in: folder, labeler: labeler))
+            return (image, focus, HumanLabelStore.load(in: folder, labeler: labeler), LabelingView.dipHint(in: folder))
         }.value
+        // The finger's outline, for snapping (a second or so on the phone).
+        if let image = loaded.0 {
+            let hint = loaded.3
+            edge = await Task.detached(priority: .userInitiated) { () -> [CGPoint] in
+                guard let cg = image.cgImage, let buffer = Self.pixelBuffer(from: cg) else { return [] }
+                return FingerMaskSegmenter().segment(pixelBuffer: buffer, fingertipHint: hint)?.contourPoints ?? []
+            }.value
+        }
         photo = loaded.0
         focus = loaded.1
         shownImage = makeShown()
@@ -274,13 +296,39 @@ struct LabelingView: View {
     }
 
     private func save() {
-        let label = HumanLabel(labeler: labeler, points: points)
+        let label = HumanLabel(labeler: labeler, points: points, rawPoints: rawPoints.isEmpty ? nil : rawPoints)
         do {
             try HumanLabelStore.save(label, in: folder)
             dismiss()
         } catch {
             saveError = "Couldn't save: \(error.localizedDescription)"
         }
+    }
+
+    // MARK: - Snapping
+
+    /// The nearest point on the finger's edge, if the tap was within about
+    /// 24 screen points of it; otherwise the tap itself.
+    private func snapToEdge(_ p: CGPoint, viewSize: CGSize) -> CGPoint {
+        guard let nearest = edge.min(by: { hypot($0.x - p.x, $0.y - p.y) < hypot($1.x - p.x, $1.y - p.y) }) else { return p }
+        let maxDistance = 24 / fit(viewSize).scale
+        return hypot(nearest.x - p.x, nearest.y - p.y) <= maxDistance ? nearest : p
+    }
+
+    private nonisolated static func dipHint(in folder: URL) -> CGPoint? {
+        guard let data = try? Data(contentsOf: folder.appendingPathComponent("capture.json")),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dip = json["indexDIP"] as? [String: Double], let x = dip["x"], let y = dip["y"] else { return nil }
+        return CGPoint(x: x, y: y)
+    }
+
+    private nonisolated static func pixelBuffer(from image: CGImage) -> CVPixelBuffer? {
+        var buffer: CVPixelBuffer?
+        CVPixelBufferCreate(kCFAllocatorDefault, image.width, image.height, kCVPixelFormatType_32BGRA,
+                            [kCVPixelBufferIOSurfacePropertiesKey as String: [:]] as CFDictionary, &buffer)
+        guard let buffer else { return nil }
+        CIContext().render(CIImage(cgImage: image), to: buffer)
+        return buffer
     }
 
     // MARK: - Coordinates (full photo <-> view)

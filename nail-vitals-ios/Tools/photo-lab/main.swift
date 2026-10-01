@@ -267,7 +267,19 @@ for path in args {
         var meta: [String: Any] = [:]
         if isDir.boolValue, let data = try? Data(contentsOf: URL(fileURLWithPath: (path as NSString).appendingPathComponent("capture.json"))),
            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] { meta = json }
-        let humans = isDir.boolValue ? Report.labels(in: path).mapValues(Report.values) : [:]
+        var humans = isDir.boolValue ? Report.labels(in: path).mapValues(Report.values) : [:]
+        // Also each label with its points snapped onto the finger's outline
+        // (where along the edge stays the person's choice), as "<name>+edge".
+        if let contour = silhouette?.contourPoints, isDir.boolValue {
+            for (name, label) in Report.labels(in: path) {
+                var snapped: [HumanLabel.Point: CGPoint] = [:]
+                for (k, q) in label.placedPoints {
+                    let nearest = contour.min { hypot($0.x - q.x, $0.y - q.y) < hypot($1.x - q.x, $1.y - q.y) }!
+                    snapped[k] = hypot(nearest.x - q.x, nearest.y - q.y) < 40 ? nearest : q
+                }
+                humans[name + "+edge"] = Report.values(HumanLabel(labeler: name, points: snapped))
+            }
+        }
         reportRows.append(ReportRow(capture: name, participant: meta["participant"] as? String, skinTone: meta["skinTone"] as? String,
                                     hand: meta["measuredHand"] as? String, appStatus: status, app: app, humans: humans))
     }

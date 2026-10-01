@@ -58,14 +58,20 @@ nonisolated struct HumanLabel: Codable, Equatable {
     var labeledAt: Date
     /// Image pixels of the full photo, top-left origin, keyed by Point raw value.
     var points: [String: [Double]]
+    /// Where the person actually lifted their finger, before the point was
+    /// moved onto the finger's edge (nil for labels made without snapping).
+    var rawPoints: [String: [Double]]?
     var profile: Double?
     var hyponychial: Double?
     var depthRatio: Double?
 
-    init(labeler: String, labeledAt: Date = Date(), points: [Point: CGPoint]) {
+    init(labeler: String, labeledAt: Date = Date(), points: [Point: CGPoint], rawPoints: [Point: CGPoint]? = nil) {
         self.labeler = labeler
         self.labeledAt = labeledAt
         self.points = Dictionary(uniqueKeysWithValues: points.map { ($0.key.rawValue, [Double($0.value.x), Double($0.value.y)]) })
+        self.rawPoints = rawPoints.map { raw in
+            Dictionary(uniqueKeysWithValues: raw.map { ($0.key.rawValue, [Double($0.value.x), Double($0.value.y)]) })
+        }
         let signs = Self.signs(points)
         profile = signs.profile
         hyponychial = signs.hyponychial
