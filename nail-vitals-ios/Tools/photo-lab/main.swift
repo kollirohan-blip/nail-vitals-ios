@@ -1,6 +1,6 @@
 // Runs the app's real measurement pipeline (hand pose -> subject-mask outline
 // -> AngleAnalyzer) on photos from disk, on the Mac. From this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder,HumanLabel}.swift main.swift Report.swift -o photo-lab
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder,HumanLabel,NailColor}.swift main.swift Report.swift NailLab.swift -o photo-lab
 //   ./photo-lab photo.jpg [more.jpg ...] [--out folder] [--truth x,y]
 // --truth is the real cuticle in image pixels (e.g. from a saved capture's
 // manual dot 2); the report then includes how far the automatic marker missed.
@@ -122,6 +122,12 @@ if let i = args.firstIndex(of: "--turn"), i + 1 < args.count, let t = Double(arg
 // estimate against the found or hand-placed cuticle.
 var estimateFraction: Double?
 if let i = args.firstIndex(of: "--estimate-cuticle"), i + 1 < args.count { estimateFraction = Double(args[i + 1]); args.removeSubrange(i...i + 1) }
+// --nails: the phase 2 nail color prototype instead (see NailLab.swift).
+if args.contains("--nails") {
+    args.removeAll { $0 == "--nails" }
+    runNailLab(args, outDir: outDir)
+    exit(0)
+}
 // --report: compare the app with Label-mode labels (see Report.swift).
 let makeReport = args.contains("--report")
 args.removeAll { $0 == "--report" }

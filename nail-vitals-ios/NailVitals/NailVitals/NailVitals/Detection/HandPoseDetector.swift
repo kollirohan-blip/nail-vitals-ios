@@ -130,3 +130,47 @@ nonisolated final class HandPoseDetector {
         )
     }
 }
+
+/// One finger's joints, for the top-view nail color check (phase 2).
+nonisolated struct FingerChain {
+    nonisolated enum Name: String, CaseIterable {
+        case index, middle, ring, little
+    }
+
+    let name: Name
+    let tip: HandLandmarks.Joint
+    let dip: HandLandmarks.Joint
+    let pip: HandLandmarks.Joint
+    let mcp: HandLandmarks.Joint
+}
+
+extension HandPoseDetector {
+    /// Every hand in the picture (up to `maxHands`), each with whichever of
+    /// its four fingers Vision found. Image pixels, top-left origin.
+    func detectFingers(in pixelBuffer: CVPixelBuffer, maxHands: Int = 2) -> [[FingerChain]] {
+        let request = VNDetectHumanHandPoseRequest()
+        request.maximumHandCount = maxHands
+        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+        guard (try? handler.perform([request])) != nil, let observations = request.results else { return [] }
+        let size = CGSize(width: CVPixelBufferGetWidth(pixelBuffer), height: CVPixelBufferGetHeight(pixelBuffer))
+
+        func joint(_ observation: VNHumanHandPoseObservation, _ name: VNHumanHandPoseObservation.JointName) -> HandLandmarks.Joint? {
+            guard let p = try? observation.recognizedPoint(name), p.confidence > 0.2 else { return nil }
+            return HandLandmarks.Joint(point: CGPoint(x: p.location.x * size.width, y: (1 - p.location.y) * size.height),
+                                       confidence: p.confidence)
+        }
+        let names: [(FingerChain.Name, [VNHumanHandPoseObservation.JointName])] = [
+            (.index, [.indexTip, .indexDIP, .indexPIP, .indexMCP]),
+            (.middle, [.middleTip, .middleDIP, .middlePIP, .middleMCP]),
+            (.ring, [.ringTip, .ringDIP, .ringPIP, .ringMCP]),
+            (.little, [.littleTip, .littleDIP, .littlePIP, .littleMCP]),
+        ]
+        return observations.map { observation in
+            names.compactMap { name, joints in
+                guard let tip = joint(observation, joints[0]), let dip = joint(observation, joints[1]),
+                      let pip = joint(observation, joints[2]), let mcp = joint(observation, joints[3]) else { return nil }
+                return FingerChain(name: name, tip: tip, dip: dip, pip: pip, mcp: mcp)
+            }
+        }
+    }
+}
