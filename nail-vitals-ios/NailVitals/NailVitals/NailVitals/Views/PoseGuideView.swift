@@ -27,7 +27,7 @@ struct PoseGuideView: View {
         ScrollView {
             VStack(spacing: 22) {
                 Text("How to hold your finger")
-                    .font(.system(size: 26, weight: .bold, design: .rounded))
+                    .font(.system(size: 26, weight: .bold))
                     .foregroundColor(.white)
                     .padding(.top, 28)
 

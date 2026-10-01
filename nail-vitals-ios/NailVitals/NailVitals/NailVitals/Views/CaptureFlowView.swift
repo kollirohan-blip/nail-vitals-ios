@@ -164,7 +164,7 @@ struct CaptureFlowView: View {
             showAssistant = true
         } label: {
             Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")
-                .font(.system(size: 15, weight: .semibold, design: .rounded))
+                .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(Theme.searching)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 10)
@@ -322,7 +322,7 @@ private struct MeasuringView: View {
                 HStack(spacing: 10) {
                     ProgressView().tint(.white)
                     Text("Measuring…")
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundColor(.white)
                 }
                 .padding(.horizontal, 20)

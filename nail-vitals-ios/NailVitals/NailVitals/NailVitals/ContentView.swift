@@ -38,6 +38,20 @@ struct ContentView: View {
             VStack {
                 topBar
                 Spacer()
+            }
+            // Exposure slider while the light is on, along the right edge
+            // like the Camera app's, clear of the guide text and shutter.
+            if camera.torchOn {
+                HStack {
+                    Spacer()
+                    exposureSlider
+                        .padding(.trailing, 12)
+                }
+                .transition(.opacity.combined(with: .move(edge: .trailing)))
+            }
+
+            VStack {
+                Spacer()
                 Button(action: {
                     camera.capturePhoto()
                 }) {
@@ -112,6 +126,33 @@ struct ContentView: View {
         }
     }
 
+    /// Vertical exposure control: drag down to darken if the light makes
+    /// the nail glare white.
+    private var exposureSlider: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "sun.max.fill")
+                .font(.system(size: 13, weight: .semibold))
+            Slider(value: Binding(get: { Double(camera.exposureBias) },
+                                  set: { camera.setExposureBias(Float($0)) }),
+                   in: Double(CameraManager.exposureRange.lowerBound)...Double(CameraManager.exposureRange.upperBound))
+                .tint(Theme.adjusting)
+                .frame(width: 170)
+                .rotationEffect(.degrees(-90))
+                .frame(width: 30, height: 170)
+            Image(systemName: "sun.min")
+                .font(.system(size: 13, weight: .semibold))
+            Text(String(format: "%+.1f", camera.exposureBias))
+                .font(.system(size: 11, weight: .semibold))
+                .monospacedDigit()
+        }
+        .foregroundColor(.white)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 6)
+        .background(.ultraThinMaterial, in: Capsule())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Exposure")
+    }
+
     /// Which index finger is measured, and the "how to hold it" guide.
     private var topBar: some View {
         HStack {
@@ -121,7 +162,7 @@ struct ContentView: View {
                         withAnimation(.easeInOut(duration: 0.2)) { hand = option }
                     } label: {
                         Text(option.label)
-                            .font(.system(size: 13, weight: .semibold, design: .rounded))
+                            .font(.system(size: 13, weight: .semibold))
                             .foregroundColor(hand == option ? .black : .white.opacity(0.85))
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
@@ -138,7 +179,7 @@ struct ContentView: View {
                 .foregroundColor(.white.opacity(0.8))
             Spacer()
             if camera.hasTorch {
-                Button { camera.setTorch(!camera.torchOn) } label: {
+                Button { withAnimation(.easeInOut(duration: 0.2)) { camera.setTorch(!camera.torchOn) } } label: {
                     Image(systemName: camera.torchOn ? "flashlight.on.fill" : "flashlight.off.fill")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(camera.torchOn ? .black : .white)

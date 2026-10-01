@@ -78,11 +78,11 @@ struct AboutMeasurementsView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(kind.title)
-                    .font(.system(size: 17, weight: .semibold, design: .rounded))
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundColor(.white)
                 Spacer()
                 Text("cut-off \(kind.formattedThreshold)")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(Theme.searching)
             }
             Text(what)
@@ -100,7 +100,7 @@ struct AboutMeasurementsView: View {
     private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 17, weight: .semibold, design: .rounded))
+                .font(.system(size: 17, weight: .semibold))
                 .foregroundColor(.white)
             content()
         }

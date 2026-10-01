@@ -39,7 +39,7 @@ struct ResultView: View {
                         .frame(width: 260, height: 150)
                     VStack(spacing: 2) {
                         CountingAngle(value: shown)
-                            .font(.system(size: 48, weight: .bold, design: .rounded))
+                            .font(.system(size: 48, weight: .bold))
                             .foregroundColor(.white)
                         Text("Profile (Lovibond) angle")
                             .font(.system(size: 13, weight: .medium))
@@ -66,7 +66,7 @@ struct ResultView: View {
             } else {
                 VStack(spacing: 10) {
                     Text("Couldn't get a reliable measurement")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .font(.system(size: 22, weight: .bold))
                         .multilineTextAlignment(.center)
                     Text("Please retake the photo with your finger turned sideways.")
                         .font(.system(size: 15))
@@ -137,7 +137,7 @@ struct ResultView: View {
         }
         return VStack(spacing: 6) {
             Text(a.verdict.label)
-                .font(.system(size: 20, weight: .semibold, design: .rounded))
+                .font(.system(size: 20, weight: .semibold))
                 .foregroundColor(Self.color(for: a.verdict))
                 .multilineTextAlignment(.center)
             Text(detail)
@@ -177,7 +177,7 @@ private struct SignChip: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(ResultView.color(for: status))
                 Text(kind.formatted(value))
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: 16, weight: .semibold))
                     .monospacedDigit()
                     .foregroundColor(.white)
             } else {
@@ -185,7 +185,7 @@ private struct SignChip: View {
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.secondary)
                 Text("—")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.secondary)
             }
             Text(shortTitle)
@@ -255,7 +255,7 @@ struct ResultGauge: View, Animatable {
                 }
                 .stroke(Color.white.opacity(0.8), style: StrokeStyle(lineWidth: 2, lineCap: .round))
                 Text(kind.formattedThreshold)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(.white.opacity(0.7))
                     .position(point(kind.threshold, center, radius + 24))
 

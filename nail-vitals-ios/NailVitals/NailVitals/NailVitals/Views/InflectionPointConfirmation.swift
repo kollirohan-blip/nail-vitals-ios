@@ -159,7 +159,7 @@ struct InflectionPointConfirmation: View {
         VStack(spacing: 12) {
             if let side = selectedSide {
                 Text("\(displayAngle(for: side), specifier: "%.1f")°")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold))
                     .foregroundColor(.white)
                     .monospacedDigit()
                 Text("Drag the marker if it's not exactly on the cuticle edge")

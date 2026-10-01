@@ -57,7 +57,7 @@ struct CaptureGuideOverlay: View {
                 Spacer()
                 VStack(spacing: 6) {
                     Text(instructionText)
-                        .font(.system(size: 17, weight: .semibold, design: .rounded))
+                        .font(.system(size: 17, weight: .semibold))
                         .foregroundColor(color == Theme.searching ? .white : color)
                     Text(subText)
                         .font(.system(size: 13, weight: .medium))

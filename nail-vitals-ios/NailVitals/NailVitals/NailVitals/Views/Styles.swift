@@ -23,7 +23,7 @@ struct GlowButtonStyle: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .font(.system(size: 16, weight: .semibold))
                 .foregroundColor(.black)
                 .padding(.horizontal, 28)
                 .padding(.vertical, 13)
@@ -40,7 +40,7 @@ struct GlowButtonStyle: ButtonStyle {
 struct GhostButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 16, weight: .semibold, design: .rounded))
+            .font(.system(size: 16, weight: .semibold))
             .foregroundColor(.white.opacity(configuration.isPressed ? 0.5 : 0.85))
             .padding(.horizontal, 16)
             .padding(.vertical, 13)

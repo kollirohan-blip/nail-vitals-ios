@@ -37,6 +37,10 @@ final class CameraManager: NSObject, ObservableObject {
     @Published private(set) var capturedPixelBuffer: CVPixelBuffer?
     /// The phone's flashlight, as soft even light on the finger.
     @Published private(set) var torchOn = false
+    /// Exposure compensation in EV (negative = darker), for taming glare
+    /// on the nail when the light is on. Applies to the photo too.
+    @Published private(set) var exposureBias: Float = 0
+    static let exposureRange: ClosedRange<Float> = -2...1
     /// A capture has been started and not yet reset; stops the automatic
     /// capture and a button tap from both firing.
     private var captureInFlight = false
@@ -242,6 +246,8 @@ final class CameraManager: NSObject, ObservableObject {
     func setTorch(_ on: Bool) {
         guard let device = videoDevice, device.hasTorch else { return }
         torchOn = on
+        // The darkening was for the light's glare; go back to normal.
+        if !on, exposureBias != 0 { setExposureBias(0) }
         sessionQueue.async {
             do {
                 try device.lockForConfiguration()
@@ -258,6 +264,23 @@ final class CameraManager: NSObject, ObservableObject {
     }
 
     var hasTorch: Bool { videoDevice?.hasTorch ?? false }
+
+    /// Sets exposure compensation, clamped to what the camera allows.
+    func setExposureBias(_ value: Float) {
+        guard let device = videoDevice else { return }
+        let clamped = min(max(value, max(Self.exposureRange.lowerBound, device.minExposureTargetBias)),
+                          min(Self.exposureRange.upperBound, device.maxExposureTargetBias))
+        exposureBias = clamped
+        sessionQueue.async {
+            do {
+                try device.lockForConfiguration()
+                device.setExposureTargetBias(clamped, completionHandler: nil)
+                device.unlockForConfiguration()
+            } catch {
+                print("CameraManager: exposure failed: \(error)")
+            }
+        }
+    }
 
     /// Maps a GuidanceResult's directions to the simpler CaptureState
     /// enum the overlay UI already knows how to display.

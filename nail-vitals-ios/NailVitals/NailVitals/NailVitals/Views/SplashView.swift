@@ -32,7 +32,7 @@ struct SplashView: View {
                         .stroke(Theme.aligned, style: StrokeStyle(lineWidth: 3, lineCap: .round))
                         .shadow(color: Theme.aligned.opacity(0.7), radius: 6)
                     Text("160°")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .font(.system(size: 15, weight: .semibold))
                         .foregroundColor(Theme.aligned)
                         .opacity(angleProgress)
                         .offset(x: 72, y: -18)
@@ -41,7 +41,7 @@ struct SplashView: View {
 
                 VStack(spacing: 6) {
                     Text("Nail Vitals")
-                        .font(.system(size: 34, weight: .bold, design: .rounded))
+                        .font(.system(size: 34, weight: .bold))
                         .foregroundColor(.white)
                     Text("Finger clubbing screening aid")
                         .font(.system(size: 15, weight: .medium))

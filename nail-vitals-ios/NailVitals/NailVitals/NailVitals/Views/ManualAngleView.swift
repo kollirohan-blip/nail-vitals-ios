@@ -103,7 +103,7 @@ struct ManualAngleView: View {
         VStack(spacing: 12) {
             if let angle {
                 Text("\(angle, specifier: "%.1f")°")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: 32, weight: .bold))
                     .foregroundColor(isPlausible ? .white : Theme.attention)
                     .monospacedDigit()
             }
