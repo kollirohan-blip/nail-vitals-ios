@@ -121,15 +121,17 @@ struct ResultView: View {
         let detail: String
         switch a.verdict {
         case .typical:
-            detail = "The measured signs are in the range seen in healthy fingers."
+            detail = a.nearCount > 0
+                ? "The measured signs are in the healthy range. One is close to its cut-off, which single photos of healthy fingers often are."
+                : "The measured signs are in the range seen in healthy fingers."
         case .measureAgain where steady:
             detail = a.aboveCount == 1
                 ? "One sign stays above its usual range. One sign alone isn't a clear pattern, but you can mention it at your next checkup."
-                : "A sign stays close to its cut-off. You can mention it at your next checkup."
+                : "Two signs stay close to their cut-offs. You can mention it at your next checkup."
         case .measureAgain:
             detail = a.aboveCount == 1
                 ? "One sign is above its usual range, and single photos vary. Measure again so the app can use the middle values."
-                : "A sign is close to its cut-off, and single photos vary by a few degrees. Measure again to confirm."
+                : "Two signs are close to their cut-offs, and single photos vary by a few degrees. Measure again to confirm."
         case .worthDiscussing:
             detail = "Two or more signs are in the range where clubbing is considered. Clubbing has many causes, and some people are born with it, so only a doctor can say what it means. Mention any symptoms you've noticed."
         }

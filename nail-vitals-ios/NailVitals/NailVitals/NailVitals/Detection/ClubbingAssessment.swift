@@ -8,8 +8,10 @@
 //  192 deg, phalangeal depth ratio above 1.0.
 //   - Worth discussing with a doctor: at least 2 signs above their cut-off,
 //     so one noisy sign can't raise a flag alone.
-//   - Measure again: exactly 1 above, or any value within its measurement
-//     error of the cut-off.
+//   - Measure again: exactly 1 above, or 2 or more within their
+//     measurement error of the cut-off. One sign merely close to its
+//     cut-off doesn't count: healthy single photos often land there (the
+//     profile angle read 172-176 on healthy fingers).
 //   - Typical: otherwise.
 //  With 3 or more readings in a session, each sign uses its middle value.
 //  Plain logic only, so Tools/angle-harness can test it.
@@ -106,6 +108,8 @@ nonisolated struct ClubbingAssessment {
     let verdict: Verdict
     /// Signs above their cut-off.
     let aboveCount: Int
+    /// Signs within their measurement error of the cut-off.
+    let nearCount: Int
 
     /// - Parameter readings: the session's readings, oldest first; the last
     ///   one is the reading just taken.
@@ -125,10 +129,11 @@ nonisolated struct ClubbingAssessment {
         self.readingCounts = counts
 
         aboveCount = values.filter { $0.value > $0.key.threshold }.count
-        let anyNear = values.contains { $0.key.status(of: $0.value) == .nearThreshold }
+        nearCount = values.filter { $0.key.status(of: $0.value) == .nearThreshold }.count
+        let nearOrAbove = values.filter { $0.value >= $0.key.threshold - $0.key.margin }.count
         if aboveCount >= 2 {
             verdict = .worthDiscussing
-        } else if aboveCount == 1 || anyNear {
+        } else if aboveCount == 1 || nearOrAbove >= 2 {
             verdict = .measureAgain
         } else {
             verdict = .typical

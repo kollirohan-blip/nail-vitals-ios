@@ -32,7 +32,8 @@ struct AboutMeasurementsView: View {
 
                     section("How the result is decided") {
                         bullet("Two or more signs above their cut-off: worth discussing with a doctor.")
-                        bullet("One sign above, or a value close to its cut-off: measure again. One sign alone can come from a slightly turned finger.")
+                        bullet("One sign above its cut-off, or two signs close to theirs: measure again. One sign alone can come from a slightly turned finger.")
+                        bullet("One sign just under its cut-off on its own shows amber but counts as typical: single photos of healthy fingers often land there.")
                         bullet("Otherwise: typical range.")
                         bullet("After 3 readings, the app uses the middle value of each sign, since single photos vary by a few degrees.")
                     }
