@@ -113,6 +113,28 @@ enum HumanLabelStore {
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
     }
 
+    /// Zips the whole Captures folder (photos, results, labels) into a
+    /// temporary file for the share sheet. The system's file coordinator
+    /// makes the zip ("for uploading"); it only lives inside the block, so
+    /// it is copied out.
+    static func zipAllCaptures() async -> URL? {
+        guard let root = capturesRoot else { return nil }
+        return await Task.detached(priority: .userInitiated) { () -> URL? in
+            let formatter = DateFormatter()
+            formatter.dateFormat = "yyyyMMdd-HHmm"
+            let device = UIDevice.current.name.filter { $0.isLetter || $0.isNumber }
+            let dest = FileManager.default.temporaryDirectory
+                .appendingPathComponent("NailVitals-\(device)-\(formatter.string(from: Date())).zip")
+            var result: URL?
+            var coordinationError: NSError?
+            NSFileCoordinator().coordinate(readingItemAt: root, options: [.forUploading], error: &coordinationError) { zipped in
+                try? FileManager.default.removeItem(at: dest)
+                if (try? FileManager.default.copyItem(at: zipped, to: dest)) != nil { result = dest }
+            }
+            return result
+        }.value
+    }
+
     /// Removes every saved capture (photos, results, labels) from this
     /// phone. The Study panel asks first.
     static func deleteAllCaptures() {

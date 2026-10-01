@@ -50,6 +50,9 @@ struct StudyPanelView: View {
     @State private var confirmDeletePhotos = false
     @State private var confirmReset = false
     @State private var savedCount = 0
+    @State private var shareFile: ShareFile?
+    @State private var packing = false
+    @State private var shareError: String?
 
     private var people: [StudyParticipant] { StudyRoster.decode(listJSON) }
 
@@ -74,6 +77,29 @@ struct StudyPanelView: View {
                     Text("Who's being measured")
                 } footer: {
                     Text("Tap a person to select them (the panel closes); every scan is tagged with the selected person and their skin-tone group. Codes only, no names. Skin tone is optional and only used to check the app measures everyone equally well. Swipe left to remove a person from this list (their saved scans stay).")
+                }
+
+                Section {
+                    Button {
+                        packing = true
+                        shareError = nil
+                        Task {
+                            let url = await HumanLabelStore.zipAllCaptures()
+                            packing = false
+                            if let url { shareFile = ShareFile(url: url) } else { shareError = "Couldn't pack the photos. Try again." }
+                        }
+                    } label: {
+                        HStack {
+                            Text("Share saved photos (\(savedCount))")
+                            if packing { Spacer(); ProgressView() }
+                        }
+                    }
+                    .disabled(savedCount == 0 || packing)
+                    if let shareError {
+                        Text(shareError).foregroundColor(Theme.attention)
+                    }
+                } footer: {
+                    Text("Packs every scan and label on this phone into one zip and opens the share sheet. AirDrop it to Rohan's Mac, or send a private iCloud or Drive link. Never post it publicly: these are photos of people's hands.")
                 }
 
                 Section {
@@ -106,6 +132,9 @@ struct StudyPanelView: View {
                 if !people.contains(where: { $0.code == current }) { current = people[0].code }
                 if listJSON.isEmpty { listJSON = StudyRoster.encode(people) }
                 savedCount = HumanLabelStore.captureFolders().count
+            }
+            .sheet(item: $shareFile) { file in
+                ActivityView(items: [file.url])
             }
             .confirmationDialog("Delete \(savedCount) saved photos and their labels from this phone?",
                                 isPresented: $confirmDeletePhotos, titleVisibility: .visible) {
@@ -169,4 +198,21 @@ struct StudyPanelView: View {
         listJSON = StudyRoster.encode(list)
         if !list.contains(where: { $0.code == current }) { current = list[0].code }
     }
+}
+
+/// A file to hand to the share sheet.
+struct ShareFile: Identifiable {
+    let url: URL
+    var id: URL { url }
+}
+
+/// The system share sheet (AirDrop, Messages, Files, ...).
+struct ActivityView: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
 }
