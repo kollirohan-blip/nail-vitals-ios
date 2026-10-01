@@ -24,7 +24,22 @@ nonisolated struct HandLandmarks {
     let indexMCP: Joint
     let wrist: Joint?
     let thumbTip: Joint?
+    /// Knuckles of the other fingers, for telling how far the hand is
+    /// turned (see knuckleSpread).
+    var middleMCP: Joint? = nil
+    var littleMCP: Joint? = nil
     let imageSize: CGSize
+
+    /// How far apart the index and little-finger knuckles look, relative to
+    /// the index finger's length. Seen exactly from the side they line up
+    /// behind each other (near 0); turning the back of the hand toward the
+    /// camera spreads them out.
+    var knuckleSpread: Double? {
+        guard let little = littleMCP else { return nil }
+        let length = hypot(indexTip.point.x - indexMCP.point.x, indexTip.point.y - indexMCP.point.y)
+        guard length > 0 else { return nil }
+        return Double(hypot(little.point.x - indexMCP.point.x, little.point.y - indexMCP.point.y) / length)
+    }
 
     /// Whether an image point lies on the nail (back-of-hand) side of the
     /// index finger. In the side-view pose the nail faces away from the
@@ -98,6 +113,8 @@ nonisolated final class HandPoseDetector {
             indexTip: tip, indexDIP: dip, indexPIP: pip, indexMCP: mcp,
             wrist: joint(try? observation.recognizedPoint(.wrist)),
             thumbTip: joint(try? observation.recognizedPoint(.thumbTip)),
+            middleMCP: joint(try? observation.recognizedPoint(.middleMCP)),
+            littleMCP: joint(try? observation.recognizedPoint(.littleMCP)),
             imageSize: imageSize
         )
     }

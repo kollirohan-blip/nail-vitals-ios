@@ -148,6 +148,8 @@ for path in args {
         print(String(format: "  hand: conf %.2f  tip (%.0f,%.0f)  dip (%.0f,%.0f)  finger length %.0f%% of height",
                      hand.minIndexConfidence, hand.indexTip.point.x, hand.indexTip.point.y,
                      hand.indexDIP.point.x, hand.indexDIP.point.y, hand.fingerLengthFraction * 100))
+        print(String(format: "  turn cue: knuckle spread %.2f (little-finger knuckle conf %.2f)",
+                     hand.knuckleSpread ?? .nan, hand.littleMCP?.confidence ?? 0))
     } else { print("  hand: none") }
     if manualTip != nil || manualDIP != nil { print("  using hand-placed tip/DIP") }
     let d = segmenter.lastDiagnostics

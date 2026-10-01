@@ -18,6 +18,9 @@ enum GuidanceDirection: Equatable {
     case moveRight
     case straighten(degrees: Double)
     case moveHandDown
+    /// The back of the hand is turned toward the camera; the nail needs to
+    /// face sideways for the side-view measurements.
+    case turnToSide
     case noFingerDetected
     case looksGood
 }
@@ -42,6 +45,11 @@ nonisolated final class GuidanceEngine {
     private let centerTolerance: Double = 0.20
     private let maxLandmarkTiltDegrees: Double = 20
     private let maxPIPBendDegrees: Double = 30
+    // Knuckle spread (HandLandmarks.knuckleSpread) on real captures: clean
+    // side views 0.05-0.28; back of the hand toward the camera 0.50-0.70.
+    // Only clear turns are caught; small ones overlap with side views.
+    private let maxKnuckleSpread: Double = 0.42
+    private let minKnuckleConfidence: Float = 0.3
 
     nonisolated func analyze(landmarks: HandLandmarks?) -> GuidanceResult {
         guard let hand = landmarks, hand.minIndexConfidence >= minJointConfidence else {
@@ -66,6 +74,10 @@ nonisolated final class GuidanceEngine {
         }
         if hand.indexTip.point.y < hand.imageSize.height * 0.05 {
             directions.append(.moveHandDown)
+        }
+        if let spread = hand.knuckleSpread, let little = hand.littleMCP,
+           little.confidence >= minKnuckleConfidence, spread > maxKnuckleSpread {
+            directions.append(.turnToSide)
         }
         if directions.isEmpty {
             directions = [.looksGood]

@@ -190,6 +190,8 @@ struct ContentView: View {
             return "Move right"
         case .straighten:
             return "Straighten your finger and point it up"
+        case .turnToSide:
+            return "Turn your hand so the nail faces sideways"
         case .moveHandDown:
             return "Move your hand down slightly"
         case .looksGood:
