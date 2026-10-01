@@ -1,6 +1,6 @@
 // Runs the app's real measurement pipeline (hand pose -> subject-mask outline
 // -> AngleAnalyzer) on photos from disk, on the Mac. From this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder}.swift main.swift -o photo-lab
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder,HumanLabel}.swift main.swift Report.swift -o photo-lab
 //   ./photo-lab photo.jpg [more.jpg ...] [--out folder] [--truth x,y]
 // --truth is the real cuticle in image pixels (e.g. from a saved capture's
 // manual dot 2); the report then includes how far the automatic marker missed.
@@ -99,6 +99,10 @@ let manualDIP = pointArg("--dip")
 // hyponychial angle and the result line (default: the app's).
 var drawTurn = 30.0
 if let i = args.firstIndex(of: "--turn"), i + 1 < args.count, let t = Double(args[i + 1]) { drawTurn = t; args.removeSubrange(i...i + 1) }
+// --report: compare the app with Label-mode labels (see Report.swift).
+let makeReport = args.contains("--report")
+args.removeAll { $0 == "--report" }
+var reportRows: [ReportRow] = []
 var manualNailSide: String?
 if let i = args.firstIndex(of: "--nail-side"), i + 1 < args.count { manualNailSide = args[i + 1]; args.removeSubrange(i...i + 1) }
 
@@ -223,4 +227,32 @@ for path in args {
     let outPath = (outDir as NSString).appendingPathComponent("\(name)-annotated.png")
     writeAnnotated(image, silhouette: silhouette, hand: hand, result: result, truth: truth, signs: signs, to: outPath)
     print("  annotated: \(outPath)")
+
+    if makeReport {
+        // The app's own automatic measurement (not the user's confirmation).
+        var app: [SignKind: Double] = [:]
+        var status = "failed"
+        let shown = result?.candidates.filter { hand?.isOnNailSide($0.inflectionPoint) != false } ?? []
+        if let result, let silhouette, let hand, let marker = nailMarker {
+            if !shown.isEmpty, shown.allSatisfy({ $0.angleDegrees >= 180 }) {
+                status = "needs dots"
+            } else {
+                status = "auto"
+                let s = FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: hand.indexTip.point, dip: hand.indexDIP.point,
+                                                    cuticle: marker.inflectionPoint, lovibond: marker.angleDegrees,
+                                                    isNailSide: { hand.isOnNailSide($0) }, turnDegrees: drawTurn)
+                for kind in SignKind.allCases { app[kind] = kind.value(in: s) }
+            }
+            _ = result
+        }
+        var meta: [String: Any] = [:]
+        if isDir.boolValue, let data = try? Data(contentsOf: URL(fileURLWithPath: (path as NSString).appendingPathComponent("capture.json"))),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] { meta = json }
+        let humans = isDir.boolValue ? Report.labels(in: path).mapValues(Report.values) : [:]
+        reportRows.append(ReportRow(capture: name, participant: meta["participant"] as? String, skinTone: meta["skinTone"] as? String,
+                                    hand: meta["measuredHand"] as? String, appStatus: status, app: app, humans: humans))
+    }
+}
+if makeReport {
+    Report.write(reportRows, to: (outDir as NSString).appendingPathComponent("report"))
 }

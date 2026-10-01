@@ -71,6 +71,12 @@ nonisolated struct HumanLabel: Codable, Equatable {
         points[p.rawValue].flatMap { $0.count == 2 ? CGPoint(x: $0[0], y: $0[1]) : nil }
     }
 
+    /// All placed points, for recomputing the signs (e.g. after the
+    /// formulas change) rather than trusting the saved values.
+    var placedPoints: [Point: CGPoint] {
+        Dictionary(uniqueKeysWithValues: Point.allCases.compactMap { p in point(p).map { (p, $0) } })
+    }
+
     /// The three signs from the points, computed the way the app does:
     /// outside angles at the cuticle, inside judged against the finger
     /// outlined by the points themselves.
