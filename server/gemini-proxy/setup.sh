@@ -11,6 +11,14 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 
+# Wrangler asks questions (a workers.dev name, your key), which only works
+# in a real terminal window.
+if [ ! -t 0 ] || [ ! -t 1 ]; then
+  echo "Please run this in a Terminal window (not a command box), so it can ask you questions:"
+  echo "  bash ~/Documents/nail-vitals-ios/server/gemini-proxy/setup.sh"
+  exit 1
+fi
+
 CONFIG="../../nail-vitals-ios/NailVitals/NailVitals/NailVitals/AssistantConfig.plist"
 wrangler() { npx --yes wrangler "$@"; }
 
@@ -22,8 +30,11 @@ fi
 
 echo
 echo "== 2/5  Deploying the server"
+echo "(The first time, Cloudflare asks you to pick a workers.dev name: answer yes and pick any name.)"
 LOG=$(mktemp)
-wrangler deploy | tee "$LOG"
+# `script` records the output while keeping the terminal interactive, so
+# wrangler can still ask its questions.
+script -q "$LOG" npx --yes wrangler deploy
 URL=$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$LOG" | head -1 || true)
 rm -f "$LOG"
 if [ -z "$URL" ]; then
