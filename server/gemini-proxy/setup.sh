@@ -35,7 +35,9 @@ LOG=$(mktemp)
 # `script` records the output while keeping the terminal interactive, so
 # wrangler can still ask its questions.
 script -q "$LOG" npx --yes wrangler deploy
-URL=$(grep -Eo 'https://[A-Za-z0-9.-]+\.workers\.dev' "$LOG" | head -1 || true)
+# The Worker's own address (the log also mentions the account's bare
+# workers.dev address when one is first created).
+URL=$(grep -Eo 'https://nail-vitals-assistant\.[A-Za-z0-9.-]+\.workers\.dev' "$LOG" | tail -1 || true)
 rm -f "$LOG"
 if [ -z "$URL" ]; then
   read -r -p "Paste the https://...workers.dev address printed above: " URL
@@ -76,14 +78,15 @@ echo "Saved the server address for the app (AssistantConfig.plist, ignored by gi
 
 echo
 echo "== 5/5  Test"
+echo "(A brand-new workers.dev address can take a few minutes to start working.)"
 sleep 3
 echo "Models this key can use:"
-curl -s -H "x-app-token: $TOKEN" "$URL/models"
+curl -s -H "x-app-token: $TOKEN" "$URL/models" || echo "Not reachable yet. Wait a few minutes and run this script again."
 echo
 echo
 echo "Test question: What is finger clubbing?"
 curl -s -X POST "$URL/ask" -H "content-type: application/json" -H "x-app-token: $TOKEN" \
-  -d '{"question":"What is finger clubbing?","context":"","history":[]}'
+  -d '{"question":"What is finger clubbing?","context":"","history":[]}' || true
 echo
 echo
 echo "Done. Rebuild the app in Xcode and try 'Ask about this result'."
