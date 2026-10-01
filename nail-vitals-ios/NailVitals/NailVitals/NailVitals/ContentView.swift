@@ -13,9 +13,10 @@ struct ContentView: View {
     @State private var scanning = false
     @AppStorage("hasSeenPoseGuide") private var hasSeenPoseGuide = false
     @State private var showGuide = false
+    @Namespace private var scanTransition
 
     var body: some View {
-        HomeView(history: history, onStartScan: { scanning = true })
+        HomeView(history: history, transition: scanTransition, onStartScan: { scanning = true })
             .fullScreenCover(isPresented: $scanning) {
                 ScanView(
                     onClose: { scanning = false },
@@ -24,6 +25,7 @@ struct ContentView: View {
                         scanning = false
                     }
                 )
+                .navigationTransition(.zoom(sourceID: "scan", in: scanTransition))
             }
             .sheet(isPresented: $showGuide, onDismiss: { hasSeenPoseGuide = true }) {
                 PoseGuideView()

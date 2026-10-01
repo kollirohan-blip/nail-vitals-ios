@@ -12,6 +12,8 @@ import Charts
 
 struct HomeView: View {
     @ObservedObject var history: ScanHistory
+    /// The Start scan button zooms open into the camera.
+    var transition: Namespace.ID? = nil
     let onStartScan: () -> Void
 
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
@@ -125,6 +127,7 @@ struct HomeView: View {
                 .padding(.vertical, 6)
             }
             .buttonStyle(GlowButtonStyle(color: Theme.searching))
+            .modifier(ScanTransitionSource(namespace: transition))
             HStack(spacing: 6) {
                 Picker("Finger", selection: $hand) {
                     ForEach(MeasuredHand.allCases, id: \.self) { Text("\($0.label) index").tag($0) }
@@ -272,5 +275,18 @@ struct HomeView: View {
             .glassPanel(cornerRadius: 18)
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Marks the Start scan button as where the camera zooms open from.
+private struct ScanTransitionSource: ViewModifier {
+    let namespace: Namespace.ID?
+
+    func body(content: Content) -> some View {
+        if let namespace {
+            content.matchedTransitionSource(id: "scan", in: namespace)
+        } else {
+            content
+        }
     }
 }

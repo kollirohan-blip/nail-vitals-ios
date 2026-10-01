@@ -20,6 +20,9 @@ struct ResultView: View {
     let readings: [FingerSigns]
 
     @State private var shown: Double = ResultGauge.minAngle
+    /// 0 nothing yet, 1 verdict, 2-4 one sign chip each.
+    @State private var revealed = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showAbout = false
 
     private var assessment: ClubbingAssessment { ClubbingAssessment(readings: readings) }
@@ -61,6 +64,8 @@ struct ResultView: View {
                         }
                     }
                     verdict
+                        .opacity(revealed >= 1 ? 1 : 0)
+                        .offset(y: revealed >= 1 ? 0 : 8)
                     signRow
                     Button {
                         showAbout = true
@@ -99,14 +104,27 @@ struct ResultView: View {
         .padding(.horizontal, 24)
         .sheet(isPresented: $showAbout) { AboutMeasurementsView() }
         .onAppear {
-            guard let headline else { return }
-            withAnimation(.spring(response: 1.1, dampingFraction: 0.8)) {
-                shown = headline
+            if let headline {
+                withAnimation(.spring(response: 1.1, dampingFraction: 0.8)) {
+                    shown = headline
+                }
             }
+            reveal()
         }
         .onChange(of: headline) { _, newValue in
             guard let newValue else { return }
             withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) { shown = newValue }
+        }
+    }
+
+    /// The dial sweeps first, then the verdict, then the chips one by one.
+    private func reveal() {
+        guard !reduceMotion else { revealed = 4; return }
+        for step in 1...4 {
+            let delay = 0.55 + Double(step - 1) * 0.15
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { revealed = max(revealed, step) }
+            }
         }
     }
 
@@ -167,9 +185,11 @@ struct ResultView: View {
 
     private var signRow: some View {
         HStack(spacing: 8) {
-            ForEach(SignKind.allCases, id: \.self) { kind in
+            ForEach(Array(SignKind.allCases.enumerated()), id: \.element) { index, kind in
                 SignChip(kind: kind, value: assessment.values[kind],
                          valueText: kind == .lovibond && noDipHeadline ? "≥180°" : nil)
+                    .opacity(revealed >= index + 2 ? 1 : 0)
+                    .scaleEffect(revealed >= index + 2 ? 1 : 0.85)
             }
         }
     }

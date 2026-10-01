@@ -367,6 +367,8 @@ struct CaptureFlowView: View {
 /// measurement runs.
 private struct MeasuringView: View {
     let image: UIImage?
+    @State private var flash = 1.0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         ZStack {
@@ -410,8 +412,14 @@ private struct MeasuringView: View {
                 .glassPanel(cornerRadius: 22)
                 .padding(.bottom, 60)
             }
+            // Camera flash as the photo lands.
+            Color.white
+                .opacity(reduceMotion ? 0 : flash)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
         }
         .animation(.easeIn(duration: 0.25), value: image == nil)
+        .onAppear { withAnimation(.easeOut(duration: 0.45)) { flash = 0 } }
     }
 }
 
