@@ -98,15 +98,27 @@ private struct CaptureThumbnail: View {
 
 /// Reading and writing labels in capture folders.
 enum HumanLabelStore {
-    static func captureFolders() -> [URL] {
-        guard let root = try? FileManager.default
+    static var capturesRoot: URL? {
+        try? FileManager.default
             .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: false)
-            .appendingPathComponent("Captures", isDirectory: true),
+            .appendingPathComponent("Captures", isDirectory: true)
+    }
+
+    static func captureFolders() -> [URL] {
+        guard let root = capturesRoot,
               let items = try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
         else { return [] }
         return items
             .filter { FileManager.default.fileExists(atPath: $0.appendingPathComponent("photo.jpg").path) }
             .sorted { $0.lastPathComponent > $1.lastPathComponent }
+    }
+
+    /// Removes every saved capture (photos, results, labels) from this
+    /// phone. The Study panel asks first.
+    static func deleteAllCaptures() {
+        guard let root = capturesRoot,
+              let items = try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil) else { return }
+        for item in items { try? FileManager.default.removeItem(at: item) }
     }
 
     /// Letters and digits only, upper case, for the file name.

@@ -12,10 +12,15 @@ struct ContentView: View {
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
     @AppStorage("hasSeenPoseGuide") private var hasSeenPoseGuide = false
     @State private var showGuide = false
-    // Study bookkeeping (testing builds only): who is being measured.
-    @AppStorage(StudyPanelView.participantKey) private var participant = "P1"
-    @AppStorage(StudyPanelView.skinToneKey) private var skinTone = ""
+    // Study bookkeeping (testing builds only): who is being measured. Every
+    // capture is tagged with the selected person and their skin tone.
+    @AppStorage(StudyRoster.currentKey) private var participant = "P1"
+    @AppStorage(StudyRoster.listKey) private var participantsJSON = ""
     @State private var showStudy = false
+
+    private var skinTone: String {
+        StudyRoster.decode(participantsJSON).first { $0.code == participant }?.skinTone ?? ""
+    }
 
     var body: some View {
         ZStack {
@@ -191,7 +196,7 @@ struct ContentView: View {
             Spacer()
             if saveCapturesForTesting {
                 Button { showStudy = true } label: {
-                    Text(participant)
+                    Text(skinTone.isEmpty ? participant : "\(participant) · \(skinTone.prefix(1).uppercased())")
                         .font(.system(size: 13, weight: .bold))
                         .monospacedDigit()
                         .foregroundColor(.white)

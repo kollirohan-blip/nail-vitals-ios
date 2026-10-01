@@ -3,60 +3,95 @@
 //  NailVitals
 //
 //  Testing builds only (saveCapturesForTesting): bookkeeping for the small
-//  validation study. Who is being measured (a code like "P3", never a
-//  name), an optional rough skin-tone group to check the app measures
-//  everyone equally well, and the way into Label mode.
+//  validation study. A list of people (codes like "P3", never names), each
+//  with an optional rough skin-tone group; whoever is selected is tagged
+//  on every capture automatically. Also the way into Label mode, and a way
+//  to clear this phone's saved captures once they're copied off.
 //
 
 import SwiftUI
 
-struct StudyPanelView: View {
-    static let participantKey = "studyParticipant"
-    static let participantNumberKey = "studyParticipantNumber"
-    static let skinToneKey = "studySkinTone"
+/// One study participant: a code and an optional rough skin-tone group.
+struct StudyParticipant: Codable, Identifiable, Equatable {
+    var code: String
+    var skinTone: String  // "", "lighter", "medium", "darker"
+    var id: String { code }
+}
 
-    @AppStorage(participantKey) private var participant = "P1"
-    @AppStorage(participantNumberKey) private var number = 1
-    @AppStorage(skinToneKey) private var skinTone = ""
+/// The participant list, kept in UserDefaults as JSON.
+enum StudyRoster {
+    static let currentKey = "studyCurrentParticipant"
+    static let listKey = "studyParticipants"
+
+    static let skinTones: [(tag: String, name: String)] = [("", "Not recorded"), ("lighter", "Lighter"), ("medium", "Medium"), ("darker", "Darker")]
+
+    static func decode(_ json: String) -> [StudyParticipant] {
+        guard let data = json.data(using: .utf8),
+              let list = try? JSONDecoder().decode([StudyParticipant].self, from: data), !list.isEmpty
+        else { return [StudyParticipant(code: "P1", skinTone: "")] }
+        return list
+    }
+
+    static func encode(_ list: [StudyParticipant]) -> String {
+        (try? JSONEncoder().encode(list)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+    }
+
+    /// The next free code: one more than the highest number used.
+    static func nextCode(after list: [StudyParticipant]) -> String {
+        let highest = list.compactMap { Int($0.code.dropFirst()) }.max() ?? 0
+        return "P\(highest + 1)"
+    }
+}
+
+struct StudyPanelView: View {
+    @AppStorage(StudyRoster.currentKey) private var current = "P1"
+    @AppStorage(StudyRoster.listKey) private var listJSON = ""
     @Environment(\.dismiss) private var dismiss
+    @State private var confirmDeletePhotos = false
+    @State private var confirmReset = false
+    @State private var savedCount = 0
+
+    private var people: [StudyParticipant] { StudyRoster.decode(listJSON) }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section {
-                    HStack {
-                        Text("Now measuring")
-                        Spacer()
-                        Text(participant)
-                            .font(.system(size: 17, weight: .bold))
-                            .monospacedDigit()
+                    ForEach(people) { person in
+                        row(person)
                     }
-                    Button("Start a new person") {
-                        number += 1
-                        participant = "P\(number)"
-                        skinTone = ""
+                    .onDelete(perform: remove)
+                    Button {
+                        var list = people
+                        let code = StudyRoster.nextCode(after: list)
+                        list.append(StudyParticipant(code: code, skinTone: ""))
+                        listJSON = StudyRoster.encode(list)
+                        current = code
+                    } label: {
+                        Label("Add a person", systemImage: "plus.circle.fill")
                     }
                 } header: {
-                    Text("Participant")
+                    Text("Who's being measured")
                 } footer: {
-                    Text("Start a new person before measuring someone else, so each person's readings stay together. Codes only, no names.")
-                }
-
-                Section {
-                    Picker("Skin tone group", selection: $skinTone) {
-                        Text("Not recorded").tag("")
-                        Text("Lighter").tag("lighter")
-                        Text("Medium").tag("medium")
-                        Text("Darker").tag("darker")
-                    }
-                } footer: {
-                    Text("Optional and rough. Used only to check that the app measures everyone equally well.")
+                    Text("Tap a person to select them (the panel closes); every scan is tagged with the selected person and their skin-tone group. Codes only, no names. Skin tone is optional and only used to check the app measures everyone equally well. Swipe left to remove a person from this list (their saved scans stay).")
                 }
 
                 Section {
                     NavigationLink("Label saved photos") { LabelBrowserView() }
                 } footer: {
                     Text("Place the measurement points by hand, without seeing the app's markers or numbers, so the app's accuracy can be checked against people.")
+                }
+
+                Section {
+                    Button("Delete saved photos on this phone (\(savedCount))", role: .destructive) {
+                        confirmDeletePhotos = true
+                    }
+                    .disabled(savedCount == 0)
+                    Button("Reset people list to P1", role: .destructive) {
+                        confirmReset = true
+                    }
+                } footer: {
+                    Text("Copy the photos to the Mac first (plug in and run the pull script); deleting can't be undone.")
                 }
             }
             .navigationTitle("Study")
@@ -66,7 +101,72 @@ struct StudyPanelView: View {
                     Button("Done") { dismiss() }
                 }
             }
+            .onAppear {
+                // Keep the selection on someone who exists.
+                if !people.contains(where: { $0.code == current }) { current = people[0].code }
+                if listJSON.isEmpty { listJSON = StudyRoster.encode(people) }
+                savedCount = HumanLabelStore.captureFolders().count
+            }
+            .confirmationDialog("Delete \(savedCount) saved photos and their labels from this phone?",
+                                isPresented: $confirmDeletePhotos, titleVisibility: .visible) {
+                Button("Delete \(savedCount) photos", role: .destructive) {
+                    HumanLabelStore.deleteAllCaptures()
+                    savedCount = HumanLabelStore.captureFolders().count
+                }
+            } message: {
+                Text("This can't be undone. Make sure they've been copied to the Mac.")
+            }
+            .confirmationDialog("Start the people list again from P1?", isPresented: $confirmReset, titleVisibility: .visible) {
+                Button("Reset to P1", role: .destructive) {
+                    listJSON = StudyRoster.encode([StudyParticipant(code: "P1", skinTone: "")])
+                    current = "P1"
+                }
+            } message: {
+                Text("Saved scans keep the codes they were tagged with.")
+            }
         }
         .preferredColorScheme(.dark)
+    }
+
+    private func row(_ person: StudyParticipant) -> some View {
+        HStack {
+            Button {
+                // Selecting someone is the common case at a measuring
+                // session, so it also closes the panel.
+                current = person.code
+                dismiss()
+            } label: {
+                HStack {
+                    Image(systemName: person.code == current ? "checkmark.circle.fill" : "circle")
+                        .foregroundColor(person.code == current ? Theme.aligned : .secondary)
+                    Text(person.code)
+                        .font(.system(size: 17, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundColor(.primary)
+                }
+            }
+            .buttonStyle(.plain)
+            Spacer()
+            Picker("Skin tone", selection: Binding(
+                get: { person.skinTone },
+                set: { tone in
+                    var list = people
+                    if let i = list.firstIndex(where: { $0.code == person.code }) { list[i].skinTone = tone }
+                    listJSON = StudyRoster.encode(list)
+                }
+            )) {
+                ForEach(StudyRoster.skinTones, id: \.tag) { Text($0.name).tag($0.tag) }
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+        }
+    }
+
+    private func remove(at offsets: IndexSet) {
+        var list = people
+        list.remove(atOffsets: offsets)
+        if list.isEmpty { list = [StudyParticipant(code: "P1", skinTone: "")] }
+        listJSON = StudyRoster.encode(list)
+        if !list.contains(where: { $0.code == current }) { current = list[0].code }
     }
 }
