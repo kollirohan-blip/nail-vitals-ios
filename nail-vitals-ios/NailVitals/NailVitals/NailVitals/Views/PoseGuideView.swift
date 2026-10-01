@@ -16,6 +16,7 @@ struct PoseGuideView: View {
     private let steps = [
         ("hand.point.up.left.fill", "Use your right index finger. The left is fine too; switch it at the top of the camera screen."),
         ("rectangle.portrait", "Point it straight up in front of a plain, light wall, in good light."),
+        ("circle.circle", "Take off any rings on that hand. They hide the knuckles the app tracks."),
         ("rotate.3d", "Turn your hand so the camera sees the side of your finger. The nail should look like a thin edge, not a flat surface."),
         ("hand.raised", "Keep the finger straight and steady. Resting your elbow on a table helps."),
         ("checkmark.circle", "When the outline turns green, hold still and tap the button. Measure 3 times for a steadier result."),

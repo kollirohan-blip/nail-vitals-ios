@@ -93,6 +93,10 @@ truth = pointArg("--truth")
 // hand-placed fingertip and DIP joint in image pixels.
 let manualTip = pointArg("--tip")
 let manualDIP = pointArg("--dip")
+// For photos where hand pose finds the wrong hand or finger: which side of
+// the image the nail is on (left or right of the DIP joint).
+var manualNailSide: String?
+if let i = args.firstIndex(of: "--nail-side"), i + 1 < args.count { manualNailSide = args[i + 1]; args.removeSubrange(i...i + 1) }
 
 /// A folder saved by the app's CaptureRecorder: photo.jpg + capture.json. The
 /// user's manual dot 2 (the cuticle) becomes the ground truth.
@@ -176,7 +180,8 @@ for path in args {
     var signs: FingerSigns?
     let nailMarker = result?.candidates.first { hand?.isOnNailSide($0.inflectionPoint) == true }
     if let silhouette, let tip = tipPoint, let dip = dipPoint, let cuticle = truth ?? nailMarker?.inflectionPoint {
-        let isNailSide: ((CGPoint) -> Bool?)? = hand.map { h in { h.isOnNailSide($0) } }
+        var isNailSide: ((CGPoint) -> Bool?)? = hand.map { h in { h.isOnNailSide($0) } }
+        if let side = manualNailSide { isNailSide = { ($0.x > dip.x) == (side == "right") } }
         var line = "  signs:"
         for turn in [30.0, 45.0, 60.0] {
             let s = FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: tip, dip: dip, cuticle: cuticle,
