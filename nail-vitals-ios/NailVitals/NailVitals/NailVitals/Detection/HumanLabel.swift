@@ -10,7 +10,9 @@
 //    cuticle       where the nail meets the skin fold (B)
 //    nail          on the nail's edge, partway to the tip
 //    skin          on the skin fold's edge, about as far below the cuticle
-//    crease        nail-side edge at the last knuckle's crease (A)
+//    crease        nail-side edge level with the last joint's crease (A):
+//                  the fold line on the pad side where the fingertip
+//                  bends, carried straight across to the nail side
 //    freeEdge      nail-side edge where the nail ends at the tip (C)
 //    cuticleAcross opposite edge, straight across from the cuticle
 //    creaseAcross  opposite edge, straight across from the crease
@@ -29,10 +31,10 @@ nonisolated struct HumanLabel: Codable, Equatable {
             case .cuticle: return "Tap the cuticle: where the nail meets the skin fold, on the nail's edge."
             case .nail: return "Tap the nail's edge about halfway from the cuticle to the tip."
             case .skin: return "Tap the skin's edge below the cuticle, about as far as the last point is above it."
-            case .crease: return "Tap the nail-side edge level with the wrinkles over the last knuckle (usually 1 to 1½ nail-lengths below the cuticle)."
+            case .crease: return "Find the fold line on the pad side where the fingertip bends (the last joint's crease). Tap the nail-side edge straight across from it."
             case .freeEdge: return "Tap the nail-side edge where the nail ends at the tip."
             case .cuticleAcross: return "Tap the opposite edge of the finger, straight across from the cuticle."
-            case .creaseAcross: return "Tap the opposite edge, straight across from the knuckle crease."
+            case .creaseAcross: return "Tap the pad-side edge right at that fold line."
             }
         }
 

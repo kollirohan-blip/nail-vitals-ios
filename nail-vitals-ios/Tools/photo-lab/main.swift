@@ -31,7 +31,7 @@ func pixelBuffer(from image: CGImage) -> CVPixelBuffer? {
 }
 
 func writeAnnotated(_ image: CGImage, silhouette: DetectedSilhouette?, hand: HandLandmarks?,
-                    result: LovibondResult?, truth: CGPoint?, signs: FingerSigns?, to path: String) {
+                    result: LovibondResult?, truth: CGPoint?, signs: FingerSigns?, labels: [HumanLabel] = [], to path: String) {
     let w = image.width, h = image.height
     guard let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
                               space: CGColorSpaceCreateDeviceRGB(),
@@ -69,6 +69,24 @@ func writeAnnotated(_ image: CGImage, silhouette: DetectedSilhouette?, hand: Han
         for slice in [signs.nailBedSlice, signs.jointSlice].compactMap({ $0 }) {
             ctx.setStrokeColor(CGColor(red: 1, green: 0.55, blue: 0, alpha: 1)); ctx.setLineWidth(1.5 * unit)
             ctx.move(to: slice.a); ctx.addLine(to: slice.b); ctx.strokePath()
+        }
+    }
+
+    // People's Label-mode points: white squares and lines (hyponychial
+    // C-B-A, profile N-B-S, and the two across lines).
+    for label in labels {
+        let p = label.placedPoints
+        ctx.setStrokeColor(CGColor(gray: 1, alpha: 0.95)); ctx.setLineWidth(1.2 * unit)
+        ctx.setLineDash(phase: 0, lengths: [6 * unit, 4 * unit])
+        for chain in [[HumanLabel.Point.freeEdge, .cuticle, .crease], [.nail, .cuticle, .skin], [.cuticle, .cuticleAcross], [.crease, .creaseAcross]] {
+            let pts = chain.compactMap { p[$0] }
+            guard pts.count == chain.count else { continue }
+            ctx.move(to: pts[0]); pts.dropFirst().forEach { ctx.addLine(to: $0) }; ctx.strokePath()
+        }
+        ctx.setLineDash(phase: 0, lengths: [])
+        for (_, q) in p {
+            ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+            ctx.fill(CGRect(x: q.x - 3.5 * unit, y: q.y - 3.5 * unit, width: 7 * unit, height: 7 * unit))
         }
     }
 
@@ -225,7 +243,8 @@ for path in args {
         }
     }
     let outPath = (outDir as NSString).appendingPathComponent("\(name)-annotated.png")
-    writeAnnotated(image, silhouette: silhouette, hand: hand, result: result, truth: truth, signs: signs, to: outPath)
+    let labels = isDir.boolValue ? Array(Report.labels(in: path).values) : []
+    writeAnnotated(image, silhouette: silhouette, hand: hand, result: result, truth: truth, signs: signs, labels: labels, to: outPath)
     print("  annotated: \(outPath)")
 
     if makeReport {
