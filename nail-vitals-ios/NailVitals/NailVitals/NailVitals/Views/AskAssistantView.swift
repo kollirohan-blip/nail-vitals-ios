@@ -11,6 +11,8 @@ import SwiftUI
 
 struct AskAssistantView: View {
     let context: AssistantContext
+    /// The Chat tab: no close button, the home backdrop.
+    var embedded = false
     var provider: AnswerProvider = assistantProvider
 
     @Environment(\.dismiss) private var dismiss
@@ -57,7 +59,7 @@ struct AskAssistantView: View {
             }
             inputBar
         }
-        .background(Color.black.ignoresSafeArea())
+        .background { if embedded { AppBackground() } else { Color.black.ignoresSafeArea() } }
         .preferredColorScheme(.dark)
     }
 
@@ -65,15 +67,17 @@ struct AskAssistantView: View {
 
     private var header: some View {
         HStack {
-            Text("Ask about your result")
-                .font(.system(size: 17, weight: .semibold))
+            Text(context.readings.isEmpty ? "Ask about finger clubbing" : "Ask about your result")
+                .font(.system(size: embedded ? 22 : 17, weight: .semibold))
             Spacer()
-            Button { dismiss() } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundStyle(.secondary)
+            if !embedded {
+                Button { dismiss() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundStyle(.secondary)
+                }
+                .accessibilityLabel("Close")
             }
-            .accessibilityLabel("Close")
         }
         .padding(16)
     }
@@ -93,10 +97,10 @@ struct AskAssistantView: View {
     private func contextChip(_ angle: Double, _ verdict: ClubbingAssessment.Verdict) -> some View {
         Text(String(format: "Your reading: %.1f° · %@", angle, verdict.label))
             .font(.system(size: 13, weight: .semibold))
-            .foregroundColor(Theme.searching)
+            .foregroundColor(.white.opacity(0.85))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Theme.searching.opacity(0.12), in: Capsule())
+            .background(Color.white.opacity(0.1), in: Capsule())
     }
 
     private var suggestionList: some View {
@@ -128,7 +132,7 @@ struct AskAssistantView: View {
                 Text(message.text)
                     .padding(12)
                     .foregroundColor(.black)
-                    .background(Theme.searching, in: RoundedRectangle(cornerRadius: 16))
+                    .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16))
             }
         case .assistant:
             HStack {
@@ -159,7 +163,7 @@ struct AskAssistantView: View {
             Button { send(draft) } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 32))
-                    .foregroundColor(canSend ? Theme.searching : .gray)
+                    .foregroundColor(canSend ? .white : .gray)
             }
             .disabled(!canSend)
             .accessibilityLabel("Send")

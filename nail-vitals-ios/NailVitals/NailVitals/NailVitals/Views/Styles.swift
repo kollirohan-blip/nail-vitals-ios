@@ -47,7 +47,61 @@ struct GhostButtonStyle: ButtonStyle {
     }
 }
 
+/// The home side's backdrop: graphite with faint emerald and violet glows.
+struct AppBackground: View {
+    var body: some View {
+        ZStack {
+            Color(red: 0.055, green: 0.06, blue: 0.075)
+            RadialGradient(colors: [Theme.aligned.opacity(0.10), .clear], center: .topLeading, startRadius: 20, endRadius: 460)
+            RadialGradient(colors: [Theme.violet.opacity(0.14), .clear], center: .bottomTrailing, startRadius: 20, endRadius: 500)
+        }
+        .ignoresSafeArea()
+    }
+}
+
+/// The safety line every result shows.
+struct SafetyNote: View {
+    var body: some View {
+        Text("This tool flags a pattern that may be worth discussing with a doctor. It does not diagnose any condition.")
+            .font(.system(size: 12, weight: .medium))
+            .foregroundStyle(.white.opacity(0.5))
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+    }
+}
+
+/// A glass card for screens with nothing to show yet.
+struct EmptyStateCard: View {
+    let icon: String
+    let title: String
+    let text: String
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 32, weight: .light))
+                .foregroundStyle(.white.opacity(0.6))
+            Text(title)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(.white)
+            Text(text)
+                .font(.system(size: 14))
+                .foregroundStyle(.white.opacity(0.65))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity)
+        .glassCard()
+    }
+}
+
 extension View {
+    /// Liquid Glass card (the home side).
+    func glassCard(cornerRadius: CGFloat = 24) -> some View {
+        glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+    }
+
     /// Frosted-glass card with a faint edge highlight.
     func glassPanel(cornerRadius: CGFloat = 20) -> some View {
         self

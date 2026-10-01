@@ -1,7 +1,7 @@
 // ContentView.swift
 //
-// The app's root: the Home screen, with a guided scan opening full-screen
-// over it. A finished scan is saved to the history and shows on Home.
+// The app's root: the home tabs, with a guided scan opening full-screen
+// over them. A finished scan is saved to the history and shows on Home.
 
 import SwiftUI
 
@@ -16,7 +16,7 @@ struct ContentView: View {
     @Namespace private var scanTransition
 
     var body: some View {
-        HomeView(history: history, transition: scanTransition, onStartScan: { scanning = true })
+        HomeTabs(history: history, transition: scanTransition, onStartScan: { scanning = true })
             .fullScreenCover(isPresented: $scanning) {
                 ScanView(
                     onClose: { scanning = false },

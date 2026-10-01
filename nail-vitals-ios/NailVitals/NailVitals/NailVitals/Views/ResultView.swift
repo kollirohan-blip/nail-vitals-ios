@@ -151,6 +151,22 @@ struct ResultView: View {
 
     private var verdict: some View {
         let a = assessment
+        let fullDetail = Self.verdictDetail(a, steady: steady, noDip: noDipHeadline)
+        return VStack(spacing: 6) {
+            Text(a.verdict.label)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundColor(Self.color(for: a.verdict))
+                .multilineTextAlignment(.center)
+            Text(fullDetail)
+                .font(.system(size: 15))
+                .foregroundColor(.white.opacity(0.85))
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    /// What the verdict means, in a sentence or two. `steady`: from enough
+    /// readings to use the middle values. Shared with the Results tab.
+    static func verdictDetail(_ a: ClubbingAssessment, steady: Bool, noDip: Bool) -> String {
         let detail: String
         switch a.verdict {
         case .typical:
@@ -168,19 +184,9 @@ struct ResultView: View {
         case .worthDiscussing:
             detail = "Two or more signs are in the range where clubbing is considered. Clubbing has many causes, and some people are born with it, so only a doctor can say what it means. Mention any symptoms you've noticed."
         }
-        let fullDetail = noDipHeadline
+        return noDip
             ? detail + " No cuticle dip was found: clubbing does this, and so can a finger turned toward the camera."
             : detail
-        return VStack(spacing: 6) {
-            Text(a.verdict.label)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(Self.color(for: a.verdict))
-                .multilineTextAlignment(.center)
-            Text(fullDetail)
-                .font(.system(size: 15))
-                .foregroundColor(.white.opacity(0.85))
-                .multilineTextAlignment(.center)
-        }
     }
 
     private var signRow: some View {

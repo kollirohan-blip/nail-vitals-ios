@@ -25,8 +25,8 @@ struct SplashView: View {
                 ZStack {
                     FingerProfileShape()
                         .trim(from: 0, to: fingerProgress)
-                        .stroke(Theme.searching, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
-                        .shadow(color: Theme.searching.opacity(0.6), radius: 10)
+                        .stroke(Color.white, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                        .shadow(color: Color.white.opacity(0.45), radius: 10)
                     LovibondAngleMark()
                         .trim(from: 0, to: angleProgress)
                         .stroke(Theme.aligned, style: StrokeStyle(lineWidth: 3, lineCap: .round))

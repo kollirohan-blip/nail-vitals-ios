@@ -5,22 +5,26 @@
 //  "How to hold your finger": shown once after the first launch and from
 //  the "?" button on the camera screen. The reference study (Husarik 2002)
 //  fixed the finger's position to avoid rotation; a home user has only
-//  these instructions, so they are part of the measurement.
+//  these instructions, so they are part of the measurement. Also the
+//  Learn tab's "How to scan" page (`embedded`).
 //
 
 import SwiftUI
 
 struct PoseGuideView: View {
+    /// Pushed inside the Learn tab: no "Got it" button, the home backdrop.
+    var embedded = false
+
     @Environment(\.dismiss) private var dismiss
 
     private let steps = [
-        ("hand.point.up.left.fill", "Use your right index finger. The left is fine too; switch it at the top of the camera screen."),
+        ("hand.point.up.left.fill", "Use your right index finger. The left is fine too; pick it on Home or in the camera's ••• menu."),
         ("rectangle.portrait", "Point it straight up in front of a plain, light wall, in good light."),
         ("circle.circle", "Rings can stay on. If the app can't find your finger, try taking off rings on that finger."),
-        ("flashlight.on.fill", "In dim light or with harsh shadows, tap the light button at the top."),
+        ("flashlight.on.fill", "In dim light or with harsh shadows, turn on the light from the camera's ••• menu."),
         ("rotate.3d", "Turn your hand so the camera sees the side of your finger. The nail should look like a thin edge, not a flat surface."),
         ("hand.raised", "Keep the finger straight and steady. Resting your elbow on a table helps."),
-        ("checkmark.circle", "When the outline turns green, hold still: the photo takes itself when the ring fills. Measure 3 times for a steadier result."),
+        ("checkmark.circle", "A glowing glove wraps your finger as it gets close. When it turns green, hold still: the photo takes itself. The app takes 3 readings for a steadier result."),
     ]
 
     var body: some View {
@@ -49,7 +53,7 @@ struct PoseGuideView: View {
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: step.0)
                                 .font(.system(size: 17, weight: .semibold))
-                                .foregroundColor(Theme.searching)
+                                .foregroundColor(.white.opacity(0.7))
                                 .frame(width: 26)
                             Text(step.1)
                                 .font(.system(size: 15))
@@ -61,13 +65,15 @@ struct PoseGuideView: View {
                 .padding(18)
                 .glassPanel(cornerRadius: 20)
 
-                Button("Got it") { dismiss() }
-                    .buttonStyle(GlowButtonStyle(color: Theme.searching))
-                    .padding(.bottom, 24)
+                if !embedded {
+                    Button("Got it") { dismiss() }
+                        .buttonStyle(GlowButtonStyle(color: .white))
+                }
             }
             .padding(.horizontal, 20)
+            .padding(.bottom, 24)
         }
-        .background(Color.black.ignoresSafeArea())
+        .background { if embedded { AppBackground() } else { Color.black.ignoresSafeArea() } }
         .preferredColorScheme(.dark)
     }
 

@@ -56,9 +56,18 @@ final class ScanHistory: ObservableObject {
 
     var latest: ScanSession? { sessions.last }
 
+    func session(_ id: UUID) -> ScanSession? {
+        sessions.first { $0.id == id }
+    }
+
     func add(readings: [FingerSigns], hand: MeasuredHand) {
         guard !readings.isEmpty else { return }
         sessions.append(ScanSession(date: Date(), hand: hand.rawValue, readings: readings.map(StoredReading.init)))
+        save()
+    }
+
+    func delete(_ id: UUID) {
+        sessions.removeAll { $0.id == id }
         save()
     }
 
