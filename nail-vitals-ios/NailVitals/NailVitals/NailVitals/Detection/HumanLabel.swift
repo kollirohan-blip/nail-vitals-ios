@@ -29,7 +29,7 @@ nonisolated struct HumanLabel: Codable, Equatable {
             case .cuticle: return "Tap the cuticle: where the nail meets the skin fold, on the nail's edge."
             case .nail: return "Tap the nail's edge about halfway from the cuticle to the tip."
             case .skin: return "Tap the skin's edge below the cuticle, about as far as the last point is above it."
-            case .crease: return "Tap the nail-side edge at the last knuckle's crease."
+            case .crease: return "Tap the nail-side edge level with the wrinkles over the last knuckle (usually 1 to 1½ nail-lengths below the cuticle)."
             case .freeEdge: return "Tap the nail-side edge where the nail ends at the tip."
             case .cuticleAcross: return "Tap the opposite edge of the finger, straight across from the cuticle."
             case .creaseAcross: return "Tap the opposite edge, straight across from the knuckle crease."

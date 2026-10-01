@@ -25,6 +25,7 @@ struct LabelingView: View {
     @State private var grabOffset = CGSize.zero
     @State private var saveError: String?
     @State private var shownImage: Shown?
+    @State private var showGuide = false
 
     private let steps = HumanLabel.Point.allCases
     private let loupeSize: CGFloat = 150
@@ -64,7 +65,12 @@ struct LabelingView: View {
         }
         .navigationTitle("\(step + 1) of \(steps.count)")
         .navigationBarTitleDisplayMode(.inline)
+        .sheet(isPresented: $showGuide) { LabelGuideView() }
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { showGuide = true } label: { Image(systemName: "questionmark.circle") }
+                    .accessibilityLabel("Where the points go")
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button(showWholePhoto ? "Zoom to finger" : "Whole photo") {
                     showWholePhoto.toggle()
