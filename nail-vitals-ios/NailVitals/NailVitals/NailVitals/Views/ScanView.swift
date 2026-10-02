@@ -72,8 +72,22 @@ struct ScanView: View {
                 .transition(.opacity.combined(with: .move(edge: .trailing)))
             }
 
+            // Shutter near the bottom edge, like the Camera app, clear of the
+            // frame and its "hold your finger up here" prompt.
             VStack {
                 Spacer()
+                if showDebugReadout {
+                    VStack(spacing: 4) {
+                        Text(debugDirectionsText)
+                        Text(handReadoutText)
+                    }
+                    .font(.system(size: 11, weight: .medium, design: .monospaced))
+                    .foregroundColor(.white.opacity(0.6))
+                    .padding(8)
+                    .background(Color.black.opacity(0.5))
+                    .cornerRadius(6)
+                    .padding(.bottom, 12)
+                }
                 Button(action: { camera.capturePhoto() }) {
                     captureButtonFace
                 }
@@ -81,20 +95,7 @@ struct ScanView: View {
                 // captures taken while the screen still said "Move back a
                 // little" gave badly framed photos no angle tuning could fix.
                 .disabled(camera.captureState != .aligned)
-                .padding(.bottom, 50)
-
-                VStack(spacing: 4) {
-                    Text(debugDirectionsText)
-                    Text(handReadoutText)
-                }
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundColor(.white.opacity(0.6))
-                .padding(8)
-                .background(Color.black.opacity(0.5))
-                .cornerRadius(6)
-                // Hidden rather than removed so the capture button keeps its place.
-                .opacity(showDebugReadout ? 1 : 0)
-                .padding(.bottom, 100)
+                .padding(.bottom, 24)
             }
         }
         // The camera screen is always dark, whatever the app's look.
