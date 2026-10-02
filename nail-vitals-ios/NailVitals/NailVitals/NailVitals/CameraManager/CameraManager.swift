@@ -46,9 +46,6 @@ final class CameraManager: NSObject, ObservableObject {
     /// A capture has been started and not yet reset; stops the automatic
     /// capture and a button tap from both firing.
     @Published private(set) var captureInFlight = false
-    /// Extra steady frames after "aligned" before the automatic capture
-    /// (about 0.75 s at the processing rate).
-    private let autoCaptureHoldFrames = 3
     private var videoDevice: AVCaptureDevice?
 
     // NEW: set by capturePhoto() (called from the main actor, on a UI
@@ -105,7 +102,11 @@ final class CameraManager: NSObject, ObservableObject {
     // filters out momentary ones, which is what we actually saw on
     // device testing.
     private var consecutiveAlignedCount = 0
-    private let requiredConsecutiveAligned = 4  // roughly 1 second at the current processing rate
+    /// Steady frames needed before it turns green (and, with automatic
+    /// capture, takes the photo on that same frame): about 0.75 s.
+    private let requiredConsecutiveAligned = 3
+    /// One stray frame during a hold pauses it; this counts them.
+    private var missedSteadyFrames = 0
 
     func checkPermissionAndStart() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
@@ -241,6 +242,7 @@ final class CameraManager: NSObject, ObservableObject {
         capturedLandmarks = nil
         captureInFlight = false
         consecutiveAlignedCount = 0
+        missedSteadyFrames = 0
     }
 
     /// Turns the flashlight on at low brightness, or off. Low and steady
@@ -348,33 +350,38 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
 
         DispatchQueue.main.async { [weak self] in
             guard let self = self else { return }
-            self.currentDirections = guidance.directions
             self.fit = guidance.fit
             self.handLandmarks = landmarks
             self.handPoseMs = poseMs
 
+            // A hold starts on a frame that fully lines up. Once started it
+            // carries on through frames that are only steady enough, and
+            // one stray frame pauses it instead of restarting it: first-time
+            // users kept losing the photo to small wobbles. A turned hand
+            // always restarts it.
             let rawState = self.mapToCaptureState(guidance.directions)
-            if rawState == .aligned {
+            let holding = self.consecutiveAlignedCount > 0
+            if rawState == .aligned || (holding && guidance.steadyEnough) {
                 self.consecutiveAlignedCount += 1
+                self.missedSteadyFrames = 0
+            } else if holding, self.missedSteadyFrames == 0, !guidance.directions.contains(.turnToSide) {
+                self.missedSteadyFrames = 1
             } else {
                 self.consecutiveAlignedCount = 0
+                self.missedSteadyFrames = 0
             }
+            let stillHolding = self.consecutiveAlignedCount > 0
+            // Mid-hold, keep saying "hold still" rather than flicking to a
+            // small correction.
+            self.currentDirections = stillHolding ? [.looksGood] : guidance.directions
 
-            // Only actually show "aligned" once it's held steady for
-            // several consecutive detections -- see the property
-            // comments above for why this matters.
-            if rawState == .aligned && self.consecutiveAlignedCount < self.requiredConsecutiveAligned {
-                self.captureState = .adjusting
-            } else {
-                self.captureState = rawState
-            }
-            // With automatic capture the ring keeps filling through the
-            // short hold after "aligned", then the photo is taken.
-            let holdFrames = autoCaptureEnabled ? self.autoCaptureHoldFrames : 0
-            let fullHold = self.requiredConsecutiveAligned + holdFrames
-            self.alignedProgress = min(1, Double(self.consecutiveAlignedCount) / Double(fullHold))
-            if autoCaptureEnabled, rawState == .aligned, self.consecutiveAlignedCount >= fullHold,
-               self.capturedPixelBuffer == nil {
+            // Green once the hold is complete. With automatic capture the
+            // photo is taken on that same frame, so nobody has to keep still
+            // any longer after it turns green.
+            let held = self.consecutiveAlignedCount >= self.requiredConsecutiveAligned
+            self.captureState = held ? .aligned : (rawState == .searching ? .searching : .adjusting)
+            self.alignedProgress = min(1, Double(self.consecutiveAlignedCount) / Double(self.requiredConsecutiveAligned))
+            if autoCaptureEnabled, held, self.capturedPixelBuffer == nil {
                 self.capturePhoto()
             }
         }

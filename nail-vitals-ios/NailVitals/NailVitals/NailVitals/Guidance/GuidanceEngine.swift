@@ -33,6 +33,9 @@ struct GuidanceResult {
     let directions: [GuidanceDirection]
     /// How well the finger fills the hologram, 0...1.
     var fit: Double = 0
+    /// Within the looser limits that keep a steady hold going once it has
+    /// started (see CameraManager): small wobbles don't restart it.
+    var steadyEnough = false
 }
 
 /// Where the hologram finger sits, in the camera frame's own coordinates
@@ -56,18 +59,25 @@ nonisolated enum GuidanceTarget {
 nonisolated final class GuidanceEngine {
 
     // Joint confidence from the Detection Lab (0.75-0.89 on good frames);
-    // tilt and bend limits from early device testing.
+    // tilt and bend limits from early device testing, widened a little after
+    // first-time users struggled to hold the tighter ones.
     private let minJointConfidence: Float = 0.3
-    private let maxLandmarkTiltDegrees: Double = 20
+    private let maxLandmarkTiltDegrees: Double = 25
     private let maxPIPBendDegrees: Double = 30
 
     /// Fit at or above this counts as "in the glove".
-    static let alignedFit = 0.7
+    static let alignedFit = 0.65
     /// Mean joint distance from the hologram (as a share of its length)
     /// at which the fit reaches 0.
     private let zeroFitError: Double = 0.35
-    private let maxSizeError: Double = 0.15
-    private let maxShiftError: Double = 0.12
+    private let maxSizeError: Double = 0.20
+    private let maxShiftError: Double = 0.15
+
+    /// Looser limits for staying steady once a hold has started. Rotation
+    /// is not loosened: a turned hand always stops the hold.
+    private let steadyFit = 0.55
+    private let steadySizeError: Double = 0.25
+    private let steadyShiftError: Double = 0.18
 
     nonisolated func analyze(landmarks: HandLandmarks?) -> GuidanceResult {
         guard let hand = landmarks, hand.minIndexConfidence >= minJointConfidence else {
@@ -115,7 +125,12 @@ nonisolated final class GuidanceEngine {
             // Each part is close enough; together they may still be off.
             directions = fit >= Self.alignedFit ? [.looksGood] : [abs(shift) >= abs(lift) ? (shift > 0 ? .moveLeft : .moveRight) : (lift > 0 ? .moveUp : .moveHandDown)]
         }
-        return GuidanceResult(fingerLengthFraction: size, centerOffset: offset, tiltDegrees: tilt, directions: directions, fit: fit)
+        let steadyEnough = !hand.isClearlyTurned
+            && tilt <= maxLandmarkTiltDegrees && pipBendDegrees(hand) <= maxPIPBendDegrees
+            && abs(scale - 1) <= steadySizeError && abs(shift) <= steadyShiftError && abs(lift) <= steadyShiftError
+            && fit >= steadyFit
+        return GuidanceResult(fingerLengthFraction: size, centerOffset: offset, tiltDegrees: tilt, directions: directions,
+                              fit: fit, steadyEnough: steadyEnough)
     }
 
     /// How far the finger bends at the middle knuckle (0 = straight).

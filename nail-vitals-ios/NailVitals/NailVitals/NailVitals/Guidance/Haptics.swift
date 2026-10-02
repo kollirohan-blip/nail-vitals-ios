@@ -3,23 +3,21 @@
 //  NailVitals
 //
 //  The camera screen's buzzes, with generators prepared ahead so they land
-//  on time: light ticks as the finger fills the target, a success buzz on
-//  lock, and a firm thump once the photo has been delivered. Nothing buzzes
-//  while the photo is being exposed (a buzz then can blur it), which is why
-//  the thump waits for the delivered photo.
+//  on time: light ticks as the finger fills the target, and a success buzz
+//  once the photo has been delivered. Nothing buzzes while the photo is
+//  being taken: a buzz then can blur it, and a buzz just before it made
+//  first-time users flinch out of position.
 //
 
 import UIKit
 
 final class Haptics {
     private let tick = UIImpactFeedbackGenerator(style: .light)
-    private let lock = UINotificationFeedbackGenerator()
-    private let thump = UIImpactFeedbackGenerator(style: .heavy)
+    private let success = UINotificationFeedbackGenerator()
 
     func prepare() {
         tick.prepare()
-        lock.prepare()
-        thump.prepare()
+        success.prepare()
     }
 
     /// Light tick when the fit crosses 0.4 or 0.6 on the way up.
@@ -29,15 +27,9 @@ final class Haptics {
         tick.prepare()
     }
 
-    /// Everything lines up (the glove turns green).
-    func locked() {
-        lock.notificationOccurred(.success)
-        lock.prepare()
-    }
-
-    /// The photo has been delivered.
-    func shutter() {
-        thump.impactOccurred()
-        thump.prepare()
+    /// The photo has been taken and delivered.
+    func photoTaken() {
+        success.notificationOccurred(.success)
+        success.prepare()
     }
 }

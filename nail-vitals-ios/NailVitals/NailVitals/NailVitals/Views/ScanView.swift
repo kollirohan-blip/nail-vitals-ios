@@ -118,16 +118,12 @@ struct ScanView: View {
             guard !camera.captureInFlight else { return }
             haptics.fitChanged(from: old, to: new)
         }
-        // Locked on: a success buzz as the glove turns green. The automatic
-        // photo comes about 0.75 s later, after the buzz has finished.
-        .onChange(of: camera.captureState) { _, state in
-            guard state == .aligned, !camera.captureInFlight else { return }
-            haptics.locked()
-        }
-        // The photo has been delivered: a thump and "Got it".
+        // The photo is taken the moment the glove turns green; once it has
+        // been delivered, a success buzz and "Got it" (never before, so
+        // nobody flinches out of position).
         .onChange(of: camera.capturedPixelBuffer != nil) { _, captured in
             guard captured else { return }
-            haptics.shutter()
+            haptics.photoTaken()
             if voiceOn { voice.speak("Got it.") }
         }
         .onChange(of: voiceOn) { _, on in if !on { voice.stop() } }
