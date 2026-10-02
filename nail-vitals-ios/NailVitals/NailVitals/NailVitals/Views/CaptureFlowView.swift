@@ -288,28 +288,48 @@ struct CaptureFlowView: View {
                 return
             }
 
-            guard let silhouette = segmenter.segment(pixelBuffer: pixelBuffer, fingertipHint: visionHand?.indexDIP.point) else {
-                let folder = save(nil, failure: "no outline")
-                DispatchQueue.main.async {
-                    displayImage = image
-                    captureFolder = folder
-                    stage = .failed("Couldn't see your finger clearly. Try again in good light, in front of a plain wall.")
+            // The outline from a crop around the finger first: its edge is
+            // about twice as close to the real one, so repeat photos agree
+            // better. Used only when it measures, on hand pose's own finger
+            // (if the outline points to a different raised finger, the crop
+            // may have missed it); otherwise the whole photo, as before.
+            var outline: DetectedSilhouette?
+            var lovibond: LovibondResult?
+            if let visionHand, let cropped = segmenter.segmentAroundFinger(pixelBuffer: pixelBuffer, hand: visionHand) {
+                let croppedHand = OutlineFingerFinder.resolve(visionHand, contour: cropped.contourPoints, imageSize: cropped.imageSize)
+                if croppedHand?.fromOutline == false,
+                   let measured = angleAnalyzer.analyze(cropped, dipHint: croppedHand?.indexDIP.point, tipHint: croppedHand?.indexTip.point) {
+                    outline = cropped
+                    hand = croppedHand
+                    lovibond = measured
                 }
-                return
             }
-
-            // Hand pose can miss the raised finger (rings, an OK-sign hand);
-            // then the finger is found from the outline instead.
-            hand = OutlineFingerFinder.resolve(visionHand, contour: silhouette.contourPoints, imageSize: silhouette.imageSize)
+            if outline == nil {
+                guard let whole = segmenter.segment(pixelBuffer: pixelBuffer, fingertipHint: visionHand?.indexDIP.point) else {
+                    let folder = save(nil, failure: "no outline")
+                    DispatchQueue.main.async {
+                        displayImage = image
+                        captureFolder = folder
+                        stage = .failed("Couldn't see your finger clearly. Try again in good light, in front of a plain wall.")
+                    }
+                    return
+                }
+                // Hand pose can miss the raised finger (rings, an OK-sign
+                // hand); then the finger is found from the outline instead.
+                outline = whole
+                hand = OutlineFingerFinder.resolve(visionHand, contour: whole.contourPoints, imageSize: whole.imageSize)
+                lovibond = angleAnalyzer.analyze(whole, dipHint: hand?.indexDIP.point, tipHint: hand?.indexTip.point)
+            }
             let resolved = hand
             DispatchQueue.main.async { self.resolvedLandmarks = resolved }
 
-            guard let result = angleAnalyzer.analyze(silhouette, dipHint: hand?.indexDIP.point, tipHint: hand?.indexTip.point) else {
+            guard let silhouette = outline, let result = lovibond else {
                 let folder = save(nil, failure: "no angle")
+                let shown = outline
                 DispatchQueue.main.async {
                     displayImage = image
                     captureFolder = folder
-                    self.silhouette = silhouette
+                    self.silhouette = shown
                     stage = .failed("Couldn't find the edge of your finger. Hold it up in front of a plain wall, side-on, so the edge of your nail shows.")
                 }
                 return

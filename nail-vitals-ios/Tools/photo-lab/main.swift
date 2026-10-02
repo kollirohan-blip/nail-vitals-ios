@@ -1,6 +1,6 @@
 // Runs the app's real measurement pipeline (hand pose -> subject-mask outline
 // -> AngleAnalyzer) on photos from disk, on the Mac. From this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder,HumanLabel,NailColor}.swift main.swift Report.swift NailLab.swift -o photo-lab
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder,HumanLabel,NailColor}.swift main.swift Report.swift NailLab.swift EdgeRefiner.swift -o photo-lab
 //   ./photo-lab photo.jpg [more.jpg ...] [--out folder] [--truth x,y]
 // --truth is the real cuticle in image pixels (e.g. from a saved capture's
 // manual dot 2); the report then includes how far the automatic marker missed.
@@ -122,6 +122,15 @@ if let i = args.firstIndex(of: "--turn"), i + 1 < args.count, let t = Double(arg
 // estimate against the found or hand-placed cuticle.
 var estimateFraction: Double?
 if let i = args.firstIndex(of: "--estimate-cuticle"), i + 1 < args.count { estimateFraction = Double(args[i + 1]); args.removeSubrange(i...i + 1) }
+// --whole: the outline from the whole photo only (the app before Oct 2026;
+// the app now tries a crop around the finger first, as below).
+let wholeOnly = args.contains("--whole")
+args.removeAll { $0 == "--whole" }
+// --snap (experiment, not in the app): move the outline onto the photo's
+// real edge (EdgeRefiner.swift). Went wrong on busy backgrounds and next to
+// the nail's own edge on darker skin, so the app doesn't use it.
+let useSnap = args.contains("--snap")
+args.removeAll { $0 == "--snap" }
 // --nails: the phase 2 nail color prototype instead (see NailLab.swift).
 if args.contains("--nails") {
     args.removeAll { $0 == "--nails" }
@@ -178,16 +187,37 @@ for path in args {
     guard let image = loadUpright(imagePath), let buffer = pixelBuffer(from: image) else { print("\(name): could not load"); continue }
     let visionHand = HandPoseDetector().detect(in: buffer)
     let segmenter = FingerMaskSegmenter()
-    let silhouette = segmenter.segment(pixelBuffer: buffer, fingertipHint: manualDIP ?? visionHand?.indexDIP.point)
-    // Same as the app: hand pose's index finger if it is the raised finger
-    // in the outline, otherwise the finger found from the outline.
-    let hand = OutlineFingerFinder.resolve(visionHand, contour: silhouette?.contourPoints,
-                                           imageSize: CGSize(width: image.width, height: image.height))
+    let fullSize = CGSize(width: image.width, height: image.height)
+    // Same as the app (CaptureFlowView.runAnalysis): the outline from a crop
+    // around hand pose's finger, used when it measures on that same finger;
+    // otherwise the whole photo, where hand pose's index finger is checked
+    // against the raised finger in the outline (rings, an OK-sign hand).
+    var silhouette: DetectedSilhouette?
+    var hand: HandLandmarks?
+    var cropped = false
+    if !wholeOnly, manualTip == nil, manualDIP == nil, let v = visionHand,
+       let s = segmenter.segmentAroundFinger(pixelBuffer: buffer, hand: v) {
+        let h = OutlineFingerFinder.resolve(v, contour: s.contourPoints, imageSize: fullSize)
+        if h?.fromOutline == false, AngleAnalyzer().analyze(s, dipHint: h?.indexDIP.point, tipHint: h?.indexTip.point) != nil {
+            silhouette = s
+            hand = h
+            cropped = true
+        }
+    }
+    if silhouette == nil {
+        silhouette = segmenter.segment(pixelBuffer: buffer, fingertipHint: manualDIP ?? visionHand?.indexDIP.point)
+        hand = OutlineFingerFinder.resolve(visionHand, contour: silhouette?.contourPoints, imageSize: fullSize)
+    }
+    if useSnap, let s = silhouette {
+        let points = EdgeRefiner.snap(s.contourPoints, in: buffer)
+        silhouette = DetectedSilhouette(boundingBox: MaskGeometry.boundingRect(of: points), contourPoints: points, imageSize: s.imageSize)
+    }
     let tipPoint = manualTip ?? hand?.indexTip.point
     let dipPoint = manualDIP ?? hand?.indexDIP.point
     let result = silhouette.flatMap { AngleAnalyzer().analyze($0, dipHint: dipPoint, tipHint: tipPoint) }
 
     print("== \(name)  \(image.width)x\(image.height)")
+    print(cropped ? "  outline: crop around the finger" : "  outline: whole photo")
     if !savedSummary.isEmpty { print(savedSummary) }
     if visionHand?.isClearlyTurned == true { print("  -> hand clearly turned: the app asks for a retake (no measurement)") }
     if let hand {

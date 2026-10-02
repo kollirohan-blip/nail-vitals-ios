@@ -279,12 +279,20 @@ struct LabelingView: View {
             }
             return (image, focus, HumanLabelStore.load(in: folder, labeler: labeler), LabelingView.dipHint(in: folder))
         }.value
-        // The finger's outline, for snapping (a second or so on the phone).
+        // The finger's outline, for snapping (a second or so on the phone):
+        // the same one the measurement uses, from a crop around the finger
+        // when the capture has its joints, else the whole photo.
         if let image = loaded.0 {
             let hint = loaded.3
+            let joints = Self.fingerJoints(in: folder)
             edge = await Task.detached(priority: .userInitiated) { () -> [CGPoint] in
                 guard let cg = image.cgImage, let buffer = Self.pixelBuffer(from: cg) else { return [] }
-                return FingerMaskSegmenter().segment(pixelBuffer: buffer, fingertipHint: hint)?.contourPoints ?? []
+                let segmenter = FingerMaskSegmenter()
+                if let joints, let cropped = segmenter.segmentAroundFinger(pixelBuffer: buffer, tip: joints[0], dip: joints[1],
+                                                                            pip: joints[2], mcp: joints[3]) {
+                    return cropped.contourPoints
+                }
+                return segmenter.segment(pixelBuffer: buffer, fingertipHint: hint)?.contourPoints ?? []
             }.value
         }
         photo = loaded.0
@@ -313,6 +321,17 @@ struct LabelingView: View {
         guard let nearest = edge.min(by: { hypot($0.x - p.x, $0.y - p.y) < hypot($1.x - p.x, $1.y - p.y) }) else { return p }
         let maxDistance = 24 / fit(viewSize).scale
         return hypot(nearest.x - p.x, nearest.y - p.y) <= maxDistance ? nearest : p
+    }
+
+    /// Tip, DIP, PIP and MCP joints saved with the capture, in image pixels.
+    private nonisolated static func fingerJoints(in folder: URL) -> [CGPoint]? {
+        guard let data = try? Data(contentsOf: folder.appendingPathComponent("capture.json")),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        let joints = ["indexTip", "indexDIP", "indexPIP", "indexMCP"].compactMap { key -> CGPoint? in
+            guard let joint = json[key] as? [String: Double], let x = joint["x"], let y = joint["y"] else { return nil }
+            return CGPoint(x: x, y: y)
+        }
+        return joints.count == 4 ? joints : nil
     }
 
     private nonisolated static func dipHint(in folder: URL) -> CGPoint? {
