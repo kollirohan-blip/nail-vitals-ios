@@ -25,6 +25,7 @@ struct PoseGuideView: View {
         ("rotate.3d", "Turn your hand so the camera sees the side of your finger. The nail should look like a thin edge, not a flat surface."),
         ("hand.raised", "Keep the finger straight and steady. Resting your elbow on a table helps."),
         ("checkmark.circle", "A glowing glove wraps your finger as it gets close. When it turns green, hold still: the photo takes itself. The app takes 3 readings for a steadier result."),
+        ("speaker.wave.2", "Voice guidance sounds most natural with a Premium voice: Settings → Accessibility → Spoken Content → Voices → English. It's a free download. Turn the voice off in the camera's ••• menu."),
     ]
 
     var body: some View {
