@@ -197,9 +197,9 @@ struct SessionDetailView: View {
             Grid(alignment: .trailing, horizontalSpacing: 14, verticalSpacing: 8) {
                 GridRow {
                     Text("#").gridColumnAlignment(.leading)
-                    Text("Profile")
-                    Text("Hyponychial")
-                    Text("Ratio")
+                    Text("Nail")
+                    Text("Fingertip")
+                    Text("Thickness")
                 }
                 .font(.system(size: 12, weight: .medium))
                 .foregroundStyle(Color.primary.opacity(0.6))

@@ -27,8 +27,9 @@ struct ContentView: View {
                 )
                 .navigationTransition(.zoom(sourceID: "scan", in: scanTransition))
             }
+            // The picture intro, once, on first launch.
             .sheet(isPresented: $showGuide, onDismiss: { hasSeenPoseGuide = true }) {
-                PoseGuideView()
+                IntroView()
             }
             .onAppear(perform: showGuideOnFirstLaunch)
             .onChange(of: splashFinished) { _, _ in showGuideOnFirstLaunch() }

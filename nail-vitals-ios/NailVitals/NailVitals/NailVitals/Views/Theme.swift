@@ -51,7 +51,7 @@ enum Theme {
     }
 }
 
-/// The app's look, chosen from the Home screen's menu.
+/// The app's look, chosen from the Home screen's menu. Classic is the default.
 enum AppAppearance: String, CaseIterable {
     case dark
     case classic

@@ -97,7 +97,7 @@ struct CaptureFlowView: View {
                         },
                         onCancel: onDismiss,
                         onManual: { stage = .manual($0) },
-                        noDipNote: noDipResult == nil ? nil : "No cuticle dip found: the nail runs straight out of the skin fold. Clubbing does this, and so does a finger turned toward the camera. If you can see the flat of the nail, tap Retake and turn it sideways. Otherwise check the marker is at the cuticle (drag it if not) and confirm."
+                        noDipNote: noDipResult == nil ? nil : "The nail runs straight out of the skin with no dip. Clubbing does this, and so does a finger turned toward the camera. If you can see the flat of your nail, tap Retake and turn your finger sideways. Otherwise, check the dot and tap Looks right."
                     )
                 }
 
@@ -126,7 +126,7 @@ struct CaptureFlowView: View {
                     }
                     .scrollBounceBehavior(.basedOnSize)
                     HStack(spacing: 12) {
-                        Button("Start over", action: onStartOver)
+                        Button("Scan again", action: onStartOver)
                             .buttonStyle(GhostButtonStyle())
                         Button("Done", action: onFinishSession)
                             .buttonStyle(GlowButtonStyle(color: Theme.action))
@@ -293,7 +293,7 @@ struct CaptureFlowView: View {
                 DispatchQueue.main.async {
                     displayImage = image
                     captureFolder = folder
-                    stage = .failed("Couldn't find a clear finger outline in that photo. Try again with better lighting or positioning, or measure it yourself.")
+                    stage = .failed("Couldn't see your finger clearly. Try again in good light, in front of a plain wall.")
                 }
                 return
             }
@@ -310,7 +310,7 @@ struct CaptureFlowView: View {
                     displayImage = image
                     captureFolder = folder
                     self.silhouette = silhouette
-                    stage = .failed("Couldn't trace the edge of your finger. Hold it in front of a plain wall (not over a laptop or desk) with the nail edge visible, or measure it yourself.")
+                    stage = .failed("Couldn't find the edge of your finger. Hold it up in front of a plain wall, side-on, so the edge of your nail shows.")
                 }
                 return
             }
@@ -329,7 +329,7 @@ struct CaptureFlowView: View {
                                                           candidates: [estimated])
                         self.stage = .confirming
                     } else {
-                        self.manualNote = "No cuticle dip found, and the nail side couldn't be told apart. If you can see the flat of the nail, tap Retake and turn it sideways. Otherwise, place the points yourself."
+                        self.manualNote = "No dip where the nail meets the skin, and the app couldn't tell which side the nail is on. If you can see the flat of your nail, tap Retake and turn your finger sideways. Otherwise, place the points yourself."
                         self.stage = .manual(nil)
                     }
                 } else {

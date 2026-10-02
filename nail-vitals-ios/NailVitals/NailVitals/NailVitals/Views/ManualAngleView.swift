@@ -59,7 +59,7 @@ struct ManualAngleView: View {
                         loupe(center: points[i], viewSize: geo.size)
                             .padding(.top, 12)
                     } else {
-                        Text((note.map { $0 + "\n" } ?? "") + "On the nail edge: 1 about a quarter of the way up the nail, 2 exactly on the cuticle, 3 on the skin the same distance below 2")
+                        Text((note.map { $0 + "\n" } ?? "") + "Drag the dots onto the edge of your nail: 2 where the nail meets the skin, 1 on the nail a quarter of the way to its tip, 3 on the skin the same distance below 2")
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.primary)
                             .multilineTextAlignment(.center)

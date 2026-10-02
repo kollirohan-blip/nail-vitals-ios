@@ -168,34 +168,39 @@ struct InflectionPointConfirmation: View {
                     .multilineTextAlignment(.center)
             }
             if let side = selectedSide, noDipNote != nil, liveAngles[side] == nil {
-                Text("No cuticle dip")
-                    .font(.system(size: 26, weight: .bold))
+                Text("No dip where the nail meets the skin")
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundColor(.primary)
+                    .multilineTextAlignment(.center)
             } else if let side = selectedSide {
+                Text("Is the dot where your nail meets the skin?")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.primary)
+                    .multilineTextAlignment(.center)
                 Text("\(displayAngle(for: side), specifier: "%.1f")°")
-                    .font(.system(size: 32, weight: .bold))
+                    .font(.system(size: 30, weight: .bold))
                     .foregroundColor(.primary)
                     .monospacedDigit()
-                Text("Drag the marker if it's not exactly on the cuticle edge")
+                Text("If not, drag it there.")
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.primary.opacity(0.7))
-                    .multilineTextAlignment(.center)
             } else {
-                Text("Tap the marker at the cuticle edge")
+                Text("Tap the dot where your nail meets the skin")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(.primary)
+                    .multilineTextAlignment(.center)
             }
 
             HStack(spacing: 12) {
                 Button("Retake", action: onCancel)
                     .buttonStyle(GhostButtonStyle())
-                Button("Confirm", action: confirm)
+                Button("Looks right", action: confirm)
                     .buttonStyle(GlowButtonStyle())
                     .disabled(selectedSide == nil)
             }
 
             if let onManual {
-                Button("Neither is right — place the points myself") { onManual(selectedCandidate()) }
+                Button("Place the points myself") { onManual(selectedCandidate()) }
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.primary.opacity(0.8))
             }

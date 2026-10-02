@@ -85,9 +85,14 @@ struct AboutMeasurementsContent: View {
     private func sign(_ kind: SignKind, what: String, healthy: String) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                Text(kind.title)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.primary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(kind.plainName)
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.primary)
+                    Text(kind.title)
+                        .font(.system(size: 13))
+                        .foregroundColor(.secondary)
+                }
                 Spacer()
                 Text("cut-off \(kind.formattedThreshold)")
                     .font(.system(size: 13, weight: .semibold))

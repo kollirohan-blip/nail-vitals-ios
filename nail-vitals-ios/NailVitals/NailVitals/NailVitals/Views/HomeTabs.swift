@@ -56,7 +56,7 @@ struct HomeTab: View {
     let onStartScan: () -> Void
 
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
-    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .dark
+    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .classic
     @State private var showStudy = false
     @State private var breathe = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion

@@ -32,6 +32,25 @@ nonisolated enum SignKind: CaseIterable {
         }
     }
 
+    /// Everyday name, shown first in the app; the clinical name (`title`)
+    /// sits under it.
+    var plainName: String {
+        switch self {
+        case .lovibond: return "Nail angle"
+        case .hyponychial: return "Fingertip angle"
+        case .depthRatio: return "Thickness ratio"
+        }
+    }
+
+    /// Short clinical name, for small captions.
+    var shortTitle: String {
+        switch self {
+        case .lovibond: return "Profile"
+        case .hyponychial: return "Hyponychial"
+        case .depthRatio: return "Depth ratio"
+        }
+    }
+
     /// Above this, the sign is in the range associated with clubbing.
     var threshold: Double {
         switch self {

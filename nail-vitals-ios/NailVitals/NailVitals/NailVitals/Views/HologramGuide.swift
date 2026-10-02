@@ -65,7 +65,7 @@ struct LandingZone: View {
 }
 
 /// Four L-shaped corners of the rect.
-private struct CornerMarks: Shape {
+struct CornerMarks: Shape {
     let arm: CGFloat
 
     func path(in rect: CGRect) -> Path {

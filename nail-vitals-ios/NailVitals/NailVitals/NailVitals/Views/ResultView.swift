@@ -58,7 +58,7 @@ struct ResultView: View {
                             CountingAngle(value: shown)
                                 .font(.system(size: 48, weight: .bold))
                                 .foregroundColor(.primary)
-                            Text("Profile (Lovibond) angle")
+                            Text("Nail angle (profile / Lovibond)")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(.secondary)
                         }
@@ -208,14 +208,6 @@ struct SignChip: View {
     /// Shown instead of the number (e.g. "≥180°" for no cuticle dip).
     var valueText: String? = nil
 
-    private var shortTitle: String {
-        switch kind {
-        case .lovibond: return "Profile"
-        case .hyponychial: return "Hyponychial"
-        case .depthRatio: return "Depth ratio"
-        }
-    }
-
     var body: some View {
         VStack(spacing: 4) {
             if let value {
@@ -235,10 +227,10 @@ struct SignChip: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(.secondary)
             }
-            Text(shortTitle)
+            Text(kind.plainName)
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.primary.opacity(0.75))
-            Text(value == nil ? "not measured" : "limit \(kind.formattedThreshold)")
+            Text(value == nil ? "not measured" : "\(kind.shortTitle) · limit \(kind.formattedThreshold)")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
         }
@@ -278,6 +270,8 @@ private struct CountingAngle: View, Animatable {
 struct ResultGauge: View, Animatable {
     static let minAngle = 140.0
     static let maxAngle = 220.0
+
+    @Environment(\.colorScheme) private var scheme
 
     var angle: Double
     var animatableData: Double {
@@ -338,6 +332,7 @@ struct ResultGauge: View, Animatable {
                 if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
             }
         }
-        .stroke(color.opacity(0.35), style: StrokeStyle(lineWidth: 14, lineCap: .butt))
+        // Stronger on white (Classic), where pale zones wash out.
+        .stroke(color.opacity(scheme == .light ? 0.55 : 0.35), style: StrokeStyle(lineWidth: 14, lineCap: .butt))
     }
 }

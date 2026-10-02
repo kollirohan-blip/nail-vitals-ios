@@ -70,9 +70,14 @@ struct SignTrendCard: View {
         let points = points
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
-                Text(kind.title)
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.primary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(kind.plainName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(.primary)
+                    Text(kind.title)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.primary.opacity(0.6))
+                }
                 Spacer()
                 if let last = points.last {
                     Text("latest \(kind.formatted(last.value))")

@@ -22,7 +22,7 @@ struct ScanView: View {
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
     @State private var showGuide = false
     @AppStorage("voiceGuidance") private var voiceOn = true
-    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .dark
+    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .classic
     @State private var voice = VoiceCoach()
     @State private var haptics = Haptics()
     // Study tagging (testing builds): the selected person and skin tone.
@@ -129,7 +129,7 @@ struct ScanView: View {
         .onChange(of: voiceOn) { _, on in if !on { voice.stop() } }
         // Readings of the two hands differ, so switching starts a new session.
         .onChange(of: hand) { _, _ in sessionReadings = [] }
-        .sheet(isPresented: $showGuide) { PoseGuideView() }
+        .sheet(isPresented: $showGuide) { IntroView() }
         // Presents once CameraManager.capturedPixelBuffer is set (isPresented
         // bound to a nil check, since CVPixelBuffer isn't Identifiable).
         .fullScreenCover(isPresented: Binding(

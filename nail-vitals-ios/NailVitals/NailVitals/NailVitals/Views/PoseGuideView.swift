@@ -101,7 +101,7 @@ struct PoseGuideView: View {
 
 /// A finger pointing up with the nail facing the viewer: the flat nail
 /// plate shows, which hides the profile the app measures.
-private struct FingerFrontShape: Shape {
+struct FingerFrontShape: Shape {
     func path(in rect: CGRect) -> Path {
         func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height) }
         var path = Path()

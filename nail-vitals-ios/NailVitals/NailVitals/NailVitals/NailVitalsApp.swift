@@ -24,7 +24,7 @@ let liveOutlineEnabled = true
 @main
 struct NailVitalsApp: App {
     @State private var showSplash = true
-    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .dark
+    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .classic
 
     var body: some Scene {
         WindowGroup {
