@@ -44,22 +44,22 @@ struct LearnView: View {
         HStack(spacing: 16) {
             Image(systemName: icon)
                 .font(.system(size: 22, weight: .medium))
-                .foregroundStyle(.white.opacity(0.85))
+                .foregroundStyle(Color.primary.opacity(0.85))
                 .frame(width: 48, height: 48)
-                .glassEffect(.regular, in: .circle)
+                .background(Color.primary.opacity(0.07), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                 Text(text)
                     .font(.system(size: 14))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Color.primary.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 4)
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.35))
+                .foregroundStyle(Color.primary.opacity(0.35))
         }
         .padding(16)
         .contentShape(.rect)

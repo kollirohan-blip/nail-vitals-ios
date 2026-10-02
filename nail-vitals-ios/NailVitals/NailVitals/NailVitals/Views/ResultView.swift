@@ -50,14 +50,14 @@ struct ResultView: View {
                         if noDipHeadline {
                             Text("≥180°")
                                 .font(.system(size: 48, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                             Text("No cuticle dip: Lovibond's sign")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(.secondary)
                         } else {
                             CountingAngle(value: shown)
                                 .font(.system(size: 48, weight: .bold))
-                                .foregroundColor(.white)
+                                .foregroundColor(.primary)
                             Text("Profile (Lovibond) angle")
                                 .font(.system(size: 13, weight: .medium))
                                 .foregroundColor(.secondary)
@@ -72,7 +72,7 @@ struct ResultView: View {
                     } label: {
                         Label("About these measurements", systemImage: "info.circle")
                             .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(Theme.searching)
+                            .foregroundColor(Theme.action)
                     }
                     if !steady {
                         Text(steadierHint)
@@ -159,7 +159,7 @@ struct ResultView: View {
                 .multilineTextAlignment(.center)
             Text(fullDetail)
                 .font(.system(size: 15))
-                .foregroundColor(.white.opacity(0.85))
+                .foregroundColor(.primary.opacity(0.85))
                 .multilineTextAlignment(.center)
         }
     }
@@ -226,7 +226,7 @@ struct SignChip: View {
                 Text(valueText ?? kind.formatted(value))
                     .font(.system(size: 16, weight: .semibold))
                     .monospacedDigit()
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
             } else {
                 Image(systemName: "minus.circle")
                     .font(.system(size: 15, weight: .semibold))
@@ -237,7 +237,7 @@ struct SignChip: View {
             }
             Text(shortTitle)
                 .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.white.opacity(0.75))
+                .foregroundColor(.primary.opacity(0.75))
             Text(value == nil ? "not measured" : "limit \(kind.formattedThreshold)")
                 .font(.system(size: 10))
                 .foregroundColor(.secondary)
@@ -246,7 +246,7 @@ struct SignChip: View {
         .minimumScaleFactor(0.8)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 10)
-        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14))
+        .tileBackground(cornerRadius: 14)
     }
 
     private func icon(for status: SignStatus) -> String {
@@ -300,10 +300,10 @@ struct ResultGauge: View, Animatable {
                     p.move(to: point(kind.threshold, center, radius - 16))
                     p.addLine(to: point(kind.threshold, center, radius + 12))
                 }
-                .stroke(Color.white.opacity(0.8), style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                .stroke(Color.primary.opacity(0.8), style: StrokeStyle(lineWidth: 2, lineCap: .round))
                 Text(kind.formattedThreshold)
                     .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.primary.opacity(0.7))
                     .position(point(kind.threshold, center, radius + 24))
 
                 let color = ResultView.color(for: kind.status(of: angle))

@@ -28,7 +28,7 @@ struct TrendsView: View {
                         }
                         Text("Dashed line: the published cut-off. Each point is one scan.")
                             .font(.system(size: 12))
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(Color.primary.opacity(0.6))
                             .multilineTextAlignment(.center)
                     }
                     SafetyNote()
@@ -72,7 +72,7 @@ struct SignTrendCard: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(kind.title)
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                 Spacer()
                 if let last = points.last {
                     Text("latest \(kind.formatted(last.value))")
@@ -84,20 +84,20 @@ struct SignTrendCard: View {
             if points.count < 2 {
                 Text("Not enough scans with this sign yet.")
                     .font(.system(size: 14))
-                    .foregroundStyle(.white.opacity(0.6))
+                    .foregroundStyle(Color.primary.opacity(0.6))
             } else {
                 Chart {
                     RuleMark(y: .value("Cut-off", kind.threshold))
-                        .foregroundStyle(.white.opacity(0.4))
+                        .foregroundStyle(Color.primary.opacity(0.4))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                         .annotation(position: .top, alignment: .leading) {
                             Text("cut-off \(kind.formattedThreshold)")
                                 .font(.system(size: 10, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.55))
+                                .foregroundStyle(Color.primary.opacity(0.6))
                         }
                     ForEach(points) { point in
                         LineMark(x: .value("Date", point.date), y: .value(kind.title, point.value))
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(Color.primary.opacity(0.6))
                             .interpolationMethod(.monotone)
                     }
                     ForEach(points) { point in
@@ -111,16 +111,16 @@ struct SignTrendCard: View {
                 .chartXScale(range: .plotDimension(startPadding: 10, endPadding: 24))
                 .chartXAxis {
                     AxisMarks(values: .automatic(desiredCount: 4)) { _ in
-                        AxisGridLine().foregroundStyle(.white.opacity(0.08))
+                        AxisGridLine().foregroundStyle(Color.primary.opacity(0.08))
                         AxisValueLabel(format: .dateTime.month(.abbreviated).day())
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(Color.primary.opacity(0.6))
                     }
                 }
                 .chartYAxis {
                     AxisMarks(position: .leading, values: .automatic(desiredCount: 4)) { _ in
-                        AxisGridLine().foregroundStyle(.white.opacity(0.08))
+                        AxisGridLine().foregroundStyle(Color.primary.opacity(0.08))
                         AxisValueLabel()
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(Color.primary.opacity(0.6))
                     }
                 }
                 .frame(height: 150)

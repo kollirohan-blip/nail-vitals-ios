@@ -61,7 +61,7 @@ struct ManualAngleView: View {
                     } else {
                         Text((note.map { $0 + "\n" } ?? "") + "On the nail edge: 1 about a quarter of the way up the nail, 2 exactly on the cuticle, 3 on the skin the same distance below 2")
                             .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.white)
+                            .foregroundColor(.primary)
                             .multilineTextAlignment(.center)
                             .padding(14)
                             .glassPanel(cornerRadius: 16)
@@ -74,7 +74,7 @@ struct ManualAngleView: View {
             }
             .onAppear { if points.isEmpty { points = initialPoints() } }
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(AppBackground())
     }
 
     // MARK: - Angle
@@ -104,7 +104,7 @@ struct ManualAngleView: View {
             if let angle {
                 Text("\(angle, specifier: "%.1f")°")
                     .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(isPlausible ? .white : Theme.attention)
+                    .foregroundColor(isPlausible ? .primary : Theme.attention)
                     .monospacedDigit()
             }
             if angle != nil && !isPlausible {

@@ -44,9 +44,8 @@ struct HomeTabs: View {
                     .id(history.latest?.id)
             }
         }
-        .tint(.white)
+        .tint(.primary)
         .tabBarMinimizeBehavior(.onScrollDown)
-        .preferredColorScheme(.dark)
     }
 }
 
@@ -57,6 +56,7 @@ struct HomeTab: View {
     let onStartScan: () -> Void
 
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
+    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .dark
     @State private var showStudy = false
     @State private var breathe = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -75,9 +75,9 @@ struct HomeTab: View {
                     .pickerStyle(.segmented)
                     .frame(maxWidth: 230)
                     .padding(.top, 30)
-                    Text("3 quick side photos · about a minute")
+                    Text("Checks for finger clubbing · 3 quick side photos")
                         .font(.system(size: 13))
-                        .foregroundStyle(.white.opacity(0.55))
+                        .foregroundStyle(Color.primary.opacity(0.6))
                         .padding(.top, 10)
                     Spacer(minLength: 20)
                     lastResult
@@ -86,7 +86,6 @@ struct HomeTab: View {
                         .padding(.bottom, 10)
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 8)
             }
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { SessionDetailView(history: history, id: $0) }
@@ -94,31 +93,35 @@ struct HomeTab: View {
         }
     }
 
+    /// The small logo in the top-left corner, and one menu on the right.
     private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Nail Vitals")
-                    .font(.system(size: 34, weight: .bold))
-                    .foregroundStyle(.white)
-                Text("Finger clubbing check")
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.55))
-            }
+        HStack(alignment: .center) {
+            BrandMark()
             Spacer()
-            if saveCapturesForTesting {
-                Button { showStudy = true } label: {
-                    Image(systemName: "person.2.fill")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(.white)
-                        .frame(width: 44, height: 44)
+            Menu {
+                Picker("Look", selection: $appearance) {
+                    ForEach(AppAppearance.allCases, id: \.self) { Text($0.label).tag($0) }
                 }
-                .glassEffect(.regular.interactive(), in: .circle)
-                .accessibilityLabel("Study")
+                .pickerStyle(.inline)
+                if saveCapturesForTesting {
+                    Button { showStudy = true } label: {
+                        Label("Study", systemImage: "person.2.fill")
+                    }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(.primary)
+                    .frame(width: 38, height: 38)
+                    .roundSurface()
             }
+            .accessibilityLabel("Options")
         }
+        .padding(.leading, 6)
+        .padding(.top, 14)
     }
 
-    /// A big glass disc with a slow breathing ring.
+    /// A big disc (glass in Dark, white in Classic) with a slow breathing ring.
     private var scanButton: some View {
         Button(action: onStartScan) {
             VStack(spacing: 10) {
@@ -127,15 +130,15 @@ struct HomeTab: View {
                 Text("Scan")
                     .font(.system(size: 22, weight: .semibold))
             }
-            .foregroundStyle(.white)
+            .foregroundStyle(.primary)
             .frame(width: 196, height: 196)
             .contentShape(.circle)
         }
         .buttonStyle(.plain)
-        .glassEffect(.regular.interactive(), in: .circle)
+        .roundSurface()
         .background {
             Circle()
-                .stroke(Color.white.opacity(0.18), lineWidth: 1.5)
+                .stroke(Color.primary.opacity(0.18), lineWidth: 1.5)
                 .scaleEffect(breathe ? 1.16 : 1.02)
                 .opacity(breathe ? 0 : 1)
         }
@@ -157,12 +160,41 @@ struct HomeTab: View {
         } else {
             Text("Your results show up here after your first scan.")
                 .font(.system(size: 14))
-                .foregroundStyle(.white.opacity(0.6))
+                .foregroundStyle(Color.primary.opacity(0.6))
                 .multilineTextAlignment(.center)
                 .padding(16)
                 .frame(maxWidth: .infinity)
                 .glassCard(cornerRadius: 22)
         }
+    }
+}
+
+/// The logo, small: a mini app icon (the finger with its cuticle angle on a
+/// rounded tile, white in Classic and dark gray in Dark, like the real
+/// icon) and the name.
+struct BrandMark: View {
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        let tile = RoundedRectangle(cornerRadius: 9, style: .continuous)
+        HStack(spacing: 10) {
+            ZStack {
+                FingerProfileShape()
+                    .stroke(Color.primary, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+                LovibondAngleMark()
+                    .stroke(Theme.aligned, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+            }
+            .frame(width: 18, height: 22)
+            .offset(x: -1, y: 1)
+            .frame(width: 32, height: 32)
+            .background(scheme == .dark ? Color(red: 0.13, green: 0.14, blue: 0.16) : .white, in: tile)
+            .overlay(tile.stroke(Color.primary.opacity(0.1), lineWidth: 1))
+            Text("Nail Vitals")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.primary)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isHeader)
     }
 }
 

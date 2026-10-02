@@ -19,14 +19,14 @@ struct SplashView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            Color(uiColor: .systemBackground).ignoresSafeArea()
 
             VStack(spacing: 28) {
                 ZStack {
                     FingerProfileShape()
                         .trim(from: 0, to: fingerProgress)
-                        .stroke(Color.white, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
-                        .shadow(color: Color.white.opacity(0.45), radius: 10)
+                        .stroke(Color.primary, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                        .shadow(color: Color.primary.opacity(0.3), radius: 10)
                     LovibondAngleMark()
                         .trim(from: 0, to: angleProgress)
                         .stroke(Theme.aligned, style: StrokeStyle(lineWidth: 3, lineCap: .round))
@@ -42,10 +42,10 @@ struct SplashView: View {
                 VStack(spacing: 6) {
                     Text("Nail Vitals")
                         .font(.system(size: 34, weight: .bold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                     Text("Finger clubbing screening aid")
                         .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.white.opacity(0.65))
+                        .foregroundColor(.primary.opacity(0.65))
                 }
                 .opacity(showTitle ? 1 : 0)
                 .offset(y: showTitle ? 0 : 14)
@@ -83,8 +83,8 @@ struct FingerProfileShape: Shape {
 }
 
 /// The angle at the cuticle, drawn on the outside of the finger: ~160°, the
-/// textbook normal value.
-private struct LovibondAngleMark: Shape {
+/// textbook normal value. Also part of the small logo on Home.
+struct LovibondAngleMark: Shape {
     static func cuticle(in rect: CGRect) -> CGPoint {
         CGPoint(x: rect.minX + 0.62 * rect.width, y: rect.minY + 0.42 * rect.height)
     }
@@ -101,7 +101,7 @@ private struct LovibondAngleMark: Shape {
         let nail = p(0.56, 0.14), skin = Self.skinFold(in: rect)
         let start = atan2(nail.y - c.y, nail.x - c.x)
         let end = atan2(skin.y - c.y, skin.x - c.x)
-        let radius: CGFloat = 26
+        let radius = rect.width * 0.145   // 26 pt at the splash's size
         var path = Path()
         // Sweep through the outside (right-hand) side, from the nail line
         // round to the skin line.

@@ -70,7 +70,7 @@ struct SessionRow: View {
                 if let caption {
                     Text(caption)
                         .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(Color.primary.opacity(0.6))
                         .textCase(.uppercase)
                 }
                 Text(assessment.verdict.label)
@@ -78,17 +78,17 @@ struct SessionRow: View {
                     .foregroundStyle(color)
                 Text("\(session.date.formatted(.dateTime.month(.abbreviated).day())) · \(session.handLabel) index")
                     .font(.system(size: 13))
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(Color.primary.opacity(0.6))
             }
             Spacer(minLength: 8)
             Text(session.valuesSummary(assessment))
                 .font(.system(size: 13, weight: .medium))
                 .monospacedDigit()
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(Color.primary.opacity(0.75))
                 .multilineTextAlignment(.trailing)
             Image(systemName: "chevron.right")
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.35))
+                .foregroundStyle(Color.primary.opacity(0.35))
         }
         .padding(16)
         .contentShape(.rect)
@@ -150,12 +150,12 @@ struct SessionDetailView: View {
                 }
                 Text(ResultView.verdictDetail(assessment, steady: steady, noDip: noDip))
                     .font(.system(size: 15))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(Color.primary.opacity(0.85))
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
                 Text("\(readings.count) reading\(readings.count == 1 ? "" : "s") · \(session.handLabel) index · \(session.date.formatted(date: .abbreviated, time: .shortened))")
                     .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(Color.primary.opacity(0.6))
             }
             .padding(20)
             .frame(maxWidth: .infinity)
@@ -173,7 +173,7 @@ struct SessionDetailView: View {
             Button { showAssistant = true } label: {
                 Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.primary)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 6)
             }
@@ -192,7 +192,7 @@ struct SessionDetailView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Readings")
                 .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(Color.primary.opacity(0.6))
                 .textCase(.uppercase)
             Grid(alignment: .trailing, horizontalSpacing: 14, verticalSpacing: 8) {
                 GridRow {
@@ -202,25 +202,25 @@ struct SessionDetailView: View {
                     Text("Ratio")
                 }
                 .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
+                .foregroundStyle(Color.primary.opacity(0.6))
                 ForEach(Array(readings.enumerated()), id: \.offset) { index, reading in
                     GridRow {
                         Text("\(index + 1)")
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(Color.primary.opacity(0.6))
                         Text(reading.noCuticleDip ? "≥180°" : SignKind.lovibond.formattedOrDash(reading.lovibond))
                         Text(SignKind.hyponychial.formattedOrDash(reading.hyponychial))
                         Text(SignKind.depthRatio.formattedOrDash(reading.depthRatio))
                     }
                     .font(.system(size: 15, weight: .medium))
                     .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(Color.primary.opacity(0.9))
                 }
             }
             .frame(maxWidth: .infinity)
             if readings.count >= ClubbingAssessment.readingsForSteadyResult {
                 Text("The result uses the middle value of each sign.")
                     .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(Color.primary.opacity(0.6))
             }
         }
         .padding(18)

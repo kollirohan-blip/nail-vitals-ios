@@ -32,7 +32,7 @@ struct PoseGuideView: View {
             VStack(spacing: 22) {
                 Text("How to hold your finger")
                     .font(.system(size: 26, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .padding(.top, 28)
 
                 HStack(spacing: 14) {
@@ -53,11 +53,11 @@ struct PoseGuideView: View {
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: step.0)
                                 .font(.system(size: 17, weight: .semibold))
-                                .foregroundColor(.white.opacity(0.7))
+                                .foregroundColor(.primary.opacity(0.7))
                                 .frame(width: 26)
                             Text(step.1)
                                 .font(.system(size: 15))
-                                .foregroundColor(.white.opacity(0.88))
+                                .foregroundColor(.primary.opacity(0.88))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
@@ -67,14 +67,13 @@ struct PoseGuideView: View {
 
                 if !embedded {
                     Button("Got it") { dismiss() }
-                        .buttonStyle(GlowButtonStyle(color: .white))
+                        .buttonStyle(GlowButtonStyle(color: .primary))
                 }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 24)
         }
-        .background { if embedded { AppBackground() } else { Color.black.ignoresSafeArea() } }
-        .preferredColorScheme(.dark)
+        .background(AppBackground())
     }
 
     private func example(good: Bool, caption: String, @ViewBuilder drawing: () -> some View) -> some View {
@@ -90,13 +89,13 @@ struct PoseGuideView: View {
             }
             Text(caption)
                 .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.white.opacity(0.8))
+                .foregroundColor(.primary.opacity(0.8))
                 .multilineTextAlignment(.center)
                 .frame(height: 34, alignment: .top)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 14)
-        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 18))
+        .tileBackground(cornerRadius: 18)
     }
 }
 

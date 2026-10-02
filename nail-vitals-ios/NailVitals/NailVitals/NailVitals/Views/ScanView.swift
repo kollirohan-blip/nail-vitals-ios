@@ -22,6 +22,7 @@ struct ScanView: View {
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
     @State private var showGuide = false
     @AppStorage("voiceGuidance") private var voiceOn = true
+    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .dark
     @State private var voice = VoiceCoach()
     @State private var haptics = Haptics()
     // Study tagging (testing builds): the selected person and skin tone.
@@ -96,6 +97,8 @@ struct ScanView: View {
                 .padding(.bottom, 100)
             }
         }
+        // The camera screen is always dark, whatever the app's look.
+        .preferredColorScheme(.dark)
         .onAppear {
             camera.checkPermissionAndStart()
             haptics.prepare()
@@ -160,6 +163,8 @@ struct ScanView: View {
                         camera.resetCapture()
                     }
                 )
+                // Results follow the app's look (the camera behind stays dark).
+                .preferredColorScheme(appearance.colorScheme)
             }
         }
     }

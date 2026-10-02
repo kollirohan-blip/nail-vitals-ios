@@ -59,8 +59,7 @@ struct AskAssistantView: View {
             }
             inputBar
         }
-        .background { if embedded { AppBackground() } else { Color.black.ignoresSafeArea() } }
-        .preferredColorScheme(.dark)
+        .background(AppBackground())
     }
 
     // MARK: - Pieces
@@ -91,16 +90,16 @@ struct AskAssistantView: View {
             .font(.system(size: 13))
             .foregroundColor(.secondary)
             .padding(12)
-            .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+            .tileBackground(cornerRadius: 12)
     }
 
     private func contextChip(_ angle: Double, _ verdict: ClubbingAssessment.Verdict) -> some View {
         Text(String(format: "Your reading: %.1f° · %@", angle, verdict.label))
             .font(.system(size: 13, weight: .semibold))
-            .foregroundColor(.white.opacity(0.85))
+            .foregroundColor(.primary.opacity(0.85))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
-            .background(Color.white.opacity(0.1), in: Capsule())
+            .background(Color.primary.opacity(0.1), in: Capsule())
     }
 
     private var suggestionList: some View {
@@ -112,11 +111,11 @@ struct AskAssistantView: View {
                 Button { send(question) } label: {
                     Text(question)
                         .font(.system(size: 15))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+                        .tileBackground(cornerRadius: 12)
                 }
             }
         }
@@ -131,15 +130,15 @@ struct AskAssistantView: View {
                 Spacer(minLength: 48)
                 Text(message.text)
                     .padding(12)
-                    .foregroundColor(.black)
-                    .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16))
+                    .foregroundColor(Color(uiColor: .systemBackground))
+                    .background(Color.primary.opacity(0.92), in: RoundedRectangle(cornerRadius: 16))
             }
         case .assistant:
             HStack {
                 Text(message.text)
                     .padding(12)
-                    .foregroundColor(.white)
-                    .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
+                    .foregroundColor(.primary)
+                    .tileBackground(cornerRadius: 16)
                 Spacer(minLength: 48)
             }
         case .notice:
@@ -157,13 +156,13 @@ struct AskAssistantView: View {
                 .focused($inputFocused)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 20))
+                .tileBackground(cornerRadius: 20)
                 .submitLabel(.send)
                 .onSubmit { send(draft) }
             Button { send(draft) } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 32))
-                    .foregroundColor(canSend ? .white : .gray)
+                    .foregroundColor(canSend ? .primary : .gray)
             }
             .disabled(!canSend)
             .accessibilityLabel("Send")
@@ -209,9 +208,9 @@ private struct TypingIndicator: View {
                     } animation: { _ in .easeInOut(duration: 0.5).delay(Double(i) * 0.15) }
             }
         }
-        .foregroundColor(.white.opacity(0.7))
+        .foregroundColor(.primary.opacity(0.7))
         .padding(12)
-        .background(Color.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 16))
+        .tileBackground(cornerRadius: 16)
     }
 }
 

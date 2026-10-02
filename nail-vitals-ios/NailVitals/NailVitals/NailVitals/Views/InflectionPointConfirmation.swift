@@ -65,7 +65,7 @@ struct InflectionPointConfirmation: View {
                 }
             }
         }
-        .background(Color.black.ignoresSafeArea())
+        .background(AppBackground())
         .onAppear {
             if selectedSide == nil, result.candidates.count == 1 {
                 selectedSide = result.candidates[0].side
@@ -164,26 +164,26 @@ struct InflectionPointConfirmation: View {
             if let noDipNote {
                 Text(noDipNote)
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.85))
+                    .foregroundColor(.primary.opacity(0.85))
                     .multilineTextAlignment(.center)
             }
             if let side = selectedSide, noDipNote != nil, liveAngles[side] == nil {
                 Text("No cuticle dip")
                     .font(.system(size: 26, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
             } else if let side = selectedSide {
                 Text("\(displayAngle(for: side), specifier: "%.1f")°")
                     .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                     .monospacedDigit()
                 Text("Drag the marker if it's not exactly on the cuticle edge")
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.primary.opacity(0.7))
                     .multilineTextAlignment(.center)
             } else {
                 Text("Tap the marker at the cuticle edge")
                     .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
             }
 
             HStack(spacing: 12) {
@@ -197,7 +197,7 @@ struct InflectionPointConfirmation: View {
             if let onManual {
                 Button("Neither is right — place the points myself") { onManual(selectedCandidate()) }
                     .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(.primary.opacity(0.8))
             }
         }
         .padding(18)

@@ -80,7 +80,7 @@ struct CaptureFlowView: View {
 
     var body: some View {
         ZStack {
-            Color.black.ignoresSafeArea()
+            AppBackground()
 
             switch stage {
             case .analyzing:
@@ -129,7 +129,7 @@ struct CaptureFlowView: View {
                         Button("Start over", action: onStartOver)
                             .buttonStyle(GhostButtonStyle())
                         Button("Done", action: onFinishSession)
-                            .buttonStyle(GlowButtonStyle(color: Theme.searching))
+                            .buttonStyle(GlowButtonStyle(color: Theme.action))
                     }
                     .padding(.vertical, 16)
                 }
@@ -153,10 +153,10 @@ struct CaptureFlowView: View {
                         .foregroundColor(Theme.adjusting)
                     Text(message)
                         .font(.system(size: 16))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .multilineTextAlignment(.center)
                     Button("Try again", action: onDismiss)
-                        .buttonStyle(GlowButtonStyle(color: Theme.searching))
+                        .buttonStyle(GlowButtonStyle(color: Theme.action))
                     if displayImage != nil {
                         Button("Measure manually") { stage = .manual(nil) }
                             .buttonStyle(GhostButtonStyle())
@@ -190,7 +190,7 @@ struct CaptureFlowView: View {
         } label: {
             Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")
                 .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(Theme.searching)
+                .foregroundColor(Theme.action)
                 .padding(.horizontal, 18)
                 .padding(.vertical, 10)
                 .glassPanel(cornerRadius: 22)
@@ -402,10 +402,10 @@ private struct MeasuringView: View {
             VStack {
                 Spacer()
                 HStack(spacing: 10) {
-                    ProgressView().tint(.white)
+                    ProgressView().tint(.primary)
                     Text("Measuring…")
                         .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
@@ -439,7 +439,7 @@ private struct ReadingSavedView: View {
         VStack(spacing: 22) {
             ZStack {
                 Circle()
-                    .stroke(Color.white.opacity(0.12), lineWidth: 6)
+                    .stroke(Color.primary.opacity(0.12), lineWidth: 6)
                 Circle()
                     .trim(from: 0, to: ring)
                     .stroke(count == nil ? Theme.adjusting : Theme.aligned, style: StrokeStyle(lineWidth: 6, lineCap: .round))
@@ -456,12 +456,12 @@ private struct ReadingSavedView: View {
             VStack(spacing: 8) {
                 Text(count.map { "Reading \($0) of \(target) saved" } ?? "That one didn't work")
                     .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 Text(count == nil
                      ? "The measurement wasn't reliable. Let's take it again."
                      : "Keep the same pose for the next one.")
                     .font(.system(size: 16))
-                    .foregroundColor(.white.opacity(0.75))
+                    .foregroundColor(.primary.opacity(0.75))
                     .multilineTextAlignment(.center)
             }
             .opacity(appeared ? 1 : 0)
@@ -470,14 +470,14 @@ private struct ReadingSavedView: View {
             HStack(spacing: 6) {
                 ForEach(0..<target, id: \.self) { i in
                     Capsule()
-                        .fill(i < (count ?? 0) ? Theme.aligned : Color.white.opacity(0.25))
+                        .fill(i < (count ?? 0) ? Theme.aligned : Color.primary.opacity(0.25))
                         .frame(width: 26, height: 6)
                 }
             }
 
             VStack(spacing: 10) {
                 Button("Next reading", action: onContinue)
-                    .buttonStyle(GlowButtonStyle(color: Theme.searching))
+                    .buttonStyle(GlowButtonStyle(color: Theme.action))
                 if let onShowResult {
                     Button("Show result now", action: onShowResult)
                         .buttonStyle(GhostButtonStyle())

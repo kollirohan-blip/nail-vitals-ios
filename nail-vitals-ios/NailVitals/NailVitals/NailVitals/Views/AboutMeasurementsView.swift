@@ -23,7 +23,6 @@ struct AboutMeasurementsView: View {
                     }
                 }
         }
-        .preferredColorScheme(.dark)
     }
 }
 
@@ -34,7 +33,7 @@ struct AboutMeasurementsContent: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text("From one side photo of your index finger, the app measures three signs that doctors use to check for finger clubbing.")
                     .font(.system(size: 15))
-                    .foregroundColor(.white.opacity(0.85))
+                    .foregroundColor(.primary.opacity(0.85))
 
                 sign(.lovibond,
                      what: "Lovibond's angle: where the nail leaves the skin fold at the cuticle.",
@@ -58,7 +57,7 @@ struct AboutMeasurementsContent: View {
                 section("Why a doctor, not just the app") {
                     Text("Clubbing is a sign, not a disease. It can go along with lung, heart, liver or digestive conditions, and some people are born with it and are healthy. Only a doctor can find out what it means for you. The app gives a steady, repeatable measurement you can bring to that conversation.")
                         .font(.system(size: 15))
-                        .foregroundColor(.white.opacity(0.85))
+                        .foregroundColor(.primary.opacity(0.85))
                 }
 
                 section("Limits") {
@@ -88,39 +87,39 @@ struct AboutMeasurementsContent: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(kind.title)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.white)
+                    .foregroundColor(.primary)
                 Spacer()
                 Text("cut-off \(kind.formattedThreshold)")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.primary.opacity(0.7))
             }
             Text(what)
                 .font(.system(size: 15))
-                .foregroundColor(.white.opacity(0.85))
+                .foregroundColor(.primary.opacity(0.85))
             Text(healthy)
                 .font(.system(size: 14))
                 .foregroundColor(.secondary)
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+        .tileBackground(cornerRadius: 16)
     }
 
     private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(.white)
+                .foregroundColor(.primary)
             content()
         }
     }
 
     private func bullet(_ text: String) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Circle().fill(Color.white.opacity(0.6)).frame(width: 5, height: 5)
+            Circle().fill(Color.primary.opacity(0.6)).frame(width: 5, height: 5)
             Text(text)
                 .font(.system(size: 15))
-                .foregroundColor(.white.opacity(0.85))
+                .foregroundColor(.primary.opacity(0.85))
         }
     }
 
