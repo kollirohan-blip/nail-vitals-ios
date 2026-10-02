@@ -125,7 +125,7 @@ struct ScanView: View {
         .onChange(of: camera.capturedPixelBuffer != nil) { _, captured in
             guard captured else { return }
             haptics.photoTaken()
-            if voiceOn { voice.speak("Got it.") }
+            if voiceOn { voice.say(.gotIt) }
         }
         .onChange(of: voiceOn) { _, on in if !on { voice.stop() } }
         // Readings of the two hands differ, so switching starts a new session.
