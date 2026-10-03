@@ -270,9 +270,10 @@ struct CaptureFlowView: View {
             // Show the photo under the scanning animation while measuring.
             DispatchQueue.main.async { displayImage = image }
             var hand = visionHand
+            var outlineSource: String?
             func save(_ result: LovibondResult?, failure: String?) -> URL? {
                 image.flatMap { CaptureRecorder.saveAnalysis(image: $0, landmarks: hand, measuredHand: measuredHand,
-                                                             participant: participant, skinTone: skinTone,
+                                                             participant: participant, skinTone: skinTone, outline: outlineSource,
                                                              result: result, failure: failure) }
             }
 
@@ -300,6 +301,7 @@ struct CaptureFlowView: View {
                 if croppedHand?.fromOutline == false,
                    let measured = angleAnalyzer.analyze(cropped, dipHint: croppedHand?.indexDIP.point, tipHint: croppedHand?.indexTip.point) {
                     outline = cropped
+                    outlineSource = "crop"
                     hand = croppedHand
                     lovibond = measured
                 }
@@ -317,6 +319,7 @@ struct CaptureFlowView: View {
                 // Hand pose can miss the raised finger (rings, an OK-sign
                 // hand); then the finger is found from the outline instead.
                 outline = whole
+                outlineSource = "whole"
                 hand = OutlineFingerFinder.resolve(visionHand, contour: whole.contourPoints, imageSize: whole.imageSize)
                 lovibond = angleAnalyzer.analyze(whole, dipHint: hand?.indexDIP.point, tipHint: hand?.indexTip.point)
             }
