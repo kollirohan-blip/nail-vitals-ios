@@ -271,10 +271,11 @@ struct CaptureFlowView: View {
             DispatchQueue.main.async { displayImage = image }
             var hand = visionHand
             var outlineSource: String?
+            var sharpness: Double?
             func save(_ result: LovibondResult?, failure: String?) -> URL? {
                 image.flatMap { CaptureRecorder.saveAnalysis(image: $0, landmarks: hand, measuredHand: measuredHand,
                                                              participant: participant, skinTone: skinTone, outline: outlineSource,
-                                                             result: result, failure: failure) }
+                                                             sharpness: sharpness, result: result, failure: failure) }
             }
 
             // A turned hand hides the cuticle dip and changes every angle;
@@ -334,6 +335,22 @@ struct CaptureFlowView: View {
                     captureFolder = folder
                     self.silhouette = shown
                     stage = .failed("Couldn't find the edge of your finger. Hold it up in front of a plain wall, side-on, so the edge of your nail shows.")
+                }
+                return
+            }
+
+            // A blurry photo reads the nail angle high (blur rounds off the
+            // dip at the cuticle), so it's retaken rather than measured.
+            if let hand {
+                sharpness = EdgeSharpness.measure(contour: silhouette.contourPoints, tip: hand.indexTip.point,
+                                                  dip: hand.indexDIP.point, in: pixelBuffer)
+            }
+            if let sharpness, sharpness < EdgeSharpness.minimum {
+                let folder = save(result, failure: "blurry")
+                DispatchQueue.main.async {
+                    displayImage = image
+                    captureFolder = folder
+                    stage = .failed("That photo came out blurry. Hold the phone a little farther from your finger and keep still, then try again.")
                 }
                 return
             }

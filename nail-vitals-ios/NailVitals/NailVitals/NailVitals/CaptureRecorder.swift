@@ -56,6 +56,9 @@ nonisolated struct CaptureRecord: Codable {
     /// or "whole" (the whole photo). nil on captures from before Oct 2026,
     /// which all used the whole photo; keep them apart in the study.
     var outline: String? = nil
+    /// Edge sharpness around the nail (EdgeSharpness): about 1 crisp,
+    /// below 0.15 too blurry to measure.
+    var sharpness: Double? = nil
 }
 
 nonisolated struct ConfirmationRecord: Codable {
@@ -101,7 +104,7 @@ nonisolated enum CaptureRecorder {
     /// Writes the photo and analysis; returns the capture's folder so a later
     /// confirmation can be added to it.
     static func saveAnalysis(image: UIImage, landmarks: HandLandmarks?, measuredHand: MeasuredHand?,
-                             participant: String? = nil, skinTone: String? = nil, outline: String? = nil,
+                             participant: String? = nil, skinTone: String? = nil, outline: String? = nil, sharpness: Double? = nil,
                              result: LovibondResult?, failure: String?) -> URL? {
         guard saveCapturesForTesting else { return nil }
         func joint(_ j: HandLandmarks.Joint?) -> CaptureJoint? {
@@ -119,7 +122,8 @@ nonisolated enum CaptureRecorder {
             skinTone: skinTone,
             automaticMarkers: result?.candidates.map(marker) ?? [],
             failure: failure,
-            outline: outline
+            outline: outline,
+            sharpness: sharpness
         )
 
         let formatter = DateFormatter()

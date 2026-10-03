@@ -40,11 +40,13 @@ struct GuidanceResult {
 
 /// Where the hologram finger sits, in the camera frame's own coordinates
 /// (0...1, top-left origin): the index fingertip joint, and the finger's
-/// tip-to-knuckle length as a share of the frame height. Real captures
-/// read 27-43%; 40% gives the nail plenty of pixels.
+/// tip-to-knuckle length as a share of the frame height. 30% keeps the
+/// phone about 19 cm away: at the earlier 40% (about 14 cm) photos came out
+/// soft, closer than the main camera focuses, and blur read the nail angle
+/// 2-3 degrees high. Sharp photos were at 35-37% and below.
 nonisolated enum GuidanceTarget {
     static let tip = CGPoint(x: 0.5, y: 0.28)
-    static let length: CGFloat = 0.40
+    static let length: CGFloat = 0.30
     /// Hand pose's DIP and PIP joints along the tip-to-knuckle line.
     static let dipFraction: CGFloat = 0.27
     static let pipFraction: CGFloat = 0.53
