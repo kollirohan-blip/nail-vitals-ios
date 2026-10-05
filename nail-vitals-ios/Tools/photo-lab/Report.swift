@@ -12,6 +12,14 @@ struct ReportRow {
     let participant: String?
     let skinTone: String?
     let hand: String?
+    /// Study lighting tag and whether the app's flashlight was on.
+    var lighting: String? = nil
+    var torchOn: Bool? = nil
+    /// "room", "dim + flashlight", ... ("not recorded" when untagged).
+    var condition: String {
+        let base = lighting ?? "not recorded"
+        return torchOn == true ? base + " + flashlight" : base
+    }
     /// "auto" = the app showed a number; "needs dots" = no cuticle dip, so
     /// the app asked for manual dots; "failed" = no measurement.
     let appStatus: String
@@ -31,6 +39,40 @@ enum Report {
             if let data = try? Data(contentsOf: url), let label = try? decoder.decode(HumanLabel.self, from: data) {
                 result[label.labeler] = label
             }
+        }
+        return result
+    }
+
+    /// An independent rater's points clicked in ImageJ: imagej-<rater>.csv in
+    /// a capture folder, saved from ImageJ's Results table (Multi-point tool,
+    /// then Analyze > Measure), 7 rows in Label mode's order -- cuticle, nail,
+    /// skin, crease, nail tip, across from the cuticle, across from the
+    /// crease. The angles come from the same formulas as everything else, so
+    /// only the person differs. Keyed "<rater> (ImageJ)".
+    static func imageJLabels(in folder: String) -> [String: [SignKind: Double]] {
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
+        var result: [String: [SignKind: Double]] = [:]
+        for file in files where file.lowercased().hasPrefix("imagej-") && file.lowercased().hasSuffix(".csv") {
+            let rater = String(file.dropFirst("imagej-".count).dropLast(".csv".count))
+            guard let text = try? String(contentsOfFile: (folder as NSString).appendingPathComponent(file), encoding: .utf8) else { continue }
+            var lines = text.split(whereSeparator: \.isNewline).map(String.init)
+            guard !lines.isEmpty else { continue }
+            let header = lines.removeFirst().split(separator: ",", omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .whitespaces) }
+            guard let xi = header.firstIndex(of: "X"), let yi = header.firstIndex(of: "Y") else {
+                print("\(folder)/\(file): no X and Y columns")
+                continue
+            }
+            let points = lines.compactMap { line -> CGPoint? in
+                let cells = line.split(separator: ",", omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .whitespaces) }
+                guard cells.count > max(xi, yi), let x = Double(cells[xi]), let y = Double(cells[yi]) else { return nil }
+                return CGPoint(x: x, y: y)
+            }
+            guard points.count == HumanLabel.Point.allCases.count else {
+                print("\(folder)/\(file): \(points.count) points, expected \(HumanLabel.Point.allCases.count)")
+                continue
+            }
+            let placed = Dictionary(uniqueKeysWithValues: zip(HumanLabel.Point.allCases, points))
+            result[rater + " (ImageJ)"] = values(HumanLabel(labeler: rater, points: placed))
         }
         return result
     }
@@ -90,6 +132,27 @@ enum Report {
         return denominator > 0 ? (msr - mse) / denominator : nil
     }
 
+    /// Test-retest ICC(1,1): one-way random, single measures, over people
+    /// with 2+ readings (unequal group sizes allowed). How much of the
+    /// spread in readings is real person-to-person difference rather than
+    /// repeat noise. Needs at least 3 people.
+    static func retestICC(_ groups: [[Double]]) -> Double? {
+        let used = groups.filter { $0.count >= 2 }
+        let g = Double(used.count), total = Double(used.map(\.count).reduce(0, +))
+        guard used.count >= 3 else { return nil }
+        let grand = used.flatMap { $0 }.reduce(0, +) / total
+        var ssb = 0.0, ssw = 0.0
+        for group in used {
+            let m = group.reduce(0, +) / Double(group.count)
+            ssb += Double(group.count) * (m - grand) * (m - grand)
+            ssw += group.map { ($0 - m) * ($0 - m) }.reduce(0, +)
+        }
+        let msb = ssb / (g - 1), msw = ssw / (total - g)
+        let k0 = (total - used.map { Double($0.count * $0.count) }.reduce(0, +) / total) / (g - 1)
+        let denominator = msb + (k0 - 1) * msw
+        return denominator > 0 ? (msb - msw) / denominator : nil
+    }
+
     /// Pooled within-person SD over people with 2+ readings.
     static func withinPersonSD(_ groups: [[Double]]) -> (sd: Double, people: Int, readings: Int)? {
         let used = groups.filter { $0.count >= 2 }
@@ -127,6 +190,27 @@ enum Report {
             for r in auto { if let p = r.participant, let v = r.app[kind] { groups["\(p)/\(r.hand ?? "?")", default: []].append(v) } }
             if let w = withinPersonSD(Array(groups.values)) {
                 text += "  App repeatability: within-person SD \(fmt(kind, w.sd)) (\(w.people) people, \(w.readings) readings); repeat readings differ by less than \(fmt(kind, 2.77 * w.sd)) 95% of the time\n"
+                if let icc = retestICC(Array(groups.values)) {
+                    text += String(format: "  App test-retest ICC(1,1): %.2f across %d people\n", icc, groups.values.filter { $0.count >= 2 }.count)
+                } else {
+                    text += "  App test-retest ICC: needs 3+ people with 2+ readings each\n"
+                }
+                // By lighting: each reading's offset from that person's own
+                // average, so differences between people don't count.
+                var personMean: [String: Double] = [:]
+                for (key, values) in groups where values.count >= 2 { personMean[key] = values.reduce(0, +) / Double(values.count) }
+                var byCondition: [String: [Double]] = [:]
+                for r in auto {
+                    guard let p = r.participant, let v = r.app[kind], let m = personMean["\(p)/\(r.hand ?? "?")"] else { continue }
+                    byCondition[r.condition, default: []].append(v - m)
+                }
+                if byCondition.count >= 2 || (byCondition.count == 1 && byCondition.keys.first != "not recorded") {
+                    text += "  By lighting (offset from each person's own average): " + byCondition.keys.sorted().map { key in
+                        let d = byCondition[key]!
+                        let mean = d.reduce(0, +) / Double(d.count)
+                        return "\(key) \(mean >= 0 ? "+" : "")\(fmt(kind, mean)) (n \(d.count))"
+                    }.joined(separator: ", ") + "\n"
+                }
             } else {
                 text += "  App repeatability: needs participant codes and 2+ readings per person\n"
             }
@@ -189,12 +273,12 @@ enum Report {
         try? text.write(toFile: (dir as NSString).appendingPathComponent("report.txt"), atomically: true, encoding: .utf8)
         print(text)
 
-        var csv = "capture,participant,skin_tone,hand,app_status,app_profile,app_hyponychial,app_depth_ratio"
+        var csv = "capture,participant,skin_tone,hand,lighting,app_status,app_profile,app_hyponychial,app_depth_ratio"
         for l in labelers { csv += ",\(l)_profile,\(l)_hyponychial,\(l)_depth_ratio" }
         csv += "\n"
         func cell(_ v: Double?) -> String { v.map { String(format: "%.3f", $0) } ?? "" }
         for r in rows {
-            csv += [r.capture, r.participant ?? "", r.skinTone ?? "", r.hand ?? "", r.appStatus,
+            csv += [r.capture, r.participant ?? "", r.skinTone ?? "", r.hand ?? "", r.condition, r.appStatus,
                     cell(r.app[.lovibond]), cell(r.app[.hyponychial]), cell(r.app[.depthRatio])].joined(separator: ",")
             for l in labelers {
                 csv += "," + [cell(r.humans[l]?[.lovibond]), cell(r.humans[l]?[.hyponychial]), cell(r.humans[l]?[.depthRatio])].joined(separator: ",")

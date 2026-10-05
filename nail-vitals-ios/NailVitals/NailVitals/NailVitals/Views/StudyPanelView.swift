@@ -25,6 +25,12 @@ enum StudyRoster {
 
     static let skinTones: [(tag: String, name: String)] = [("", "Not recorded"), ("lighter", "Lighter"), ("medium", "Medium"), ("darker", "Darker")]
 
+    /// The room's light for the next scans (the flashlight is recorded on
+    /// its own), so the report can check results hold up in different light.
+    static let lightingKey = "studyLighting"
+    static let lightings: [(tag: String, name: String)] = [("", "Not recorded"), ("room", "Room light"), ("daylight", "Daylight"),
+                                                          ("dim", "Dim"), ("bright", "Bright lamp")]
+
     static func decode(_ json: String) -> [StudyParticipant] {
         guard let data = json.data(using: .utf8),
               let list = try? JSONDecoder().decode([StudyParticipant].self, from: data), !list.isEmpty
@@ -46,6 +52,7 @@ enum StudyRoster {
 struct StudyPanelView: View {
     @AppStorage(StudyRoster.currentKey) private var current = "P1"
     @AppStorage(StudyRoster.listKey) private var listJSON = ""
+    @AppStorage(StudyRoster.lightingKey) private var lighting = ""
     @Environment(\.dismiss) private var dismiss
     @State private var confirmDeletePhotos = false
     @State private var confirmReset = false
@@ -77,6 +84,16 @@ struct StudyPanelView: View {
                     Text("Who's being measured")
                 } footer: {
                     Text("Tap a person to select them (the panel closes); every scan is tagged with the selected person and their skin-tone group. Codes only, no names. Skin tone is optional and only used to check the app measures everyone equally well. Swipe left to remove a person from this list (their saved scans stay).")
+                }
+
+                Section {
+                    Picker("Light", selection: $lighting) {
+                        ForEach(StudyRoster.lightings, id: \.tag) { Text($0.name).tag($0.tag) }
+                    }
+                } header: {
+                    Text("Lighting for the next scans")
+                } footer: {
+                    Text("Tagged on every scan so the report can check results stay the same in different light. Whether the app's flashlight was on is recorded automatically.")
                 }
 
                 Section {

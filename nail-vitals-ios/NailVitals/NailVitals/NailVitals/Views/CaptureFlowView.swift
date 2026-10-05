@@ -26,6 +26,9 @@ struct CaptureFlowView: View {
     /// Study participant code and skin-tone group, saved with the capture.
     var participant: String?
     var skinTone: String?
+    /// Study tags: the room's light, and whether the flashlight was on.
+    var lighting: String?
+    var torchOn: Bool?
     /// Called when the user is done with this flow (confirmed a
     /// result, or backed out) -- lets ContentView dismiss and reset
     /// CameraManager.capturedPixelBuffer to nil so a new capture can
@@ -262,7 +265,7 @@ struct CaptureFlowView: View {
         // block the UI while it runs.
         let visionHand = landmarks
         let measuredHand = self.hand
-        let participant = self.participant, skinTone = self.skinTone
+        let participant = self.participant, skinTone = self.skinTone, lighting = self.lighting, torchOn = self.torchOn
         DispatchQueue.global(qos: .userInitiated).async {
             // Made first so manual measurement stays available even when
             // automatic detection fails.
@@ -274,7 +277,8 @@ struct CaptureFlowView: View {
             var sharpness: Double?
             func save(_ result: LovibondResult?, failure: String?) -> URL? {
                 image.flatMap { CaptureRecorder.saveAnalysis(image: $0, landmarks: hand, measuredHand: measuredHand,
-                                                             participant: participant, skinTone: skinTone, outline: outlineSource,
+                                                             participant: participant, skinTone: skinTone,
+                                                             lighting: lighting, torchOn: torchOn, outline: outlineSource,
                                                              sharpness: sharpness, result: result, failure: failure) }
             }
 

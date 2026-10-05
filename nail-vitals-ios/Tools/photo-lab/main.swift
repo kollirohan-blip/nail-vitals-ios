@@ -122,6 +122,29 @@ if let i = args.firstIndex(of: "--turn"), i + 1 < args.count, let t = Double(arg
 // estimate against the found or hand-placed cuticle.
 var estimateFraction: Double?
 if let i = args.firstIndex(of: "--estimate-cuticle"), i + 1 < args.count { estimateFraction = Double(args[i + 1]); args.removeSubrange(i...i + 1) }
+// --imagej file.csv (repeatable): an independent rater's hand measurements
+// made in ImageJ, as columns capture,rater,profile,hyponychial,depth_ratio
+// (capture = the capture folder's name, e.g. 20261005-141502). Added to the
+// report as "<rater> (ImageJ)". See Tools/validation/ for the protocol.
+var imageJ: [String: [String: [SignKind: Double]]] = [:]   // capture -> rater -> values
+while let i = args.firstIndex(of: "--imagej"), i + 1 < args.count {
+    let file = args[i + 1]
+    args.removeSubrange(i...i + 1)
+    guard let text = try? String(contentsOfFile: file, encoding: .utf8) else { print("Couldn't read \(file)"); continue }
+    var lines = text.split(whereSeparator: \.isNewline).map(String.init)
+    let header = lines.isEmpty ? [] : lines.removeFirst().lowercased().split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }
+    func column(_ name: String) -> Int? { header.firstIndex(of: name) }
+    guard let c = column("capture"), let r = column("rater") else { print("\(file): needs capture and rater columns"); continue }
+    for line in lines {
+        let cells = line.split(separator: ",", omittingEmptySubsequences: false).map { $0.trimmingCharacters(in: .whitespaces) }
+        guard cells.count > max(c, r), !cells[c].isEmpty else { continue }
+        var values: [SignKind: Double] = [:]
+        for (kind, key) in [(SignKind.lovibond, "profile"), (.hyponychial, "hyponychial"), (.depthRatio, "depth_ratio")] {
+            if let k = column(key), k < cells.count, let v = Double(cells[k]) { values[kind] = v }
+        }
+        imageJ[cells[c], default: [:]][cells[r] + " (ImageJ)"] = values
+    }
+}
 // --whole: the outline from the whole photo only (the app before Oct 2026;
 // the app now tries a crop around the finger first, as below).
 let wholeOnly = args.contains("--whole")
@@ -371,8 +394,11 @@ for path in args {
                 humans[name + "+edge"] = Report.values(HumanLabel(labeler: name, points: snapped))
             }
         }
+        for (rater, values) in imageJ[name] ?? [:] { humans[rater] = values }
+        if isDir.boolValue { for (rater, values) in Report.imageJLabels(in: path) { humans[rater] = values } }
         reportRows.append(ReportRow(capture: name, participant: meta["participant"] as? String, skinTone: meta["skinTone"] as? String,
-                                    hand: meta["measuredHand"] as? String, appStatus: status, app: app, humans: humans))
+                                    hand: meta["measuredHand"] as? String, lighting: meta["lighting"] as? String,
+                                    torchOn: meta["torchOn"] as? Bool, appStatus: status, app: app, humans: humans))
     }
 }
 if makeReport {

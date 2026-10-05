@@ -28,6 +28,7 @@ struct ScanView: View {
     // Study tagging (testing builds): the selected person and skin tone.
     @AppStorage(StudyRoster.currentKey) private var participant = "P1"
     @AppStorage(StudyRoster.listKey) private var participantsJSON = ""
+    @AppStorage(StudyRoster.lightingKey) private var lighting = ""
 
     private var skinTone: String {
         StudyRoster.decode(participantsJSON).first { $0.code == participant }?.skinTone ?? ""
@@ -146,6 +147,8 @@ struct ScanView: View {
                     hand: hand,
                     participant: saveCapturesForTesting ? participant : nil,
                     skinTone: saveCapturesForTesting && !skinTone.isEmpty ? skinTone : nil,
+                    lighting: saveCapturesForTesting && !lighting.isEmpty ? lighting : nil,
+                    torchOn: saveCapturesForTesting ? camera.torchOn : nil,
                     onDismiss: { camera.resetCapture() },
                     previousReadings: sessionReadings,
                     targetReadings: Self.targetReadings,
