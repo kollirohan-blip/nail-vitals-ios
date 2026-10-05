@@ -79,6 +79,15 @@ cd nail-vitals-ios/Tools/photo-lab
 - **Blurry and turned photos** are left out automatically, the same way the app leaves them out.
 - **Angle values instead of points:** if a rater gives values, put them in a CSV with columns `capture,rater,profile,hyponychial,depth_ratio` and add `--imagej that.csv`.
 
+## Open questions the study data should settle
+
+- **Where the knuckle crease goes:**
+  - **Now:** the app takes it level with hand pose's DIP joint.
+  - **Test:** `--crease-offset 0.15` takes it 15% of the way toward the tip, where one person's labels put the visible crease.
+  - **First result** (4 photos, one person): the fingertip angle's gap to the labels went from 1.7° to 0.6°, and the healthy average from 179.0° to 177.1°.
+  - **Next step:** compare both against every rater before changing the app.
+- **The nail-angle gap:** the app reads about 3° below one person's hand labels. Check whether other raters, especially ImageJ, see the same gap.
+
 ## Keep in mind
 
 - **Old photos:** photos from before October 2, 2026 were measured differently (whole-photo outline, closer framing). Keep them out of the study. Their `capture.json` has no `outline` field.

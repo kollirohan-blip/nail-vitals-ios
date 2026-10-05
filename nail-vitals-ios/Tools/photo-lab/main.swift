@@ -145,6 +145,12 @@ while let i = args.firstIndex(of: "--imagej"), i + 1 < args.count {
         imageJ[cells[c], default: [:]][cells[r] + " (ImageJ)"] = values
     }
 }
+// --crease-offset f: take the knuckle crease f of the DIP-to-tip length
+// toward the tip (default 0, the app's DIP level). For testing against labels.
+var creaseOffset: CGFloat = 0
+if let i = args.firstIndex(of: "--crease-offset"), i + 1 < args.count, let f = Double(args[i + 1]) {
+    creaseOffset = CGFloat(f); args.removeSubrange(i...i + 1)
+}
 // --whole: the outline from the whole photo only (the app before Oct 2026;
 // the app now tries a crop around the finger first, as below).
 let wholeOnly = args.contains("--whole")
@@ -312,7 +318,7 @@ for path in args {
         var line = "  signs:"
         for turn in [30.0, 45.0, 60.0] {
             let s = FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: tip, dip: dip, cuticle: cuticle,
-                                                lovibond: nailMarker?.angleDegrees, isNailSide: isNailSide, turnDegrees: turn)
+                                                lovibond: nailMarker?.angleDegrees, isNailSide: isNailSide, turnDegrees: turn, creaseOffset: creaseOffset)
             if turn == drawTurn {
                 signs = s
                 if estimated != nil { signs?.noCuticleDip = true; signs?.lovibond = 180 }
@@ -325,7 +331,7 @@ for path in args {
             let apex = result.fingertip
             let est = CGPoint(x: apex.x + (dip.x - apex.x) * f, y: apex.y + (dip.y - apex.y) * f)
             let e = FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: tip, dip: dip, cuticle: est,
-                                                lovibond: nil, isNailSide: isNailSide, turnDegrees: drawTurn)
+                                                lovibond: nil, isNailSide: isNailSide, turnDegrees: drawTurn, creaseOffset: creaseOffset)
             let along = { (q: CGPoint) in hypot(q.x - apex.x, q.y - apex.y) / hypot(dip.x - apex.x, dip.y - apex.y) }
             // Profile angle at the estimated cuticle: the local angle there.
             if let b = e.cuticle, let nailCandidate = result.candidates.first(where: { hand?.isOnNailSide($0.inflectionPoint) == true }) {
@@ -373,7 +379,7 @@ for path in args {
                 status = "auto"
                 let s = FingerSignsAnalyzer.measure(contour: silhouette.contourPoints, tip: hand.indexTip.point, dip: hand.indexDIP.point,
                                                     cuticle: marker.inflectionPoint, lovibond: marker.angleDegrees,
-                                                    isNailSide: { hand.isOnNailSide($0) }, turnDegrees: drawTurn)
+                                                    isNailSide: { hand.isOnNailSide($0) }, turnDegrees: drawTurn, creaseOffset: creaseOffset)
                 for kind in SignKind.allCases { app[kind] = kind.value(in: s) }
             }
             _ = result

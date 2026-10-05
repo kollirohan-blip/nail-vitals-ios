@@ -61,9 +61,15 @@ nonisolated enum FingerSignsAnalyzer {
     ///     30 deg put it at the visible free edge on real captures (45 went
     ///     past it toward the tip); 33 healthy photos then averaged 180.6
     ///     (SD 4.2), against the published 178.9 (SD 4.7).
+    ///   - creaseOffset: where the knuckle crease (point A) is taken, as a
+    ///     share of the DIP-to-tip length from the DIP joint toward the tip.
+    ///     0 = level with hand pose's DIP joint (the app's definition).
+    ///     Hand labels (one person, Oct 2026) put the visible crease about
+    ///     0.15 toward the tip; photo-lab's --crease-offset tests that on
+    ///     study data before the app changes.
     static func measure(contour: [CGPoint], tip: CGPoint, dip: CGPoint, cuticle: CGPoint,
                         lovibond: Double?, isNailSide: ((CGPoint) -> Bool?)?,
-                        turnDegrees: Double = 30) -> FingerSigns {
+                        turnDegrees: Double = 30, creaseOffset: CGFloat = 0) -> FingerSigns {
         var signs = FingerSigns(lovibond: lovibond, cuticle: cuticle)
         guard let frame = FingerFrame(tip: tip, dip: dip), contour.count > 3 else { return signs }
 
@@ -81,7 +87,7 @@ nonisolated enum FingerSignsAnalyzer {
         guard let isNailSide,
               let nailOnPlus = isNailSide(frame.point(along: 0, across: frame.length)) else { return signs }
         let side: CGFloat = nailOnPlus ? 1 : -1
-        guard let crease = edgePoint(contour, frame, at: 0, side: side),
+        guard let crease = edgePoint(contour, frame, at: creaseOffset * frame.length, side: side),
               let hyponychium = hyponychium(contour, frame, from: cuticleLevel, side: side, turnDegrees: turnDegrees)
         else { return signs }
         // The cuticle sits on the nail-side edge; a hand-placed dot only
