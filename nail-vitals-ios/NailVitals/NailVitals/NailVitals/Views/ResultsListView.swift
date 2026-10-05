@@ -103,6 +103,8 @@ struct SessionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showAssistant = false
     @State private var confirmDelete = false
+    @State private var exportFile: ShareFile?
+    @State private var exportError: String?
 
     var body: some View {
         ScrollView {
@@ -120,6 +122,9 @@ struct SessionDetailView: View {
                 AskAssistantView(context: AssistantContext(readings: session.signs,
                                                            hand: MeasuredHand(rawValue: session.hand) ?? .right))
             }
+        }
+        .sheet(item: $exportFile) { file in
+            ActivityView(items: [file.url])
         }
         .confirmationDialog("Delete this result?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete result", role: .destructive) {
@@ -178,6 +183,22 @@ struct SessionDetailView: View {
                     .padding(.vertical, 6)
             }
             .buttonStyle(.glass)
+
+            // For a doctor's record system: the result as structured data.
+            Button {
+                do {
+                    exportFile = ShareFile(url: try FHIRExport.file(for: session))
+                } catch {
+                    exportError = "Couldn't create the file. Try again."
+                }
+            } label: {
+                Label("Export for a doctor (FHIR)", systemImage: "square.and.arrow.up")
+                    .font(.system(size: 14, weight: .medium))
+            }
+            .foregroundStyle(Color.primary.opacity(0.75))
+            if let exportError {
+                Text(exportError).font(.system(size: 13)).foregroundStyle(Theme.attention)
+            }
 
             Button("Delete this result", role: .destructive) { confirmDelete = true }
                 .font(.system(size: 13, weight: .medium))
