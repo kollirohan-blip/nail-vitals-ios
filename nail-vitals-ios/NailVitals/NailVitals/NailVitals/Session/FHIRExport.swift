@@ -78,11 +78,15 @@ nonisolated enum FHIRExport {
         ]
     }
 
-    /// Writes the observation to a temporary .json file for sharing.
+    /// Writes the observation to a temporary .json file for sharing, named
+    /// by the scan's date and time so two scans on one day don't overwrite
+    /// each other.
     static func file(for session: ScanSession) throws -> URL {
         let data = try JSONSerialization.data(withJSONObject: observation(for: session), options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
-        let day = session.date.formatted(.iso8601.year().month().day())
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("nail-vitals-\(day).fhir.json")
+        let stamp = DateFormatter()
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        stamp.dateFormat = "yyyy-MM-dd-HHmm"
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("nail-vitals-\(stamp.string(from: session.date)).fhir.json")
         try data.write(to: url, options: .atomic)
         return url
     }
