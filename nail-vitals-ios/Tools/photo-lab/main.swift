@@ -162,7 +162,7 @@ let useSnap = args.contains("--snap")
 args.removeAll { $0 == "--snap" }
 // --nails: the phase 2 nail color prototype instead (see NailLab.swift).
 if args.contains("--nails") {
-    args.removeAll { $0 == "--nails" }
+    args.removeAll { $0 == "--nails" || $0 == "-v" }
     runNailLab(args, outDir: outDir)
     exit(0)
 }

@@ -120,29 +120,27 @@ private func writeProfiles(_ fingers: [(FingerChain, [NailColorAnalyzer.Sample],
     CGImageDestinationFinalize(dest)
 }
 
-/// Profiles along hand-placed nail lines: 0 = where the nail starts at the
-/// cuticle, 1 = the end of the free edge.
+/// Profiles along hand-placed nail lines (0 = where the nail starts at the
+/// cuticle, 1 = where the pink ends), and the app's reading of each.
 private func runAxisProfiles(_ path: String, axes: [(CGPoint, CGPoint)], outDir: String) {
     let name = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
     guard let image = loadUpright(path), let rgba = RGBAImage(image) else { print("\(name): could not load"); return }
     print("== \(name) (hand-placed nail lines)")
     for (n, (start, end)) in axes.enumerated() {
-        let length = hypot(end.x - start.x, end.y - start.y)
-        guard length > 4 else { continue }
-        let ax = CGVector(dx: (end.x - start.x) / length, dy: (end.y - start.y) / length)
-        var line = String(format: "  nail %d (%.0f px):", n + 1, length)
-        for k in 0...20 {
-            let t = CGFloat(k) / 20
-            var colors: [NailColorAnalyzer.Lab] = []
-            for j in 0..<7 {
-                let off = length * 0.12 * (CGFloat(j) / 6 - 0.5)
-                let p = CGPoint(x: start.x + ax.dx * length * t - ax.dy * off, y: start.y + ax.dy * length * t + ax.dx * off)
-                if let c = rgba.lab(at: p) { colors.append(c) }
+        let samples = NailColorAnalyzer.nailProfile(rgba, from: start, to: end)
+        let pattern = NailColorAnalyzer.pattern(samples)
+        var line = String(format: "  nail %d (%.0f px): %@", n + 1, hypot(end.x - start.x, end.y - start.y), "\(pattern.kind)")
+        if let share = pattern.bandShare { line += String(format: "  band %.0f%% of the nail", share * 100) }
+        if let pale = pattern.paleRedness, let band = pattern.bandRedness { line += String(format: "  redness %.1f -> %.1f", pale, band) }
+        if let split = pattern.split, let end = pattern.pinkEnd { line += String(format: "  (split %.2f, pink ends %.2f)", split, end) }
+        if verbose {
+            for s in samples where Int((s.along * 40).rounded()) % 2 == 0 {
+                line += String(format: "\n     %.2f  L %5.1f  a %5.1f  b %5.1f  %@", s.along, s.color.l, s.color.a, s.color.b,
+                               String(repeating: "#", count: max(0, Int((s.color.a + 10) / 2))))
             }
-            guard !colors.isEmpty else { continue }
-            let l = NailColorAnalyzer.median(colors.map(\.l)), a = NailColorAnalyzer.median(colors.map(\.a)), b = NailColorAnalyzer.median(colors.map(\.b))
-            line += String(format: "\n     %.2f  L %5.1f  a %5.1f  b %5.1f  %@", Double(t), l, a, b, String(repeating: "#", count: max(0, Int((a + 10) / 2))))
         }
         print(line)
     }
 }
+
+private let verbose = CommandLine.arguments.contains("-v")

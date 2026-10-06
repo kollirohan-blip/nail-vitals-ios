@@ -58,6 +58,7 @@ struct HomeTab: View {
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
     @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .classic
     @State private var showStudy = false
+    @State private var showNailCheck = false
     @State private var breathe = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -79,6 +80,14 @@ struct HomeTab: View {
                         .font(.system(size: 13))
                         .foregroundStyle(Color.primary.opacity(0.6))
                         .padding(.top, 10)
+                    Button { showNailCheck = true } label: {
+                        Label("Nail color check (beta)", systemImage: "hand.raised.fingers.spread")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 4)
+                    }
+                    .buttonStyle(.glass)
+                    .padding(.top, 16)
                     Spacer(minLength: 20)
                     lastResult
                     SafetyNote()
@@ -90,6 +99,7 @@ struct HomeTab: View {
             .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(for: UUID.self) { SessionDetailView(history: history, id: $0) }
             .sheet(isPresented: $showStudy) { StudyPanelView() }
+            .fullScreenCover(isPresented: $showNailCheck) { NailCheckView() }
         }
     }
 

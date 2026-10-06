@@ -91,6 +91,107 @@ nonisolated enum NailColorAnalyzer {
         return samples
     }
 
+    // MARK: - One nail, along a line placed on it
+
+    /// Color along one nail from `start` (where the nail meets the skin at
+    /// the cuticle) to `end` (where the pink ends, before the white free
+    /// edge): at each step the median of a short strip across the nail, a
+    /// quarter of the line's length wide. `along` runs 0 to 1.
+    static func nailProfile(_ image: RGBAImage, from start: CGPoint, to end: CGPoint, steps: Int = 40) -> [Sample] {
+        let length = hypot(end.x - start.x, end.y - start.y)
+        guard length > 4 else { return [] }
+        let ux = (end.x - start.x) / length, uy = (end.y - start.y) / length
+        var samples: [Sample] = []
+        for i in 0...steps {
+            let t = CGFloat(i) / CGFloat(steps)
+            var colors: [Lab] = []
+            for k in 0..<7 {
+                let off = length * 0.25 * (CGFloat(k) / 6 - 0.5)
+                let p = CGPoint(x: start.x + ux * length * t - uy * off, y: start.y + uy * length * t + ux * off)
+                if let c = image.lab(at: p) { colors.append(c) }
+            }
+            guard colors.count >= 4 else { continue }
+            samples.append(Sample(along: Double(t), color: Lab(l: median(colors.map(\.l)), a: median(colors.map(\.a)), b: median(colors.map(\.b)))))
+        }
+        return samples
+    }
+
+    /// What one nail's color profile looks like.
+    nonisolated struct NailPattern {
+        enum Kind {
+            /// About the same color from base to tip.
+            case even
+            /// Pink with a pale part only at the base: the usual half-moon (lunula).
+            case usual
+            /// A pale nail with a darker (pink to brown) band at the tip: the
+            /// pattern of Terry's and half-and-half nails.
+            case paleWithBand
+            /// Color changes, but not as one pale part then one band.
+            case unclear
+        }
+        let kind: Kind
+        /// The band's share of the nail, from the cuticle to where the pink ends.
+        var bandShare: Double? = nil
+        /// Where the pale part ends and where the pink ends, 0-1 along the placed line.
+        var split: Double? = nil
+        var pinkEnd: Double? = nil
+        /// Redness (CIELAB a*) of the pale part and of the band.
+        var paleRedness: Double? = nil
+        var bandRedness: Double? = nil
+    }
+
+    /// Smallest redness step (a*) between the pale part and the band that
+    /// counts. On the example photos the step was 8-20; across an evenly
+    /// colored nail it stays within a few units.
+    static let minimumRednessStep = 6.0
+    /// A band covering this much of the nail or more means only the base is
+    /// pale: the usual half-moon, not a pale nail.
+    static let usualBandShare = 0.7
+    /// Below this share the band is narrow (Terry's-like); above, toward
+    /// half (half-and-half-like). The app's own dividing line for wording,
+    /// not a published cut-off.
+    static let narrowBandShare = 0.35
+
+    /// Fits "pale, then a redder band" to the nail's redness (a*): the split
+    /// that best divides it into two levels. The white free edge past the
+    /// pink is left out, and so is the cuticle fold itself.
+    static func pattern(_ samples: [Sample]) -> NailPattern {
+        let points = samples.filter { $0.along >= 0.05 }
+        guard points.count >= 12 else { return NailPattern(kind: .unclear) }
+        let raw = points.map(\.color.a)
+        let a = raw.indices.map { median(Array(raw[max(0, $0 - 1)...min(raw.count - 1, $0 + 1)])) }
+        let sorted = a.sorted()
+        let lo = sorted[sorted.count / 10], hi = sorted[sorted.count * 9 / 10]
+        guard hi - lo >= minimumRednessStep else { return NailPattern(kind: .even) }
+
+        // The pink ends at the last clearly red point; past it is the free edge.
+        let middle = (lo + hi) / 2
+        guard let last = a.lastIndex(where: { $0 >= middle }), last >= 7 else { return NailPattern(kind: .unclear) }
+        let bed = Array(a[0...last])
+        func mean(_ v: ArraySlice<Double>) -> Double { v.reduce(0, +) / Double(v.count) }
+        func spread(_ v: ArraySlice<Double>) -> Double { let m = mean(v); return v.reduce(0) { $0 + ($1 - m) * ($1 - m) } }
+
+        var best: (k: Int, sse: Double)?
+        for k in 3...(bed.count - 2) where mean(bed[k...]) > mean(bed[..<k]) {
+            let sse = spread(bed[..<k]) + spread(bed[k...])
+            if best == nil || sse < best!.sse { best = (k, sse) }
+        }
+        let total = spread(bed[...])
+        guard let best, total > 0 else { return NailPattern(kind: .even) }
+        let pale = mean(bed[..<best.k]), band = mean(bed[best.k...])
+        guard band - pale >= minimumRednessStep else { return NailPattern(kind: .even) }
+        // A clean two-level step explains most of the variation; stripes or
+        // blotches (Mees' lines, glare) don't.
+        let split = (points[best.k - 1].along + points[best.k].along) / 2
+        let pinkEnd = points[last].along
+        let share = (pinkEnd - split) / pinkEnd
+        guard 1 - best.sse / total >= 0.6 else {
+            return NailPattern(kind: .unclear, split: split, pinkEnd: pinkEnd)
+        }
+        return NailPattern(kind: share >= usualBandShare ? .usual : .paleWithBand, bandShare: share,
+                           split: split, pinkEnd: pinkEnd, paleRedness: pale, bandRedness: band)
+    }
+
     // MARK: - Color
 
     /// sRGB (D65) to CIELAB.
