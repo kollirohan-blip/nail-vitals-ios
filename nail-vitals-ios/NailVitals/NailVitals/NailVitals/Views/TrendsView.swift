@@ -66,6 +66,15 @@ struct SignTrendCard: View {
         return (values.min()! - pad)...(values.max()! + pad)
     }
 
+    /// Days between date labels: about four labels, never more than one a
+    /// day (automatic ticks over a few days fall every 12 hours and print
+    /// the same date twice).
+    private var labelStride: Int {
+        guard let first = points.first?.date, let last = points.last?.date else { return 1 }
+        let days = Calendar.current.dateComponents([.day], from: first, to: last).day ?? 0
+        return max(1, Int((Double(days) / 4).rounded(.up)))
+    }
+
     var body: some View {
         let points = points
         VStack(alignment: .leading, spacing: 12) {
@@ -115,7 +124,7 @@ struct SignTrendCard: View {
                 // Room at the ends so the first and last date labels fit.
                 .chartXScale(range: .plotDimension(startPadding: 10, endPadding: 24))
                 .chartXAxis {
-                    AxisMarks(values: .automatic(desiredCount: 4)) { _ in
+                    AxisMarks(values: .stride(by: .day, count: labelStride)) { _ in
                         AxisGridLine().foregroundStyle(Color.primary.opacity(0.08))
                         AxisValueLabel(format: .dateTime.month(.abbreviated).day())
                             .foregroundStyle(Color.primary.opacity(0.6))
