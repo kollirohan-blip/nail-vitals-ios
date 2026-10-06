@@ -279,6 +279,18 @@ for path in args {
         print(String(format: "  calib: finger %.0f px long, %.0f wide; joints at tip %.2f dip %.2f pip %.2f mcp %.2f",
                      f.length, f.width, frac(v.indexTip.point), frac(v.indexDIP.point), frac(v.indexPIP.point), frac(v.indexMCP.point)))
     }
+    // Posture: how far each finger joint bends (signed degrees, 0 = straight;
+    // the sign shows the direction in the image).
+    if let v = visionHand {
+        func bend(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint) -> Double {
+            let u = (b.x - a.x, b.y - a.y), w = (c.x - b.x, c.y - b.y)
+            return Double(atan2(u.0 * w.1 - u.1 * w.0, u.0 * w.0 + u.1 * w.1)) * 180 / .pi
+        }
+        print(String(format: "  posture: DIP bend %.1f°  PIP bend %.1f°  finger tilt %.1f° from vertical",
+                     bend(v.indexPIP.point, v.indexDIP.point, v.indexTip.point),
+                     bend(v.indexMCP.point, v.indexPIP.point, v.indexDIP.point),
+                     Double(atan2(v.indexTip.point.x - v.indexMCP.point.x, v.indexMCP.point.y - v.indexTip.point.y)) * 180 / .pi))
+    }
     let d = segmenter.lastDiagnostics
     print("  mask: instances \(d.instanceCount)  outline points \(d.contourPointCount)  \(Int(d.maskMs + d.contourMs)) ms  \(silhouette == nil ? "NO OUTLINE" : "")")
     if let result, let dip = dipPoint {
