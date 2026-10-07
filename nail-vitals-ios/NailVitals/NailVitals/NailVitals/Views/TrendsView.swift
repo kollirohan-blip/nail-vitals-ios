@@ -66,13 +66,19 @@ struct SignTrendCard: View {
         return (values.min()! - pad)...(values.max()! + pad)
     }
 
-    /// Days between date labels: about four labels, never more than one a
-    /// day (automatic ticks over a few days fall every 12 hours and print
-    /// the same date twice).
-    private var labelStride: Int {
-        guard let first = points.first?.date, let last = points.last?.date else { return 1 }
-        let days = Calendar.current.dateComponents([.day], from: first, to: last).day ?? 0
-        return max(1, Int((Double(days) / 4).rounded(.up)))
+    /// Spacing of the time labels: about four of them. Scans spread over
+    /// days get a date per label, never two labels for one day (automatic
+    /// ticks fall every 12 hours and print the same date twice); scans all
+    /// within two days get times of day instead ("2 PM").
+    private var timeAxis: (unit: Calendar.Component, count: Int, format: Date.FormatStyle) {
+        guard let first = points.first?.date, let last = points.last?.date else {
+            return (.day, 1, .dateTime.month(.abbreviated).day())
+        }
+        let hours = last.timeIntervalSince(first) / 3600
+        if hours < 48 {
+            return (.hour, max(1, Int((hours / 4).rounded(.up))), .dateTime.hour())
+        }
+        return (.day, max(1, Int((hours / 24 / 4).rounded(.up))), .dateTime.month(.abbreviated).day())
     }
 
     var body: some View {
@@ -124,9 +130,10 @@ struct SignTrendCard: View {
                 // Room at the ends so the first and last date labels fit.
                 .chartXScale(range: .plotDimension(startPadding: 10, endPadding: 24))
                 .chartXAxis {
-                    AxisMarks(values: .stride(by: .day, count: labelStride)) { _ in
+                    let axis = timeAxis
+                    AxisMarks(values: .stride(by: axis.unit, count: axis.count)) { _ in
                         AxisGridLine().foregroundStyle(Color.primary.opacity(0.08))
-                        AxisValueLabel(format: .dateTime.month(.abbreviated).day())
+                        AxisValueLabel(format: axis.format)
                             .foregroundStyle(Color.primary.opacity(0.6))
                     }
                 }
