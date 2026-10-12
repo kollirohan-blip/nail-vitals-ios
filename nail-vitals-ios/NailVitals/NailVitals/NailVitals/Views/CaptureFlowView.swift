@@ -38,6 +38,10 @@ struct CaptureFlowView: View {
     var previousReadings: [FingerSigns] = []
     /// Readings in a full session; the combined result shows after the last.
     var targetReadings = 3
+    /// Set when scanning a printed model finger (ScanView.modelMode): which
+    /// side of the photo its nail faces. No hand pose then: the finger comes
+    /// from the outline, with a stand-in thumb opposite the nail.
+    var modelNailOnRight: Bool? = nil
     /// Reports a confirmed, plausible reading so the session can keep it.
     var onReading: (FingerSigns) -> Void = { _ in }
     /// Ends the session (saves its readings) and closes this flow.
@@ -317,15 +321,24 @@ struct CaptureFlowView: View {
                     DispatchQueue.main.async {
                         displayImage = image
                         captureFolder = folder
-                        stage = .failed("Couldn't see your finger clearly. Try again in good light, in front of a plain wall.")
+                        stage = .failed(modelNailOnRight == nil
+                                        ? "Couldn't see your finger clearly. Try again in good light, in front of a plain wall."
+                                        : "Couldn't see the model finger clearly. Stand it upright in front of a plain, light wall, in good light.")
                     }
                     return
                 }
-                // Hand pose can miss the raised finger (rings, an OK-sign
-                // hand); then the finger is found from the outline instead.
                 outline = whole
-                outlineSource = "whole"
-                hand = OutlineFingerFinder.resolve(visionHand, contour: whole.contourPoints, imageSize: whole.imageSize)
+                if let nailOnRight = modelNailOnRight {
+                    // A model finger on a stand: joints from its outline.
+                    outlineSource = "model"
+                    hand = OutlineFingerFinder.modelLandmarks(contour: whole.contourPoints, imageSize: whole.imageSize,
+                                                              nailOnRight: nailOnRight)
+                } else {
+                    // Hand pose can miss the raised finger (rings, an OK-sign
+                    // hand); then the finger is found from the outline instead.
+                    outlineSource = "whole"
+                    hand = OutlineFingerFinder.resolve(visionHand, contour: whole.contourPoints, imageSize: whole.imageSize)
+                }
                 lovibond = angleAnalyzer.analyze(whole, dipHint: hand?.indexDIP.point, tipHint: hand?.indexTip.point)
             }
             let resolved = hand

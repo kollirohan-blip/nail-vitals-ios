@@ -154,6 +154,24 @@ nonisolated enum OutlineFingerFinder {
         )
     }
 
+    /// Joints for a printed model finger standing on a base (the app's
+    /// "Model finger" scan): no hand for hand pose to see, so the finger
+    /// comes from the outline alone (the base plays the fist), and a stand-in
+    /// thumb goes on the side away from the nail, which the person scanning
+    /// sets. Everything after (nail side, cuticle, the three signs) then
+    /// works as for a real hand. The model is built so the DIP estimate
+    /// (jointFractions.dip of the way from the tip to the base) lands on its
+    /// knuckle crease. nil when the outline's top doesn't look like a finger.
+    static func modelLandmarks(contour: [CGPoint], imageSize: CGSize, nailOnRight: Bool) -> HandLandmarks? {
+        guard let finger = raisedFinger(in: contour), isPlausible(finger, imageSize: imageSize) else { return nil }
+        // Perpendicular to the finger, pointing to the image's left or right.
+        var side = CGVector(dx: -finger.axis.dy, dy: finger.axis.dx)
+        if (side.dx > 0) == nailOnRight { side = CGVector(dx: -side.dx, dy: -side.dy) }
+        let thumb = HandLandmarks.Joint(point: CGPoint(x: finger.base.x + side.dx * finger.width * 2.5,
+                                                       y: finger.base.y + side.dy * finger.width * 2.5), confidence: 1)
+        return landmarks(for: finger, thumbTip: thumb, imageSize: imageSize)
+    }
+
     /// Hand pose's joints when they describe the raised finger; otherwise
     /// joints found from the outline. nil only when neither works.
     /// A confident hand pose is only overruled when its fingertip is

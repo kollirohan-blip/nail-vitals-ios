@@ -12,6 +12,11 @@ import SwiftUI
 struct ScanView: View {
     static let targetReadings = 3
 
+    /// Scanning a printed model finger on a stand: no hand for hand pose to
+    /// find, so the shutter works whenever it's tapped and the finger comes
+    /// from the outline (OutlineFingerFinder.modelLandmarks). One reading,
+    /// for a quick demo; the result isn't saved to the history.
+    var modelMode = false
     /// Leaves without saving.
     let onClose: () -> Void
     /// The session's readings, for the history; called from the result.
@@ -29,6 +34,10 @@ struct ScanView: View {
     @AppStorage(StudyRoster.currentKey) private var participant = "P1"
     @AppStorage(StudyRoster.listKey) private var participantsJSON = ""
     @AppStorage(StudyRoster.lightingKey) private var lighting = ""
+    /// Which side of the picture the model's nail faces (the side opposite its stand-in thumb).
+    @AppStorage("modelNailOnRight") private var modelNailOnRight = true
+
+    private var readingsTarget: Int { modelMode ? 1 : Self.targetReadings }
 
     private var skinTone: String {
         StudyRoster.decode(participantsJSON).first { $0.code == participant }?.skinTone ?? ""
@@ -95,7 +104,7 @@ struct ScanView: View {
                 // Only tappable once GuidanceEngine reports .aligned:
                 // captures taken while the screen still said "Move back a
                 // little" gave badly framed photos no angle tuning could fix.
-                .disabled(camera.captureState != .aligned)
+                .disabled(!modelMode && camera.captureState != .aligned)
                 .padding(.bottom, 24)
             }
         }
@@ -111,7 +120,7 @@ struct ScanView: View {
         }
         // Spoken cues while framing (not while a photo is being measured).
         .onChange(of: camera.currentDirections) { _, directions in
-            guard voiceOn, camera.capturedPixelBuffer == nil else { return }
+            guard voiceOn, !modelMode, camera.capturedPixelBuffer == nil else { return }
             voice.update(directions.first)
         }
         // Light ticks as the finger fills the target. None once a photo
@@ -145,13 +154,14 @@ struct ScanView: View {
                     pixelBuffer: buffer,
                     landmarks: camera.capturedLandmarks,
                     hand: hand,
-                    participant: saveCapturesForTesting ? participant : nil,
+                    participant: saveCapturesForTesting ? (modelMode ? "MODEL" : participant) : nil,
                     skinTone: saveCapturesForTesting && !skinTone.isEmpty ? skinTone : nil,
                     lighting: saveCapturesForTesting && !lighting.isEmpty ? lighting : nil,
                     torchOn: saveCapturesForTesting ? camera.torchOn : nil,
                     onDismiss: { camera.resetCapture() },
                     previousReadings: sessionReadings,
-                    targetReadings: Self.targetReadings,
+                    targetReadings: readingsTarget,
+                    modelNailOnRight: modelMode ? modelNailOnRight : nil,
                     onReading: { sessionReadings.append($0) },
                     onFinishSession: {
                         let readings = sessionReadings
@@ -187,9 +197,16 @@ struct ScanView: View {
             progressChip
             Spacer()
             Menu {
-                Picker("Finger", selection: $hand) {
-                    ForEach(MeasuredHand.allCases, id: \.self) { option in
-                        Text("\(option.label) index").tag(option)
+                if modelMode {
+                    Picker("Model's nail faces", selection: $modelNailOnRight) {
+                        Text("Nail on the left").tag(false)
+                        Text("Nail on the right").tag(true)
+                    }
+                } else {
+                    Picker("Finger", selection: $hand) {
+                        ForEach(MeasuredHand.allCases, id: \.self) { option in
+                            Text("\(option.label) index").tag(option)
+                        }
                     }
                 }
                 if camera.hasTorch {
@@ -221,19 +238,19 @@ struct ScanView: View {
     /// "Reading 2 of 3" with a dot per reading; shows the hand too.
     private var progressChip: some View {
         let done = sessionReadings.count
-        let current = min(done + 1, Self.targetReadings)
+        let current = min(done + 1, readingsTarget)
         return HStack(spacing: 8) {
             HStack(spacing: 4) {
-                ForEach(0..<Self.targetReadings, id: \.self) { i in
+                ForEach(0..<readingsTarget, id: \.self) { i in
                     Circle()
                         .fill(i < done ? Theme.aligned : (i == done ? Theme.searching : Color.white.opacity(0.3)))
                         .frame(width: 7, height: 7)
                 }
             }
-            Text("Reading \(current) of \(Self.targetReadings)")
+            Text(modelMode ? "Model finger" : "Reading \(current) of \(readingsTarget)")
                 .font(.system(size: 13, weight: .semibold))
                 .monospacedDigit()
-            Text("· \(hand.label)")
+            Text(modelMode ? "· nail \(modelNailOnRight ? "right" : "left")" : "· \(hand.label)")
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.white.opacity(0.7))
         }
@@ -277,7 +294,7 @@ struct ScanView: View {
     /// Shutter with a "hold still" ring that fills as alignment steadies;
     /// dimmed (but visible) until aligned.
     private var captureButtonFace: some View {
-        let aligned = camera.captureState == .aligned
+        let aligned = modelMode || camera.captureState == .aligned
         return ZStack {
             Circle()
                 .stroke(Color.white.opacity(0.85), lineWidth: 4)
@@ -298,6 +315,9 @@ struct ScanView: View {
     }
 
     private var instructionText: String {
+        if modelMode {
+            return "Model finger: stand it upright in the frame, nail sideways, plain light wall behind, then tap the shutter"
+        }
         guard let first = camera.currentDirections.first else {
             return "Hold your index finger up here"
         }

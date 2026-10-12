@@ -111,6 +111,13 @@ truth = pointArg("--truth")
 // hand-placed fingertip and DIP joint in image pixels.
 let manualTip = pointArg("--tip")
 let manualDIP = pointArg("--dip")
+// --model left|right: a printed model finger on a base, scanned like the
+// app's "Model finger" mode (OutlineFingerFinder.modelLandmarks): no hand
+// pose; the nail faces the given side of the image.
+var modelNailOnRight: Bool?
+if let i = args.firstIndex(of: "--model"), i + 1 < args.count {
+    modelNailOnRight = args[i + 1].lowercased() == "right"; args.removeSubrange(i...i + 1)
+}
 // For photos where hand pose finds the wrong hand or finger: which side of
 // the image the nail is on (left or right of the DIP joint).
 // Profile turn (degrees) that marks the nail's free edge for the drawn
@@ -214,7 +221,7 @@ for path in args {
         confirmedAngle = folder.confirmedAngle
     }
     guard let image = loadUpright(imagePath), let buffer = pixelBuffer(from: image) else { print("\(name): could not load"); continue }
-    let visionHand = HandPoseDetector().detect(in: buffer)
+    let visionHand = modelNailOnRight == nil ? HandPoseDetector().detect(in: buffer) : nil
     let segmenter = FingerMaskSegmenter()
     let fullSize = CGSize(width: image.width, height: image.height)
     // Same as the app (CaptureFlowView.runAnalysis): the outline from a crop
@@ -235,7 +242,12 @@ for path in args {
     }
     if silhouette == nil {
         silhouette = segmenter.segment(pixelBuffer: buffer, fingertipHint: manualDIP ?? visionHand?.indexDIP.point)
-        hand = OutlineFingerFinder.resolve(visionHand, contour: silhouette?.contourPoints, imageSize: fullSize)
+        if let nailOnRight = modelNailOnRight, let contour = silhouette?.contourPoints {
+            hand = OutlineFingerFinder.modelLandmarks(contour: contour, imageSize: fullSize, nailOnRight: nailOnRight)
+            print("  model finger: \(hand == nil ? "NOT FOUND in the outline" : "joints from the outline, nail on the \(nailOnRight ? "right" : "left")")")
+        } else {
+            hand = OutlineFingerFinder.resolve(visionHand, contour: silhouette?.contourPoints, imageSize: fullSize)
+        }
     }
     if useSnap, let s = silhouette {
         let points = EdgeRefiner.snap(s.contourPoints, in: buffer)

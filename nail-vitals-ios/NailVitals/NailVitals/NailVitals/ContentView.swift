@@ -11,12 +11,18 @@ struct ContentView: View {
 
     @StateObject private var history = ScanHistory()
     @State private var scanning = false
+    /// A printed model finger on a stand: measured like a finger, kept out of the history.
+    @State private var scanningModel = false
     @AppStorage("hasSeenPoseGuide") private var hasSeenPoseGuide = false
     @State private var showGuide = false
     @Namespace private var scanTransition
 
     var body: some View {
-        HomeTabs(history: history, transition: scanTransition, onStartScan: { scanning = true })
+        HomeTabs(history: history, transition: scanTransition, onStartScan: { scanning = true },
+                 onStartModelScan: { scanningModel = true })
+            .fullScreenCover(isPresented: $scanningModel) {
+                ScanView(modelMode: true, onClose: { scanningModel = false }, onSessionDone: { _, _ in scanningModel = false })
+            }
             .fullScreenCover(isPresented: $scanning) {
                 ScanView(
                     onClose: { scanning = false },

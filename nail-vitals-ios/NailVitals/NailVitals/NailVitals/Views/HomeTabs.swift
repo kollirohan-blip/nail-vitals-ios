@@ -19,13 +19,15 @@ struct HomeTabs: View {
     /// The scan button zooms open into the camera.
     var transition: Namespace.ID? = nil
     let onStartScan: () -> Void
+    /// Scans a printed model finger on a stand (no hand to detect).
+    var onStartModelScan: () -> Void = {}
 
     @State private var tab: AppTab = .home
 
     var body: some View {
         TabView(selection: $tab) {
             Tab("Home", systemImage: "house.fill", value: AppTab.home) {
-                HomeTab(history: history, transition: transition, onStartScan: onStartScan)
+                HomeTab(history: history, transition: transition, onStartScan: onStartScan, onStartModelScan: onStartModelScan)
             }
             Tab("Results", systemImage: "list.bullet.rectangle.portrait.fill", value: AppTab.results) {
                 ResultsListView(history: history)
@@ -54,6 +56,7 @@ struct HomeTab: View {
     @ObservedObject var history: ScanHistory
     var transition: Namespace.ID? = nil
     let onStartScan: () -> Void
+    var onStartModelScan: () -> Void = {}
 
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
     @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .classic
@@ -113,6 +116,9 @@ struct HomeTab: View {
                     ForEach(AppAppearance.allCases, id: \.self) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.inline)
+                Button(action: onStartModelScan) {
+                    Label("Scan a model finger", systemImage: "cube.transparent")
+                }
                 if saveCapturesForTesting {
                     Button { showStudy = true } label: {
                         Label("Study", systemImage: "person.2.fill")
