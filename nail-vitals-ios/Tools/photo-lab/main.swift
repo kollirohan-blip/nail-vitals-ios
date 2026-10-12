@@ -1,6 +1,6 @@
 // Runs the app's real measurement pipeline (hand pose -> subject-mask outline
 // -> AngleAnalyzer) on photos from disk, on the Mac. From this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder,HumanLabel,NailColor,EdgeSharpness}.swift main.swift Report.swift NailLab.swift EdgeRefiner.swift -o photo-lab
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder,HumanLabel,NailColor,EdgeSharpness,BackgroundContrast}.swift main.swift Report.swift NailLab.swift EdgeRefiner.swift -o photo-lab
 //   ./photo-lab photo.jpg [more.jpg ...] [--out folder] [--truth x,y]
 // --truth is the real cuticle in image pixels (e.g. from a saved capture's
 // manual dot 2); the report then includes how far the automatic marker missed.
@@ -255,6 +255,11 @@ for path in args {
     let blurry = (sharpness ?? 1) < EdgeSharpness.minimum
     if let sharpness {
         print(String(format: "  sharpness %.3f%@", sharpness, blurry ? "  -> blurry: the app asks for a retake (no measurement)" : ""))
+    }
+    // Finger vs background colour difference around the nail (BackgroundContrast).
+    if let s = silhouette, let h = hand,
+       let contrast = BackgroundContrast.measure(contour: s.contourPoints, tip: h.indexTip.point, dip: h.indexDIP.point, in: buffer) {
+        print(String(format: "  background contrast (delta E) %.1f", contrast))
     }
     if let hand {
         print(String(format: "  hand: conf %.2f  tip (%.0f,%.0f)  dip (%.0f,%.0f)  finger length %.0f%% of height",

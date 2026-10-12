@@ -359,6 +359,20 @@ struct CaptureFlowView: View {
                 return
             }
 
+            // A background close to skin colour (a wooden table, a beige
+            // wall) makes the outline's edge wander, so it's retaken too.
+            if let hand, let contrast = BackgroundContrast.measure(contour: silhouette.contourPoints, tip: hand.indexTip.point,
+                                                                      dip: hand.indexDIP.point, in: pixelBuffer),
+               contrast < BackgroundContrast.minimum {
+                let folder = save(result, failure: "low background contrast")
+                DispatchQueue.main.async {
+                    displayImage = image
+                    captureFolder = folder
+                    stage = .failed("The background is too close to your skin colour for the app to see the edge of your finger clearly. Hold your finger in front of a plain, light wall and try again.")
+                }
+                return
+            }
+
             let folder = save(result, failure: nil)
             DispatchQueue.main.async {
                 self.displayImage = image
