@@ -28,6 +28,8 @@ final class VoiceCoach: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDele
         case moveUp = "move-up"
         case moveDown = "move-down"
         case straighten = "straighten"
+        case straightenTip = "straighten-tip"
+        case relaxTip = "relax-tip"
         case turnSideways = "turn-sideways"
         case holdStill = "hold-still"
         case gotIt = "got-it"
@@ -42,6 +44,8 @@ final class VoiceCoach: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDele
             case .moveUp: return "Move up."
             case .moveDown: return "Move down."
             case .straighten: return "Straighten your finger."
+            case .straightenTip: return "Straighten your fingertip."
+            case .relaxTip: return "Don't bend your finger back."
             case .turnSideways: return "Turn your finger fully sideways."
             case .holdStill: return "Hold still."
             case .gotIt: return "Got it."
@@ -58,6 +62,8 @@ final class VoiceCoach: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDele
             case .moveUp: self = .moveUp
             case .moveHandDown: self = .moveDown
             case .straighten: self = .straighten
+            case .uncurlFingertip: self = .straightenTip
+            case .unbendFingertip: self = .relaxTip
             case .turnToSide: self = .turnSideways
             case .looksGood: self = .holdStill
             }

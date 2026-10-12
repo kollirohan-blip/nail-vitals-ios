@@ -17,6 +17,10 @@ enum GuidanceDirection: Equatable {
     case moveLeft
     case moveRight
     case straighten(degrees: Double)
+    /// The fingertip (or the whole finger) is curled toward the palm: reads the nail angle low.
+    case uncurlFingertip
+    /// The fingertip is bent back: flattens the dip at the cuticle and reads the nail angle high.
+    case unbendFingertip
     case moveHandDown
     case moveUp
     /// The back of the hand is turned toward the camera; the nail needs to
@@ -66,6 +70,23 @@ nonisolated final class GuidanceEngine {
     private let minJointConfidence: Float = 0.3
     private let maxLandmarkTiltDegrees: Double = 25
     private let maxPIPBendDegrees: Double = 30
+    /// Lean allowed to start a hold (staying steady keeps the 25 above):
+    /// fingers leaning more than 10 degrees read the nail angle about 3
+    /// degrees high on saved captures.
+    private let maxLockTiltDegrees: Double = 18
+
+    // Finger posture (HandLandmarks.dipFlexionDegrees / pipFlexionDegrees,
+    // + = toward the palm). Held straight, hand pose reads the fingertip at
+    // about -3.5 and the middle knuckle at about +0.5. On the same finger,
+    // bent back (fingertip -7, knuckle -7 to -11) the nail angle read
+    // 169-171 against 166-167 straight; curled (+3, +8 to +11) it read
+    // 160-162. Over 79 saved captures taken with no posture coaching, this
+    // window passed 57 and narrowed the nail angle's spread from 3.6 to 2.8
+    // degrees. A hold that has started keeps going in the looser window.
+    private let dipFlexionRange: ClosedRange<Double> = -6...1
+    private let pipFlexionRange: ClosedRange<Double> = -6...7
+    private let steadyDipFlexionRange: ClosedRange<Double> = -7.5...2.5
+    private let steadyPipFlexionRange: ClosedRange<Double> = -8...9
 
     /// Fit at or above this counts as "in the glove".
     static let alignedFit = 0.65
@@ -107,8 +128,17 @@ nonisolated final class GuidanceEngine {
         if hand.isClearlyTurned {
             directions.append(.turnToSide)
         }
-        if tilt > maxLandmarkTiltDegrees || pipBendDegrees(hand) > maxPIPBendDegrees {
+        if tilt > maxLockTiltDegrees || pipBendDegrees(hand) > maxPIPBendDegrees {
             directions.append(.straighten(degrees: tilt))
+        }
+        // Posture needs the thumb to tell the palm side; without it, skip.
+        let dipFlex = hand.dipFlexionDegrees, pipFlex = hand.pipFlexionDegrees
+        if let d = dipFlex, let p = pipFlex {
+            if d > dipFlexionRange.upperBound || p > pipFlexionRange.upperBound {
+                directions.append(.uncurlFingertip)
+            } else if d < dipFlexionRange.lowerBound || p < pipFlexionRange.lowerBound {
+                directions.append(.unbendFingertip)
+            }
         }
         if scale < 1 - maxSizeError {
             directions.append(.moveCloser)
@@ -127,7 +157,9 @@ nonisolated final class GuidanceEngine {
             // Each part is close enough; together they may still be off.
             directions = fit >= Self.alignedFit ? [.looksGood] : [abs(shift) >= abs(lift) ? (shift > 0 ? .moveLeft : .moveRight) : (lift > 0 ? .moveUp : .moveHandDown)]
         }
-        let steadyEnough = !hand.isClearlyTurned
+        let postureSteady = (dipFlex.map { steadyDipFlexionRange.contains($0) } ?? true)
+            && (pipFlex.map { steadyPipFlexionRange.contains($0) } ?? true)
+        let steadyEnough = !hand.isClearlyTurned && postureSteady
             && tilt <= maxLandmarkTiltDegrees && pipBendDegrees(hand) <= maxPIPBendDegrees
             && abs(scale - 1) <= steadySizeError && abs(shift) <= steadyShiftError && abs(lift) <= steadyShiftError
             && fit >= steadyFit

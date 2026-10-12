@@ -308,6 +308,8 @@ struct ScanView: View {
         case .moveLeft: return "Move left"
         case .moveRight: return "Move right"
         case .straighten: return "Straighten your finger"
+        case .uncurlFingertip: return "Straighten your fingertip"
+        case .unbendFingertip: return "Don't bend your finger back"
         case .turnToSide: return "Turn your finger fully sideways"
         case .moveHandDown: return "Move your hand down"
         case .moveUp: return "Move your hand up"

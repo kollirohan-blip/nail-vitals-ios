@@ -81,6 +81,28 @@ nonisolated struct HandLandmarks {
         let dy = indexMCP.point.y - indexTip.point.y
         return abs(Double(atan2(dx, dy))) * 180 / .pi
     }
+
+    /// How far the fingertip bends at the last knuckle (DIP): positive
+    /// toward the palm, negative bent back; nil without the thumb, which
+    /// says where the palm is. Bending it back flattens the dip at the
+    /// cuticle and reads the nail angle high (Oct 5: the same finger bent
+    /// back about 7 degrees read ~170, against ~166 held straight).
+    var dipFlexionDegrees: Double? { flexion(indexPIP.point, indexDIP.point, indexTip.point) }
+
+    /// Same at the middle knuckle (PIP).
+    var pipFlexionDegrees: Double? { flexion(indexMCP.point, indexPIP.point, indexDIP.point) }
+
+    /// Turn from a->b to b->c, signed so that bending toward the thumb's
+    /// side of the finger (the palm side in the scan pose) is positive.
+    private func flexion(_ a: CGPoint, _ b: CGPoint, _ c: CGPoint) -> Double? {
+        guard let thumb = thumbTip?.point else { return nil }
+        let u = CGVector(dx: b.x - a.x, dy: b.y - a.y), w = CGVector(dx: c.x - b.x, dy: c.y - b.y)
+        let turn = Double(atan2(u.dx * w.dy - u.dy * w.dx, u.dx * w.dx + u.dy * w.dy)) * 180 / .pi
+        let axis = CGVector(dx: indexTip.point.x - indexMCP.point.x, dy: indexTip.point.y - indexMCP.point.y)
+        let thumbSide = axis.dx * (thumb.y - indexMCP.point.y) - axis.dy * (thumb.x - indexMCP.point.x)
+        guard abs(thumbSide) > 1e-6 else { return nil }
+        return thumbSide > 0 ? turn : -turn
+    }
 }
 
 nonisolated final class HandPoseDetector {

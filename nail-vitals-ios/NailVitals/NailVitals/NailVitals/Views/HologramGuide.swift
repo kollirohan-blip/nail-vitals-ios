@@ -112,7 +112,7 @@ struct DirectionCue {
         case .moveCloser: symbol = "arrow.up.left.and.arrow.down.right"
         case .moveBack: symbol = "arrow.down.right.and.arrow.up.left"
         case .turnToSide: symbol = "rotate.3d"
-        case .straighten: symbol = "hand.point.up.left.fill"
+        case .straighten, .uncurlFingertip, .unbendFingertip: symbol = "hand.point.up.left.fill"
         case .noFingerDetected, .looksGood: return nil
         }
     }

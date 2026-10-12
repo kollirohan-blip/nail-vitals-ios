@@ -290,6 +290,9 @@ for path in args {
                      bend(v.indexPIP.point, v.indexDIP.point, v.indexTip.point),
                      bend(v.indexMCP.point, v.indexPIP.point, v.indexDIP.point),
                      Double(atan2(v.indexTip.point.x - v.indexMCP.point.x, v.indexMCP.point.y - v.indexTip.point.y)) * 180 / .pi))
+        if let dip = v.dipFlexionDegrees, let pip = v.pipFlexionDegrees {
+            print(String(format: "  flexion (+ = toward the palm): DIP %.1f°  PIP %.1f°", dip, pip))
+        }
     }
     let d = segmenter.lastDiagnostics
     print("  mask: instances \(d.instanceCount)  outline points \(d.contourPointCount)  \(Int(d.maskMs + d.contourMs)) ms  \(silhouette == nil ? "NO OUTLINE" : "")")
