@@ -171,7 +171,8 @@ struct ScanView: View {
                     onStartOver: {
                         sessionReadings = []
                         camera.resetCapture()
-                    }
+                    },
+                    onRestartSession: { sessionReadings = [$0] }
                 )
                 // Results follow the app's look (the camera behind stays dark).
                 .preferredColorScheme(appearance.colorScheme)

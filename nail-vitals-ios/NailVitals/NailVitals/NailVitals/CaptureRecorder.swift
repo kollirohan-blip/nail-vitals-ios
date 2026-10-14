@@ -86,6 +86,8 @@ nonisolated struct SignsRecord: Codable {
     /// Depth slices at the nail bed and the DIP joint, each [x1, y1, x2, y2].
     let nailBedSlice: [Double]?
     let jointSlice: [Double]?
+    /// What the session compares between readings (FingerIdentity).
+    let identity: FingerPrint?
 
     init(_ s: FingerSigns) {
         lovibond = s.lovibond
@@ -102,6 +104,7 @@ nonisolated struct SignsRecord: Codable {
         }
         nailBedSlice = flat(s.nailBedSlice)
         jointSlice = flat(s.jointSlice)
+        identity = s.identity
     }
 }
 
@@ -170,6 +173,16 @@ nonisolated enum CaptureRecorder {
             } catch {
                 print("CaptureRecorder: confirmation save failed: \(error)")
             }
+        }
+    }
+
+    /// Notes in the capture's folder that this reading looked like a
+    /// different finger from the session's first (it wasn't counted).
+    static func saveFingerSwitch(in folder: URL?, _ kind: FingerSwitch) {
+        guard saveCapturesForTesting, let folder else { return }
+        let note = Data((kind == .otherHand ? "other hand" : "very different").utf8)
+        DispatchQueue.global(qos: .utility).async {
+            try? note.write(to: folder.appendingPathComponent("finger-switch.txt"))
         }
     }
 

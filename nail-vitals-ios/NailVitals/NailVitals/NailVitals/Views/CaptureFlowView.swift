@@ -48,6 +48,9 @@ struct CaptureFlowView: View {
     var onFinishSession: () -> Void = {}
     /// Throws the session's readings away and goes back to the camera.
     var onStartOver: () -> Void = {}
+    /// Replaces the session's readings with this one, as reading 1 (after
+    /// a switch of finger, when the user keeps the new finger).
+    var onRestartSession: (FingerSigns) -> Void = { _ in }
 
     @State private var stage: Stage = .analyzing
     @State private var sessionReadings: [FingerSigns] = []
@@ -66,6 +69,8 @@ struct CaptureFlowView: View {
     /// The joints actually used: hand pose's, or ones found from the
     /// outline when hand pose missed the raised finger.
     @State private var resolvedLandmarks: HandLandmarks?
+    /// Where the flow goes once the user says the raised finger is their index.
+    @State private var afterFingerCheck: Stage?
 
     private var joints: HandLandmarks? { resolvedLandmarks ?? landmarks }
 
@@ -83,6 +88,11 @@ struct CaptureFlowView: View {
         /// The confirmed reading wasn't usable; it doesn't count.
         case unusable
         case failed(String)
+        /// Hand pose says the raised finger isn't the index (before measuring).
+        case notIndex(FingerChain.Name)
+        /// This reading doesn't look like the same finger as the session's
+        /// first; it isn't counted unless the user starts over with it.
+        case switched(FingerSwitch, first: FingerSigns, this: FingerSigns)
     }
 
     var body: some View {
@@ -172,6 +182,24 @@ struct CaptureFlowView: View {
                 .padding(24)
                 .glassPanel(cornerRadius: 24)
                 .padding(.horizontal, 24)
+
+            case .notIndex(let name):
+                FingerQuestionView(
+                    title: "Is this your index finger?",
+                    message: "It looks like your \(name.rawValue) finger. The scan measures your index finger (next to the thumb), so the readings stay comparable.",
+                    primary: ("Retake with my index", onDismiss),
+                    secondary: ("It is my index finger", {
+                        withAnimation(.easeInOut(duration: 0.3)) { stage = afterFingerCheck ?? .confirming }
+                    })
+                )
+
+            case .switched(let kind, let first, let this):
+                FingerQuestionView(
+                    title: kind == .otherHand ? "Other hand?" : "Same finger?",
+                    message: Self.switchMessage(kind, first: first, this: this),
+                    primary: ("Retake", onDismiss),
+                    secondary: ("Start over with this finger", { restartSession(with: this) })
+                )
             }
         }
         .onAppear {
@@ -214,12 +242,47 @@ struct CaptureFlowView: View {
             withAnimation(.easeInOut(duration: 0.3)) { stage = .unusable }
             return
         }
+        // Readings 2 and 3 must look like the same finger as the first;
+        // otherwise ask, and don't count this one meanwhile.
+        if let first = previousReadings.first(where: { $0.identity != nil }), let a = first.identity, let b = signs.identity,
+           let kind = FingerIdentity.mismatch(first: a, later: b) {
+            CaptureRecorder.saveFingerSwitch(in: captureFolder, kind)
+            withAnimation(.easeInOut(duration: 0.3)) { stage = .switched(kind, first: first, this: signs) }
+            return
+        }
         sessionReadings.append(signs)
         onReading(signs)
         resultReadings = sessionReadings
         withAnimation(.easeInOut(duration: 0.3)) {
             stage = sessionReadings.count >= targetReadings ? .result : .saved(sessionReadings.count)
         }
+    }
+
+    /// Starts the session again with this reading as reading 1.
+    private func restartSession(with signs: FingerSigns) {
+        onRestartSession(signs)
+        sessionReadings = [signs]
+        resultReadings = sessionReadings
+        withAnimation(.easeInOut(duration: 0.3)) {
+            stage = sessionReadings.count >= targetReadings ? .result : .saved(sessionReadings.count)
+        }
+    }
+
+    private static func switchMessage(_ kind: FingerSwitch, first: FingerSigns, this: FingerSigns) -> String {
+        let why: String
+        switch kind {
+        case .otherHand:
+            why = "Your nail faces the other way from your first reading, as if it's the other hand."
+        case .veryDifferent:
+            func describe(_ s: FingerSigns) -> String {
+                let angle = s.noCuticleDip ? "no dip" : s.lovibond.map { String(format: "%.0f°", $0) } ?? "–"
+                return angle + (s.depthRatio.map { String(format: ", ratio %.2f", $0) } ?? "")
+            }
+            // On saved scans this was a switched finger, or a fingertip bent
+            // back (Oct 5, readings down to 158 against 168 held straight).
+            why = "This reading (\(describe(this))) is far from your first one (\(describe(first))), more than the same finger usually moves. A different finger or a bent fingertip does this."
+        }
+        return why + " It wasn't counted. Retake it with the same finger as before, held straight, or start over with this finger."
     }
 
     /// All three signs at the confirmed cuticle. The hyponychial angle and
@@ -239,6 +302,10 @@ struct CaptureFlowView: View {
         if confirmed.side == Self.estimatedSide, confirmed.angleDegrees >= 180 {
             signs.noCuticleDip = true
             signs.lovibond = confirmed.angleDegrees
+        }
+        // Not for a model finger: its "hand" is a stand-in.
+        if let hand = joints, modelNailOnRight == nil {
+            signs.identity = FingerPrint(hand: hand, signs: signs)
         }
         return signs
     }
@@ -386,6 +453,14 @@ struct CaptureFlowView: View {
                 return
             }
 
+            // Which finger is raised, by hand pose's four finger chains: on
+            // saved scans it was the index in every one but a switched hand.
+            // Not for a model finger (no hand to see).
+            let raised = modelNailOnRight == nil
+                ? FingerIdentity.raisedFingerName(contour: silhouette.contourPoints, imageSize: silhouette.imageSize,
+                                                  hands: HandPoseDetector().detectFingers(in: pixelBuffer, maxHands: 2))?.name
+                : nil
+
             let folder = save(result, failure: nil)
             DispatchQueue.main.async {
                 self.displayImage = image
@@ -405,6 +480,11 @@ struct CaptureFlowView: View {
                     }
                 } else {
                     self.stage = .confirming
+                }
+                // Ask first when the raised finger doesn't look like the index.
+                if let raised, raised != .index {
+                    self.afterFingerCheck = self.stage
+                    self.stage = .notIndex(raised)
                 }
             }
         }
@@ -491,6 +571,39 @@ private struct MeasuringView: View {
         }
         .animation(.easeIn(duration: 0.25), value: image == nil)
         .onAppear { withAnimation(.easeOut(duration: 0.45)) { flash = 0 } }
+    }
+}
+
+/// A question with two answers (a different finger than expected).
+private struct FingerQuestionView: View {
+    let title: String
+    let message: String
+    let primary: (String, () -> Void)
+    let secondary: (String, () -> Void)
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "hand.point.up.left")
+                .font(.system(size: 34))
+                .foregroundColor(Theme.adjusting)
+            Text(title)
+                .font(.system(size: 22, weight: .bold))
+                .foregroundColor(.primary)
+            Text(message)
+                .font(.system(size: 16))
+                .foregroundColor(.primary.opacity(0.8))
+                .multilineTextAlignment(.center)
+            VStack(spacing: 10) {
+                Button(primary.0, action: primary.1)
+                    .buttonStyle(GlowButtonStyle(color: Theme.action))
+                Button(secondary.0, action: secondary.1)
+                    .buttonStyle(GhostButtonStyle())
+            }
+            .padding(.top, 4)
+        }
+        .padding(24)
+        .glassPanel(cornerRadius: 24)
+        .padding(.horizontal, 24)
     }
 }
 

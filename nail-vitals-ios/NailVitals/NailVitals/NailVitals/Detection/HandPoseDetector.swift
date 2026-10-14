@@ -32,6 +32,8 @@ nonisolated struct HandLandmarks {
     /// Found from the hand outline because hand pose missed the raised
     /// finger (OutlineFingerFinder); the joint positions are estimates.
     var fromOutline = false
+    /// Left or right hand, as Vision's hand pose classified it.
+    var side: HandSide = .unknown
 
     /// How far apart the index and little-finger knuckles look, relative to
     /// the index finger's length. Seen exactly from the side they line up
@@ -148,8 +150,22 @@ nonisolated final class HandPoseDetector {
             thumbTip: joint(try? observation.recognizedPoint(.thumbTip)),
             middleMCP: joint(try? observation.recognizedPoint(.middleMCP)),
             littleMCP: joint(try? observation.recognizedPoint(.littleMCP)),
-            imageSize: imageSize
+            imageSize: imageSize,
+            side: HandSide(observation.chirality)
         )
+    }
+}
+
+/// Which hand Vision thinks it saw.
+nonisolated enum HandSide: String, Codable {
+    case left, right, unknown
+
+    init(_ chirality: VNChirality) {
+        switch chirality {
+        case .left: self = .left
+        case .right: self = .right
+        default: self = .unknown
+        }
     }
 }
 

@@ -186,7 +186,9 @@ nonisolated enum OutlineFingerFinder {
             if handPose(hand, matches: finger) { return hand }
             if hand.minIndexConfidence >= trustedConfidence, !handPose(hand, isClearlyOff: finger) { return hand }
         }
-        return landmarks(for: finger, thumbTip: hand.thumbTip, imageSize: imageSize)
+        var fromOutline = landmarks(for: finger, thumbTip: hand.thumbTip, imageSize: imageSize)
+        fromOutline.side = hand.side
+        return fromOutline
     }
 
     // MARK: - Geometry

@@ -44,6 +44,9 @@ nonisolated struct FingerSigns: Equatable {
     /// Across-the-finger slices for the depth ratio.
     var nailBedSlice: Slice?
     var jointSlice: Slice?
+    /// What the session compares between readings to catch a switch of
+    /// finger (FingerIdentity); nil without hand-pose joints.
+    var identity: FingerPrint?
 }
 
 nonisolated enum FingerSignsAnalyzer {

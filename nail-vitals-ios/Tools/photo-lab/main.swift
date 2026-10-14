@@ -1,6 +1,6 @@
 // Runs the app's real measurement pipeline (hand pose -> subject-mask outline
 // -> AngleAnalyzer) on photos from disk, on the Mac. From this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder,HumanLabel,NailColor,EdgeSharpness,BackgroundContrast}.swift main.swift Report.swift NailLab.swift EdgeRefiner.swift -o photo-lab
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder,HumanLabel,NailColor,EdgeSharpness,BackgroundContrast,FingerIdentity}.swift main.swift Report.swift NailLab.swift EdgeRefiner.swift -o photo-lab
 //   ./photo-lab photo.jpg [more.jpg ...] [--out folder] [--truth x,y]
 // --truth is the real cuticle in image pixels (e.g. from a saved capture's
 // manual dot 2); the report then includes how far the automatic marker missed.
@@ -383,6 +383,21 @@ for path in args {
                 : (confirmedAngle == nil ? "  (profile angle from the automatic marker)" : "")
             print(String(format: "  app: profile %@  hyponychial %.1f°  depth ratio %.3f", s.noCuticleDip ? "no dip (180+)" : String(format: "%.1f°", s.lovibond ?? .nan), s.hyponychial ?? .nan, s.depthRatio ?? .nan))
             print("  result: \(ClubbingAssessment(readings: [s]).verdict.label)" + how)
+            if let hand {
+                // What the app compares between a session's readings (FingerIdentity).
+                let id = FingerPrint(hand: hand, signs: s)
+                print(String(format: "  identity: hand %@ (not used)  nail on the %@  profile %.1f°  depth ratio %.3f",
+                             id.side.rawValue, id.nailOnRight.map { $0 ? "right" : "left" } ?? "?",
+                             id.lovibond ?? .nan, id.depthRatio ?? .nan))
+            }
+            if let contour = Optional(silhouette).map({ $0.contourPoints }) {
+                let hands = HandPoseDetector().detectFingers(in: buffer, maxHands: 2)
+                if let raised = FingerIdentity.raisedFingerName(contour: contour, imageSize: fullSize, hands: hands) {
+                    print(String(format: "  raised finger: %@  (tip %.2f finger widths from the outline top)", raised.name.rawValue, raised.distance))
+                } else {
+                    print("  raised finger: unknown (\(hands.count) hand(s), no fingertip at the outline top)")
+                }
+            }
         }
     }
     let outPath = (outDir as NSString).appendingPathComponent("\(name)-annotated.png")
