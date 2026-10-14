@@ -452,7 +452,7 @@ struct CaptureFlowView: View {
                 DispatchQueue.main.async {
                     displayImage = image
                     captureFolder = folder
-                    stage = .failed("The background is too close to your skin colour for the app to see the edge of your finger clearly. Hold your finger in front of a plain, light wall and try again.")
+                    stage = .failed("The background is too close to your skin colour for the app to see the edge of your finger clearly. Hold your finger in front of something plain that's much lighter or darker than your skin, like a light wall or a sheet of white paper, and try again.")
                 }
                 return
             }

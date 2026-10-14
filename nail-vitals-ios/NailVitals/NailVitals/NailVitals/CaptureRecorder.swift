@@ -50,6 +50,9 @@ nonisolated struct CaptureRecord: Codable {
     /// group, set on the camera screen's Study panel; no names.
     let participant: String?
     let skinTone: String?
+    /// The participant's age range and sex from the Study list (Oct 14 on).
+    var ageRange: String? = nil
+    var sex: String? = nil
     let automaticMarkers: [CaptureMarker]
     let failure: String?
     /// Which outline was measured: "crop" (around the finger, from Oct 2026)
@@ -131,6 +134,8 @@ nonisolated enum CaptureRecorder {
             jointsFromOutline: landmarks?.fromOutline,
             participant: participant,
             skinTone: skinTone,
+            ageRange: participant.flatMap { StudyRoster.participant($0)?.ageRange },
+            sex: participant.flatMap { StudyRoster.participant($0)?.sex },
             automaticMarkers: result?.candidates.map(marker) ?? [],
             failure: failure,
             outline: outline,

@@ -28,6 +28,7 @@ Report what comes out, good or bad. A number like "ICC 0.94 across 18 people" is
 1. Study panel (the person icon on Home's ••• menu):
    - **Add a person**, then tap them to select.
    - Set their **skin tone** (optional).
+   - Set their **age range** and **sex** (optional; builds from Oct 14 on). On an older build, write them on paper next to the code.
    - Set **Lighting for the next scans**.
 2. **Session A:** room light. Right index finger, one full scan (3 readings).
 3. **Session B,** at least 10 minutes later, ideally another day, in different light:
@@ -86,7 +87,7 @@ cd nail-vitals-ios/Tools/photo-lab
   - **Test:** `--crease-offset 0.15` takes it 15% of the way toward the tip, where one person's labels put the visible crease.
   - **First result** (4 photos, one person): the fingertip angle's gap to the labels went from 1.7° to 0.6°, and the healthy average from 179.0° to 177.1°.
   - **Next step:** compare both against every rater before changing the app.
-- **The nail-angle gap:** the app reads about 3° below one person's hand labels. Check whether other raters, especially ImageJ, see the same gap.
+- **The nail-angle gap:** the app reads about 3° below one person's hand labels. Check whether other raters, especially ImageJ, see the same gap. The 15-photo [rater kit](rater-kit.md) is set up for this.
 
 ## Keep in mind
 

@@ -19,7 +19,7 @@ struct PoseGuideView: View {
 
     private let steps = [
         ("hand.point.up.left.fill", "Use your right index finger. The left is fine too; pick it on Home or in the camera's ••• menu."),
-        ("rectangle.portrait", "Point it straight up in front of a plain, light wall, in good light."),
+        ("rectangle.portrait", "Point it straight up in front of a plain, light wall, in good light. No plain wall? Hold a sheet of white paper behind your finger. Wood or beige backgrounds close to your skin colour make the app ask for a retake."),
         ("circle.circle", "Rings can stay on. If the app can't find your finger, try taking off rings on that finger."),
         ("flashlight.on.fill", "In dim light or with harsh shadows, turn on the light from the camera's ••• menu."),
         ("rotate.3d", "Turn your hand so the camera sees the side of your finger. The nail should look like a thin edge, not a flat surface."),

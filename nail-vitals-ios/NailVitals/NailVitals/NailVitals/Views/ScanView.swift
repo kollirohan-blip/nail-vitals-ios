@@ -320,10 +320,10 @@ struct ScanView: View {
             return "Model finger: stand it upright in the frame, nail sideways, plain light wall behind, then tap the shutter"
         }
         guard let first = camera.currentDirections.first else {
-            return "Hold your index finger up here"
+            return "Hold your index finger up here, plain background behind"
         }
         switch first {
-        case .noFingerDetected: return "Hold your index finger up here"
+        case .noFingerDetected: return "Hold your index finger up here, plain background behind"
         case .moveCloser: return "Move closer"
         case .moveBack: return "Move back"
         case .moveLeft: return "Move left"

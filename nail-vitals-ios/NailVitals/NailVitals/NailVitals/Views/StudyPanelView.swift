@@ -11,10 +11,14 @@
 
 import SwiftUI
 
-/// One study participant: a code and an optional rough skin-tone group.
+/// One study participant: a code and optional rough skin-tone group, age
+/// range and sex (added Oct 14, so the study can later check whether
+/// those change the readings; nil in lists saved before).
 struct StudyParticipant: Codable, Identifiable, Equatable {
     var code: String
     var skinTone: String  // "", "lighter", "medium", "darker"
+    var ageRange: String? = nil
+    var sex: String? = nil
     var id: String { code }
 }
 
@@ -24,6 +28,14 @@ enum StudyRoster {
     static let listKey = "studyParticipants"
 
     static let skinTones: [(tag: String, name: String)] = [("", "Not recorded"), ("lighter", "Lighter"), ("medium", "Medium"), ("darker", "Darker")]
+    static let ageRanges: [(tag: String, name: String)] = [("", "Age?"), ("under18", "Under 18"), ("18-39", "18–39"),
+                                                         ("40-64", "40–64"), ("65+", "65+")]
+    static let sexes: [(tag: String, name: String)] = [("", "Sex?"), ("female", "Female"), ("male", "Male")]
+
+    /// The saved participant with this code, if any.
+    static func participant(_ code: String) -> StudyParticipant? {
+        decode(UserDefaults.standard.string(forKey: listKey) ?? "").first { $0.code == code }
+    }
 
     /// The room's light for the next scans (the flashlight is recorded on
     /// its own), so the report can check results hold up in different light.
@@ -83,7 +95,7 @@ struct StudyPanelView: View {
                 } header: {
                     Text("Who's being measured")
                 } footer: {
-                    Text("Tap a person to select them (the panel closes); every scan is tagged with the selected person and their skin-tone group. Codes only, no names. Skin tone is optional and only used to check the app measures everyone equally well. Swipe left to remove a person from this list (their saved scans stay).")
+                    Text("Tap a person to select them (the panel closes); every scan is tagged with the selected person and their skin-tone group, age range and sex. Codes only, no names. The tags are optional and only used to check the app measures everyone equally well. Swipe left to remove a person from this list (their saved scans stay).")
                 }
 
                 Section {
@@ -175,7 +187,38 @@ struct StudyPanelView: View {
     }
 
     private func row(_ person: StudyParticipant) -> some View {
-        HStack {
+        VStack(alignment: .trailing, spacing: 2) {
+            HStack { personRow(person) }
+            HStack(spacing: 0) {
+                tagPicker("Age range", person.code, person.ageRange, StudyRoster.ageRanges) { $0.ageRange = $1 }
+                tagPicker("Sex", person.code, person.sex, StudyRoster.sexes) { $0.sex = $1 }
+            }
+            .font(.system(size: 13))
+        }
+    }
+
+    /// A small menu for one optional tag ("" saves as not recorded).
+    private func tagPicker(_ title: String, _ code: String, _ value: String?, _ options: [(tag: String, name: String)],
+                           set: @escaping (inout StudyParticipant, String?) -> Void) -> some View {
+        Picker(title, selection: Binding(
+            get: { value ?? "" },
+            set: { tag in
+                var list = people
+                if let i = list.firstIndex(where: { $0.code == code }) {
+                    set(&list[i], tag.isEmpty ? nil : tag)
+                    listJSON = StudyRoster.encode(list)
+                }
+            }
+        )) {
+            ForEach(options, id: \.tag) { Text($0.name).tag($0.tag) }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+    }
+
+    @ViewBuilder
+    private func personRow(_ person: StudyParticipant) -> some View {
+        Group {
             Button {
                 // Selecting someone is the common case at a measuring
                 // session, so it also closes the panel.
