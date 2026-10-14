@@ -112,17 +112,28 @@ final class VoiceCoach: NSObject, AVSpeechSynthesizerDelegate, AVAudioPlayerDele
             clip.play()
             player = clip
         } else {
-            let utterance = AVSpeechUtterance(string: cue.phrase)
-            utterance.voice = voice
-            utterance.volume = volume
-            // Natural voices sound best near their own pace; the basic ones
-            // a touch quicker.
-            let natural = (voice?.quality ?? .default) != .default
-            utterance.rate = AVSpeechUtteranceDefaultSpeechRate * (natural ? 1.0 : 1.05)
-            synthesizer.speak(utterance)
+            speakText(cue.phrase)
         }
         lastCue = cue
         lastSpokenAt = Date()
+    }
+
+    /// Says any text right away (the Schamroth timer's "3, 2, 1").
+    func speak(_ text: String) {
+        stop()
+        prepareAudio()
+        speakText(text)
+    }
+
+    private func speakText(_ text: String) {
+        let utterance = AVSpeechUtterance(string: text)
+        utterance.voice = voice
+        utterance.volume = volume
+        // Natural voices sound best near their own pace; the basic ones
+        // a touch quicker.
+        let natural = (voice?.quality ?? .default) != .default
+        utterance.rate = AVSpeechUtteranceDefaultSpeechRate * (natural ? 1.0 : 1.05)
+        synthesizer.speak(utterance)
     }
 
     func stop() {

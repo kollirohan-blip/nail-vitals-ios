@@ -1,6 +1,6 @@
 // Runs the app's real measurement pipeline (hand pose -> subject-mask outline
 // -> AngleAnalyzer) on photos from disk, on the Mac. From this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder,HumanLabel,NailColor,EdgeSharpness,BackgroundContrast,FingerIdentity}.swift main.swift Report.swift NailLab.swift EdgeRefiner.swift -o photo-lab
+//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,HandPoseDetector,FingerMaskSegmenter,FingerSigns,ClubbingAssessment,OutlineFingerFinder,HumanLabel,NailColor,EdgeSharpness,BackgroundContrast,FingerIdentity,ReadingQuality,PublishedNorms,SchamrothWindow}.swift main.swift Report.swift NailLab.swift EdgeRefiner.swift SchamrothLab.swift -o photo-lab
 //   ./photo-lab photo.jpg [more.jpg ...] [--out folder] [--truth x,y]
 // --truth is the real cuticle in image pixels (e.g. from a saved capture's
 // manual dot 2); the report then includes how far the automatic marker missed.
@@ -179,6 +179,16 @@ args.removeAll { $0 == "--report" }
 var reportRows: [ReportRow] = []
 var manualNailSide: String?
 if let i = args.firstIndex(of: "--nail-side"), i + 1 < args.count { manualNailSide = args[i + 1]; args.removeSubrange(i...i + 1) }
+
+// --schamroth: the Schamroth window finder instead (SchamrothLab.swift).
+if args.contains("--schamroth") {
+    args.removeAll { $0 == "--schamroth" }
+    let tap = pointArg("--tap")
+    // --any-gap: also without two index fingers (test renders have no hands).
+    let anyGap = args.contains("--any-gap"); args.removeAll { $0 == "--any-gap" }
+    runSchamroth(args, outDir: outDir, tap: tap, requireHands: !anyGap)
+    exit(0)
+}
 
 /// A folder saved by the app's CaptureRecorder: photo.jpg + capture.json. The
 /// user's manual dot 2 (the cuticle) becomes the ground truth.

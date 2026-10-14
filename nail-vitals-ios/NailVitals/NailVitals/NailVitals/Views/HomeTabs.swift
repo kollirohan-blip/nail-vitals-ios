@@ -3,7 +3,8 @@
 //  NailVitals
 //
 //  The app's home side: five tabs on a Liquid Glass tab bar. Home keeps
-//  only the scan button, the finger choice and the last result; all
+//  the scan button, the finger choice, the two beta tests and the last
+//  result; all
 //  results, trends, the guides and the chat each have their own tab.
 //  Neutral colors here: color only marks result states.
 //
@@ -62,6 +63,7 @@ struct HomeTab: View {
     @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .classic
     @State private var showStudy = false
     @State private var showNailCheck = false
+    @State private var showSchamroth = false
     @State private var breathe = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -83,14 +85,11 @@ struct HomeTab: View {
                         .font(.system(size: 13))
                         .foregroundStyle(Color.primary.opacity(0.6))
                         .padding(.top, 10)
-                    Button { showNailCheck = true } label: {
-                        Label("Nail color check (beta)", systemImage: "hand.raised.fingers.spread")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundStyle(.primary)
-                            .padding(.horizontal, 4)
+                    HStack(spacing: 12) {
+                        testCard("Nail color", "Liver and kidney nail patterns", icon: "hand.raised.fingers.spread") { showNailCheck = true }
+                        testCard("Schamroth window", "The gap between two nails", icon: "rhombus") { showSchamroth = true }
                     }
-                    .buttonStyle(.glass)
-                    .padding(.top, 16)
+                    .padding(.top, 18)
                     Spacer(minLength: 20)
                     lastResult
                     SafetyNote()
@@ -103,6 +102,7 @@ struct HomeTab: View {
             .navigationDestination(for: UUID.self) { SessionDetailView(history: history, id: $0) }
             .sheet(isPresented: $showStudy) { StudyPanelView() }
             .fullScreenCover(isPresented: $showNailCheck) { NailCheckView() }
+            .fullScreenCover(isPresented: $showSchamroth) { SchamrothView() }
         }
     }
 
@@ -164,6 +164,37 @@ struct HomeTab: View {
             guard !reduceMotion else { return }
             withAnimation(.easeOut(duration: 2.4).repeatForever(autoreverses: false)) { breathe = true }
         }
+    }
+
+    /// One of the beta tests, as a small glass card.
+    private func testCard(_ title: String, _ detail: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Image(systemName: icon)
+                        .font(.system(size: 18, weight: .medium))
+                    Spacer()
+                    Text("BETA")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundStyle(Color.primary.opacity(0.55))
+                }
+                Text(title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Text(detail)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Color.primary.opacity(0.6))
+                    .lineLimit(2, reservesSpace: true)
+            }
+            .foregroundStyle(.primary)
+            .padding(14)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
+            .glassCard(cornerRadius: 20)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(title), beta: \(detail)")
     }
 
     @ViewBuilder

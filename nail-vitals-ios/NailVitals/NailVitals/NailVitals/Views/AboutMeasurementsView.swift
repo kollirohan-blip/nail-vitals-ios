@@ -54,6 +54,11 @@ struct AboutMeasurementsContent: View {
                     bullet("No dip at the cuticle means Lovibond's angle is gone (180° or more), which counts as that sign. The other two signs are then measured where the cuticle usually sits, about halfway from the fingertip to the last joint. A finger turned toward the camera can also hide the dip, so the app asks you to retake if your hand looks turned.")
                 }
 
+                section("Schamroth window test (beta)") {
+                    bullet("With the backs of the two index fingertips pressed together, nail to nail, a small diamond-shaped gap normally shows between the nail beds. In clubbing it disappears. Dr. Leo Schamroth described it from his own fingers in 1976.")
+                    bullet("The app looks for background showing through between the two fingers and asks you to confirm the gap it found, or to tap it yourself. It is experimental and hasn't been tested on enough people to know how often it's right.")
+                }
+
                 section("Percentiles and the Nail Vitals Index") {
                     bullet("Percentile: the share of healthy fingers in a published study with a lower value. The nail angle is compared with Bentley's silhouettes of children and young adults (168.3°, SD 3.6), the fingertip angle with Husarik's 123 healthy people (178.9°, SD 4.7). This assumes their values follow a bell curve.")
                     bullet("The thickness ratio has no percentile: we couldn't check a published healthy average and spread for it, so it is only compared with its 1.0 cut-off.")
@@ -78,6 +83,7 @@ struct AboutMeasurementsContent: View {
                     source("Husarik D, Vavricka SR, Mark M, Schaffner A, Walter RB. Assessment of digital clubbing in medical inpatients by digital photography and computerised analysis. Swiss Med Wkly. 2002;132:132–138.")
                     source("Bentley D, Moore A, Shwachman H. Finger clubbing: a quantitative survey by analysis of the shadowgraph. Lancet. 1976;2:164–167.")
                     source("Regan GM, Tagg B, Thomson ML. Subjective assessment and objective measurement of finger clubbing. Lancet. 1967;1:530–532.")
+                    source("Schamroth L. Personal experience. S Afr Med J. 1976;50(9):297–300.")
                 }
 
                 Text("This tool flags a pattern that may be worth discussing with a doctor. It does not diagnose any condition.")

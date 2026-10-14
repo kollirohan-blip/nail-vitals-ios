@@ -108,6 +108,10 @@ final class CameraManager: NSObject, ObservableObject {
     /// One stray frame during a hold pauses it; this counts them.
     private var missedSteadyFrames = 0
 
+    /// False on screens that only take a photo when asked (the Schamroth
+    /// window test): the scan's automatic shutter stays off there.
+    var autoCaptureAllowed = true
+
     func checkPermissionAndStart() {
         switch AVCaptureDevice.authorizationStatus(for: .video) {
         case .authorized:
@@ -381,7 +385,7 @@ extension CameraManager: AVCaptureVideoDataOutputSampleBufferDelegate {
             let held = self.consecutiveAlignedCount >= self.requiredConsecutiveAligned
             self.captureState = held ? .aligned : (rawState == .searching ? .searching : .adjusting)
             self.alignedProgress = min(1, Double(self.consecutiveAlignedCount) / Double(self.requiredConsecutiveAligned))
-            if autoCaptureEnabled, held, self.capturedPixelBuffer == nil {
+            if autoCaptureEnabled, self.autoCaptureAllowed, held, self.capturedPixelBuffer == nil {
                 self.capturePhoto()
             }
         }
