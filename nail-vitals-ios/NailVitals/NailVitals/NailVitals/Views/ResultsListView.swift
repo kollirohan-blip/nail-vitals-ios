@@ -173,7 +173,15 @@ struct SessionDetailView: View {
                 }
             }
 
+            NormsPanel(values: assessment.values, noDip: noDip)
+                .padding(18)
+                .glassCard(cornerRadius: 22)
+
             readingsTable(readings)
+
+            QualityPanel(readings: readings)
+                .padding(18)
+                .glassCard(cornerRadius: 22)
 
             Button { showAssistant = true } label: {
                 Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")

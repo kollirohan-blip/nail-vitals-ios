@@ -16,17 +16,24 @@ nonisolated struct StoredReading: Codable, Equatable {
     var hyponychial: Double?
     var depthRatio: Double?
     var noCuticleDip: Bool
+    /// Added Oct 14; nil in results saved before.
+    var quality: ReadingQuality?
+    var identity: FingerPrint?
 
     init(_ s: FingerSigns) {
         lovibond = s.lovibond
         hyponychial = s.hyponychial
         depthRatio = s.depthRatio
         noCuticleDip = s.noCuticleDip
+        quality = s.quality
+        identity = s.identity
     }
 
     var signs: FingerSigns {
         var s = FingerSigns(lovibond: lovibond, hyponychial: hyponychial, depthRatio: depthRatio)
         s.noCuticleDip = noCuticleDip
+        s.quality = quality
+        s.identity = identity
         return s
     }
 }

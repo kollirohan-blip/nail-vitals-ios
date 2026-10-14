@@ -83,6 +83,15 @@ struct ResultView: View {
                 }
                 .padding(20)
                 .glassPanel(cornerRadius: 24)
+
+                NormsPanel(values: assessment.values, noDip: noDipHeadline)
+                    .padding(18)
+                    .glassPanel(cornerRadius: 22)
+                    .opacity(revealed >= 4 ? 1 : 0)
+                QualityPanel(readings: readings)
+                    .padding(18)
+                    .glassPanel(cornerRadius: 22)
+                    .opacity(revealed >= 4 ? 1 : 0)
             } else {
                 VStack(spacing: 10) {
                     Text("Couldn't get a reliable measurement")

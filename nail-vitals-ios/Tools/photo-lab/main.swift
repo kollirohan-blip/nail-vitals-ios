@@ -383,6 +383,14 @@ for path in args {
                 : (confirmedAngle == nil ? "  (profile angle from the automatic marker)" : "")
             print(String(format: "  app: profile %@  hyponychial %.1f°  depth ratio %.3f", s.noCuticleDip ? "no dip (180+)" : String(format: "%.1f°", s.lovibond ?? .nan), s.hyponychial ?? .nan, s.depthRatio ?? .nan))
             print("  result: \(ClubbingAssessment(readings: [s]).verdict.label)" + how)
+            // Against published healthy fingers (PublishedNorms), as the app shows it.
+            if !s.noCuticleDip, let p = s.lovibond.flatMap({ PublishedNorms.percentile(.lovibond, $0) }),
+               let h = s.hyponychial.flatMap({ PublishedNorms.percentile(.hyponychial, $0) }) {
+                var values: [SignKind: Double] = [:]
+                values[.lovibond] = s.lovibond; values[.hyponychial] = s.hyponychial
+                print(String(format: "  published norms: profile %@ percentile, hyponychial %@ percentile, Nail Vitals Index %+.2f",
+                             PublishedNorms.percentileText(p), PublishedNorms.percentileText(h), PublishedNorms.index(values) ?? .nan))
+            }
             if let hand {
                 // What the app compares between a session's readings (FingerIdentity).
                 let id = FingerPrint(hand: hand, signs: s)

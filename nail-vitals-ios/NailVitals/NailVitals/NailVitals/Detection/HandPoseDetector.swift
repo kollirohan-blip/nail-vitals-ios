@@ -44,8 +44,16 @@ nonisolated struct HandLandmarks {
     /// 0.50-0.70; small turns overlap with side views and aren't caught.
     var isClearlyTurned: Bool {
         guard let spread = knuckleSpread, let little = littleMCP, little.confidence >= 0.3 else { return false }
-        return spread > 0.42
+        return spread > Self.turnedKnuckleSpread
     }
+
+    static let turnedKnuckleSpread = 0.42
+
+    /// Posture allowed while a photo is held (GuidanceEngine's steady
+    /// window; a hold starts in a narrower one), so a photo is taken inside
+    /// it. See GuidanceEngine for where the numbers come from.
+    static let straightDipFlexion: ClosedRange<Double> = -7.5...2.5
+    static let straightPipFlexion: ClosedRange<Double> = -8...9
 
     var knuckleSpread: Double? {
         guard let little = littleMCP else { return nil }

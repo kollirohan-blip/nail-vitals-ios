@@ -71,6 +71,8 @@ struct CaptureFlowView: View {
     @State private var resolvedLandmarks: HandLandmarks?
     /// Where the flow goes once the user says the raised finger is their index.
     @State private var afterFingerCheck: Stage?
+    /// The photo's checks, kept with the reading.
+    @State private var quality: ReadingQuality?
 
     private var joints: HandLandmarks? { resolvedLandmarks ?? landmarks }
 
@@ -307,6 +309,7 @@ struct CaptureFlowView: View {
         if let hand = joints, modelNailOnRight == nil {
             signs.identity = FingerPrint(hand: hand, signs: signs)
         }
+        signs.quality = quality
         return signs
     }
 
@@ -441,9 +444,10 @@ struct CaptureFlowView: View {
 
             // A background close to skin colour (a wooden table, a beige
             // wall) makes the outline's edge wander, so it's retaken too.
-            if let hand, let contrast = BackgroundContrast.measure(contour: silhouette.contourPoints, tip: hand.indexTip.point,
-                                                                      dip: hand.indexDIP.point, in: pixelBuffer),
-               contrast < BackgroundContrast.minimum {
+            let contrast = hand.flatMap {
+                BackgroundContrast.measure(contour: silhouette.contourPoints, tip: $0.indexTip.point, dip: $0.indexDIP.point, in: pixelBuffer)
+            }
+            if let contrast, contrast < BackgroundContrast.minimum {
                 let folder = save(result, failure: "low background contrast")
                 DispatchQueue.main.async {
                     displayImage = image
@@ -461,8 +465,18 @@ struct CaptureFlowView: View {
                                                   hands: HandPoseDetector().detectFingers(in: pixelBuffer, maxHands: 2))?.name
                 : nil
 
+            // Posture as hand pose saw it in this photo (outline joints are
+            // estimates on a straight line, so they say nothing about it).
+            let checks = ReadingQuality(
+                sharpness: sharpness, backgroundContrast: contrast,
+                dipFlexion: visionHand?.dipFlexionDegrees, pipFlexion: visionHand?.pipFlexionDegrees,
+                knuckleSpread: visionHand?.knuckleSpread, outline: outlineSource,
+                jointsFromHandPose: hand.map { !$0.fromOutline },
+                handPoseConfidence: visionHand.map { Double($0.minIndexConfidence) })
+
             let folder = save(result, failure: nil)
             DispatchQueue.main.async {
+                self.quality = checks
                 self.displayImage = image
                 self.captureFolder = folder
                 self.silhouette = silhouette

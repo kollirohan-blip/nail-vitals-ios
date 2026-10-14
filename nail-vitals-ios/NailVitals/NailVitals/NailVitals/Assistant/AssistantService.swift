@@ -40,6 +40,17 @@ struct AssistantContext {
             if let count = assessment.readingCounts[kind], count > 1 { part += ", middle of \(count) readings" }
             parts.append(part + ".")
         }
+        // Where it sits among published healthy fingers (PublishedNorms).
+        let noDip = readings.last?.noCuticleDip == true
+        let standings = SignKind.allCases.compactMap { kind -> String? in
+            guard !(kind == .lovibond && noDip), let v = assessment.values[kind],
+                  let p = PublishedNorms.percentile(kind, v), let norm = PublishedNorms.norms[kind] else { return nil }
+            return "\(kind.title) at about the \(PublishedNorms.percentileText(p)) percentile of healthy fingers (\(norm.source))"
+        }
+        if !standings.isEmpty { parts.append("Compared with published healthy fingers: " + standings.joined(separator: "; ") + ".") }
+        if !noDip, let index = PublishedNorms.index(assessment.values) {
+            parts.append(String(format: "Nail Vitals Index %+.1f (the average number of standard deviations from those healthy averages; descriptive, with no cut-off).", index))
+        }
         parts.append("Overall result: \(assessment.verdict.label).")
         return parts.joined(separator: " ")
     }

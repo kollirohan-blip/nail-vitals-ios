@@ -47,6 +47,8 @@ nonisolated struct FingerSigns: Equatable {
     /// What the session compares between readings to catch a switch of
     /// finger (FingerIdentity); nil without hand-pose joints.
     var identity: FingerPrint?
+    /// The checks behind this reading (sharpness, contrast, posture).
+    var quality: ReadingQuality?
 }
 
 nonisolated enum FingerSignsAnalyzer {

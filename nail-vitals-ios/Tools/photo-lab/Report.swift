@@ -185,6 +185,13 @@ enum Report {
                 let sd = sqrt(appValues.map { ($0 - m) * ($0 - m) }.reduce(0, +) / Double(appValues.count - 1))
                 text += "  App, all automatic readings: n \(appValues.count), mean \(fmt(kind, m)), SD \(fmt(kind, sd)), range \(fmt(kind, appValues.min()!))-\(fmt(kind, appValues.max()!))\n"
             }
+            // Against the published healthy values the app compares with.
+            if let norm = PublishedNorms.norms[kind], appValues.count >= 2 {
+                let m = appValues.reduce(0, +) / Double(appValues.count)
+                let ps = appValues.compactMap { PublishedNorms.percentile(kind, $0) }
+                let inMiddle = ps.filter { (2.5...97.5).contains($0) }.count
+                text += "  Vs published healthy (\(norm.source), \(fmt(kind, norm.mean)) SD \(fmt(kind, norm.sd))): our mean is at the \(PublishedNorms.percentileText(PublishedNorms.percentile(kind, m) ?? 50)) percentile; \(inMiddle) of \(ps.count) readings inside the healthy middle 95%\n"
+            }
             // Repeatability: same person, same hand.
             var groups: [String: [Double]] = [:]
             for r in auto { if let p = r.participant, let v = r.app[kind] { groups["\(p)/\(r.hand ?? "?")", default: []].append(v) } }
@@ -269,6 +276,14 @@ enum Report {
         let single = auto.map { ClubbingAssessment(readings: [FingerSigns(lovibond: $0.app[.lovibond], hyponychial: $0.app[.hyponychial], depthRatio: $0.app[.depthRatio])]).verdict.label }
         text += "\nSingle-photo results: " + Set(single).sorted().map { v in "\(v) \(single.filter { $0 == v }.count)" }.joined(separator: ", ") + "\n"
         text += "Published healthy reference: hyponychial 178.9 (SD 4.7), Husarik 2002; depth ratio cut-off 1.0 (healthy fingers stay below it), Myers & Farquhar 2001.\n"
+        // The Nail Vitals Index as the app shows it (descriptive; no cut-off).
+        let indices = auto.compactMap { PublishedNorms.index($0.app) }
+        if indices.count >= 2 {
+            let m = indices.reduce(0, +) / Double(indices.count)
+            let sd = sqrt(indices.map { ($0 - m) * ($0 - m) }.reduce(0, +) / Double(indices.count - 1))
+            text += String(format: "Nail Vitals Index over %d automatic readings: mean %+.2f, SD %.2f, range %+.2f to %+.2f\n",
+                           indices.count, m, sd, indices.min()!, indices.max()!)
+        }
 
         try? text.write(toFile: (dir as NSString).appendingPathComponent("report.txt"), atomically: true, encoding: .utf8)
         print(text)

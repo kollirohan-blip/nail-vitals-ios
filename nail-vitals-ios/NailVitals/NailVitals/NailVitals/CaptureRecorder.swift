@@ -88,6 +88,7 @@ nonisolated struct SignsRecord: Codable {
     let jointSlice: [Double]?
     /// What the session compares between readings (FingerIdentity).
     let identity: FingerPrint?
+    let quality: ReadingQuality?
 
     init(_ s: FingerSigns) {
         lovibond = s.lovibond
@@ -105,6 +106,7 @@ nonisolated struct SignsRecord: Codable {
         nailBedSlice = flat(s.nailBedSlice)
         jointSlice = flat(s.jointSlice)
         identity = s.identity
+        quality = s.quality
     }
 }
 

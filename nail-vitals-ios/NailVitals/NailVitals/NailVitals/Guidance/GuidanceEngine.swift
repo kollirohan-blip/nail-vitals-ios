@@ -85,8 +85,8 @@ nonisolated final class GuidanceEngine {
     // degrees. A hold that has started keeps going in the looser window.
     private let dipFlexionRange: ClosedRange<Double> = -6...1
     private let pipFlexionRange: ClosedRange<Double> = -6...7
-    private let steadyDipFlexionRange: ClosedRange<Double> = -7.5...2.5
-    private let steadyPipFlexionRange: ClosedRange<Double> = -8...9
+    private let steadyDipFlexionRange = HandLandmarks.straightDipFlexion
+    private let steadyPipFlexionRange = HandLandmarks.straightPipFlexion
 
     /// Fit at or above this counts as "in the glove".
     static let alignedFit = 0.65

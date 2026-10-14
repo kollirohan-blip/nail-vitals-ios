@@ -54,6 +54,13 @@ struct AboutMeasurementsContent: View {
                     bullet("No dip at the cuticle means Lovibond's angle is gone (180° or more), which counts as that sign. The other two signs are then measured where the cuticle usually sits, about halfway from the fingertip to the last joint. A finger turned toward the camera can also hide the dip, so the app asks you to retake if your hand looks turned.")
                 }
 
+                section("Percentiles and the Nail Vitals Index") {
+                    bullet("Percentile: the share of healthy fingers in a published study with a lower value. The nail angle is compared with Bentley's silhouettes of children and young adults (168.3°, SD 3.6), the fingertip angle with Husarik's 123 healthy people (178.9°, SD 4.7). This assumes their values follow a bell curve.")
+                    bullet("The thickness ratio has no percentile: we couldn't check a published healthy average and spread for it, so it is only compared with its 1.0 cut-off.")
+                    bullet("Nail Vitals Index: the average of how many standard deviations the two angles sit from those healthy averages. 0 is average. It describes where your finger sits; it has no cut-off of its own and the result above doesn't use it.")
+                    bullet("On a handful of photos, the app's nail angle differed from points placed by hand by about 3°. A study with more people placing the points is checking whether that difference is real.")
+                }
+
                 section("Why a doctor, not just the app") {
                     Text("Clubbing is a sign, not a disease. It can go along with lung, heart, liver or digestive conditions, and some people are born with it and are healthy. Only a doctor can find out what it means for you. The app gives a steady, repeatable measurement you can bring to that conversation.")
                         .font(.system(size: 15))
@@ -61,7 +68,8 @@ struct AboutMeasurementsContent: View {
                 }
 
                 section("Limits") {
-                    bullet("Photo measurements shift by a few degrees if the finger is turned, bent or blurry.")
+                    bullet("Photo measurements shift by a few degrees if the finger is turned, bent or blurry. The app checks for these and asks for a retake.")
+                    bullet("Scanned again on another day, the result usually lands within about ±3° (nail angle), ±4° (fingertip angle) and ±0.06 (ratio). Measured over \(Repeatability.sessions) repeat sessions of one person so far.")
                     bullet("This app has only been checked on a small number of people so far.")
                 }
 
