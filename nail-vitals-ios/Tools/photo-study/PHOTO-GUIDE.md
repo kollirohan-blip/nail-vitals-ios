@@ -20,6 +20,13 @@ Any phone camera works. The Mac then measures each photo with the app's own code
 - **Set 2 (if you can):** 3 more photos at least 10 minutes later. This gives the day-to-day "wobble" number.
 - About 1 minute per person per set.
 
+## Photos people take of themselves and send by text
+- **Self-photo:** hold the phone in the left hand, right index finger up, side-on against a white wall or paper. The rest of the steps are the same.
+- **Send an example first:** one of your own good photos, so they can see what "side-on" means.
+- **Consent by text:** they reply "I agree" to the consent message. Anyone under 18 also needs a parent's "I agree". Keep those replies.
+- **Quality:** iPhone to iPhone (blue bubbles) keeps full quality as long as Settings → Messages → Low Quality Image Mode is off. Texts from Android (green bubbles) get compressed, so ask Android friends to email the photos instead.
+- **Report them separately:** self-taken photos are labelled as their own group, never mixed in with photos you took.
+
 ## Getting them to the Mac
 AirDrop the photos to the Mac and put them in:
 
