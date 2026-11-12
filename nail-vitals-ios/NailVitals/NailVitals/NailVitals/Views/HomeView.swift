@@ -89,7 +89,8 @@ struct HomeView: View {
                 }
             } label: {
                 Image(systemName: "ellipsis")
-                    .font(.body.weight(.semibold))
+                    // Fixed size: the icon sits in a fixed 44-pt disc.
+                    .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(.primary)
                     .frame(width: 44, height: 44)
                     .roundSurface()
@@ -106,6 +107,7 @@ struct HomeView: View {
                     .font(.title.weight(.medium))
                 Text("Start check-up")
                     .font(.title2.weight(.semibold))
+                    .multilineTextAlignment(.center)
                 Text("3 side photos of your index finger")
                     .font(.subheadline)
                     .multilineTextAlignment(.center)

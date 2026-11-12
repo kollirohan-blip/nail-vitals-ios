@@ -162,6 +162,8 @@ struct ReportCardView: View {
                 .font(.body.weight(.semibold))
                 .monospacedDigit()
                 .foregroundStyle(.primary)
+                .lineLimit(1)
+                .fixedSize()
         }
     }
 
@@ -179,24 +181,32 @@ struct ReportCardView: View {
                 .font(.subheadline)
                 .foregroundStyle(.primary)
         }
-        let numbers = HStack(spacing: 8) {
-            Text(shown)
-                .font(.subheadline.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(.primary)
-            Text("limit \(kind.formattedThreshold)")
-                .font(.footnote)
-                .foregroundStyle(Theme.secondaryText)
-        }
+        // Each number stays whole on one line, whatever the text size.
+        let valueText = Text(shown)
+            .font(.subheadline.weight(.semibold))
+            .monospacedDigit()
+            .foregroundStyle(.primary)
+            .lineLimit(1)
+            .fixedSize()
+        let limitText = Text("limit \(kind.formattedThreshold)")
+            .font(.footnote)
+            .foregroundStyle(Theme.secondaryText)
+            .lineLimit(1)
+            .fixedSize()
         return ViewThatFits(in: .horizontal) {
             HStack(spacing: 8) {
                 name
                 Spacer(minLength: 6)
-                numbers
+                valueText
+                limitText
             }
             VStack(alignment: .leading, spacing: 2) {
                 name
-                numbers.padding(.leading, 26)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) { valueText; limitText }
+                    VStack(alignment: .leading, spacing: 0) { valueText; limitText }
+                }
+                .padding(.leading, 26)
             }
         }
         .accessibilityElement(children: .ignore)
