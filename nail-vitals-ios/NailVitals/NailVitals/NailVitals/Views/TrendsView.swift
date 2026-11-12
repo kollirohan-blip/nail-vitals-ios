@@ -75,6 +75,10 @@ struct SignTrendCard: View {
                     .foregroundStyle(Color.primary.opacity(0.6))
             } else {
                 Chart {
+                    // The typical zone, faintly, under the limit.
+                    RectangleMark(yStart: .value("Typical from", domain.lowerBound),
+                                  yEnd: .value("Typical to", kind.threshold - kind.margin))
+                        .foregroundStyle(Theme.aligned.opacity(0.10))
                     RuleMark(y: .value("Cut-off", kind.threshold))
                         .foregroundStyle(Color.primary.opacity(0.4))
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))

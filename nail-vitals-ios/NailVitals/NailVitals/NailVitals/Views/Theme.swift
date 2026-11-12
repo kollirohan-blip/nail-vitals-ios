@@ -13,11 +13,13 @@
 //  neutral and flat -- white cards on light gray, or dark gray cards on
 //  black -- and uses color only for result states.
 //
-//  Two looks, picked on Home (AppAppearance): Classic (white, the
-//  default) and Dark. Each color has a Classic shade that keeps text at
-//  4.5:1 or better on white, on the gray background and on its own tinted
-//  pill (checked Nov 11: 4.55 to 5.99). The camera screen is always dark,
-//  so it always gets the bright shades.
+//  Three looks, picked on Home (AppAppearance): Automatic (follows the
+//  phone, the default), White and Dark. Every state color keeps text at
+//  4.5:1 or better on the background, on a card and on its own tinted
+//  pill, in both schemes (checked Nov 12: light 4.55 to 5.99, dark 4.82
+//  to 6.66). Dark is a very dark gray, not pure black: pure black behind
+//  white text gives some people glare halos. The camera screen is always
+//  dark, so it always gets the bright shades.
 //
 
 import SwiftUI
@@ -28,7 +30,7 @@ enum Theme {
     static let adjusting = shade(dark: 0xFFB300, classic: 0x945500)
     static let aligned = shade(dark: 0x00E676, classic: 0x087A4B)
     /// Coral: a sign above its cut-off, or "worth discussing".
-    static let attention = shade(dark: 0xFF6B6B, classic: 0xBF3030)
+    static let attention = shade(dark: 0xFF7B7B, classic: 0xBF3030)
     /// Gray: a sign the app couldn't check. Never amber, so it can't look
     /// like a warning.
     static let unmeasured = shade(dark: 0xAEAEB2, classic: 0x636366)
@@ -40,9 +42,9 @@ enum Theme {
     /// Supporting text.
     static let secondaryText = shade(dark: 0xAEAEB2, classic: 0x636366)
     /// The page behind the cards.
-    static let background = shade(dark: 0x000000, classic: 0xF2F2F7)
+    static let background = shade(dark: 0x121214, classic: 0xF2F2F7)
     /// Cards and tiles.
-    static let card = shade(dark: 0x1C1C1E, classic: 0xFFFFFF)
+    static let card = shade(dark: 0x1F1F23, classic: 0xFFFFFF)
 
     static func color(for state: CaptureState) -> Color {
         switch state {
@@ -63,19 +65,20 @@ enum Theme {
     }
 }
 
-/// The app's look, chosen from the Home screen's menu. Classic is the default.
-enum AppAppearance: String, CaseIterable {
-    case dark
-    case classic
-
-    static let storageKey = "appearance"
-
-    var label: String {
+extension AppAppearance {
+    /// What SwiftUI should prefer; nil follows the phone's setting.
+    var colorScheme: ColorScheme? {
         switch self {
-        case .dark: return "Dark"
-        case .classic: return "Classic (white)"
+        case .automatic: return nil
+        case .classic: return .light
+        case .dark: return .dark
         }
     }
 
-    var colorScheme: ColorScheme { self == .classic ? .light : .dark }
+    /// The scheme to force on a screen presented over the always-dark
+    /// camera: Automatic takes the phone's own setting, since there it
+    /// would otherwise inherit the camera's dark.
+    var schemeOverCamera: ColorScheme {
+        colorScheme ?? (UITraitCollection.current.userInterfaceStyle == .dark ? .dark : .light)
+    }
 }

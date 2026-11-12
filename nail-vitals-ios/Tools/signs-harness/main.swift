@@ -186,5 +186,73 @@ check("greetings") {
         && CheckupWording.greeting(hour: 2) == "Good evening"
 }
 
+// MARK: - Range bars
+
+func close(_ a: Double, _ b: Double) -> Bool { abs(a - b) < 1e-9 }
+
+check("limitSitsAtItsPlaceOnEachBar") {
+    close(RangeScale(.lovibond).limitFraction, 0.52) && close(RangeScale(.hyponychial).limitFraction, 0.6)
+        && close(RangeScale(.depthRatio).limitFraction, 0.6)
+}
+check("valuesOutsideTheBarPinToItsEnds") {
+    let s = RangeScale(.lovibond)
+    return s.fraction(of: 120) == 0 && s.fraction(of: 230) == 1 && close(s.fraction(of: 175), 0.5)
+}
+check("biggerValueNeverSitsFurtherLeft") {
+    SignKind.allCases.allSatisfy { kind in
+        let s = RangeScale(kind)
+        let step = (s.range.upperBound - s.range.lowerBound) / 60
+        let fractions = (-5...65).map { s.fraction(of: s.range.lowerBound + Double($0) * step) }
+        return zip(fractions, fractions.dropFirst()).allSatisfy { $0 <= $1 }
+    }
+}
+check("closeToLimitZoneMatchesTheVerdictMargins") {
+    // 176 +/- 3 degrees on 150...200; the same margin ClubbingAssessment uses.
+    let s = RangeScale(.lovibond)
+    return close(s.nearStartFraction, 0.46) && close(s.nearEndFraction, 0.58)
+        && close(RangeScale(.depthRatio).nearStartFraction, 0.54)
+}
+
+// MARK: - Reminders
+
+check("reminderLengthFollowsTheResult") {
+    ReminderPlan.days(after: .typical) == 14 && ReminderPlan.days(after: .measureAgain) == 1
+        && ReminderPlan.days(after: .worthDiscussing) == nil && ReminderPlan.days(after: .couldntCheck) == nil
+}
+var eastern = Calendar(identifier: .gregorian)
+eastern.timeZone = TimeZone(identifier: "America/New_York")!
+func local(_ y: Int, _ m: Int, _ d: Int, _ h: Int, _ min: Int) -> Date {
+    eastern.date(from: DateComponents(year: y, month: m, day: d, hour: h, minute: min))!
+}
+check("reminderInTwoWeeksAtSixPM") {
+    ReminderPlan.fireDate(from: local(2026, 11, 12, 10, 42), days: 14, calendar: eastern) == local(2026, 11, 26, 18, 0)
+}
+check("reminderTomorrowAtSixPM") {
+    ReminderPlan.fireDate(from: local(2026, 11, 12, 23, 30), days: 1, calendar: eastern) == local(2026, 11, 13, 18, 0)
+}
+check("reminderIsNeverInThePast") {
+    // Same-day reminder asked after 6 PM moves to the next day.
+    let now = local(2026, 11, 12, 20, 0)
+    let fire = ReminderPlan.fireDate(from: now, days: 0, calendar: eastern)
+    return fire > now && fire == local(2026, 11, 13, 18, 0)
+}
+check("reminderKeepsSixPMAcrossTheClockChange") {
+    // Clocks go back on Nov 1, 2026: still 14 calendar days, still 6 PM.
+    ReminderPlan.fireDate(from: local(2026, 10, 25, 10, 42), days: 14, calendar: eastern) == local(2026, 11, 8, 18, 0)
+}
+check("reminderButtonWording") {
+    ReminderPlan.buttonTitle(days: 1) == "Remind me tomorrow" && ReminderPlan.buttonTitle(days: 14) == "Remind me in 2 weeks"
+        && ReminderPlan.buttonTitle(days: 3) == "Remind me in 3 days"
+}
+
+// MARK: - Look setting
+
+check("savedLooksStillLoad") {
+    AppAppearance.from(stored: "classic") == .classic && AppAppearance.from(stored: "dark") == .dark
+}
+check("noSavedLookMeansAutomatic") {
+    AppAppearance.from(stored: nil) == .automatic && AppAppearance.from(stored: "neon") == .automatic
+}
+
 print(failures == 0 ? "signs-harness: all checks passed" : "signs-harness: \(failures) check(s) FAILED")
 exit(failures == 0 ? 0 : 1)

@@ -22,7 +22,7 @@ struct HomeView: View {
     var onShowHistory: () -> Void = {}
 
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
-    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .classic
+    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .automatic
     @State private var showStudy = false
     @State private var showNailCheck = false
     @State private var showSchamroth = false
@@ -119,7 +119,7 @@ struct HomeView: View {
             .background(Theme.action, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressableCard)
         .modifier(ScanTransitionSource(namespace: transition))
         .accessibilityLabel("Start check-up. 3 side photos of your index finger.")
     }
@@ -178,7 +178,7 @@ struct HomeView: View {
                 .contentShape(.rect)
                 .glassCard(cornerRadius: 20)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressableCard)
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Clubbing: nail and fingertip shape, 3 signs from the side photos. Opens the science.")
 
@@ -219,7 +219,7 @@ struct HomeView: View {
             .contentShape(.rect)
             .glassCard(cornerRadius: 20)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressableCard)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(title), beta test: \(detail)")
     }
@@ -232,7 +232,7 @@ struct HomeView: View {
             NavigationLink(value: latest.id) {
                 SessionRow(session: latest, caption: "Last result")
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressableCard)
         } else {
             Text("Your results show up here after your first check-up.")
                 .font(.subheadline)
@@ -289,7 +289,7 @@ struct HomeView: View {
             .contentShape(.rect)
             .glassCard(cornerRadius: 20)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressableCard)
         .accessibilityLabel("Your trend: \(history.sessions.count) check-ups. Opens History.")
     }
 }

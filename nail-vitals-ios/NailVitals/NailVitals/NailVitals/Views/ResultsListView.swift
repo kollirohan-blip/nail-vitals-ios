@@ -114,6 +114,7 @@ struct SessionDetailView: View {
         VStack(spacing: 16) {
             ReportCardView(readings: session.signs, extra: session.extraSigns ?? [],
                            hand: MeasuredHand(rawValue: session.hand) ?? .right, date: session.date,
+                           offersReminder: history.latest?.id == session.id,
                            onOpen: { openSign = $0 })
 
             Button { showAssistant = true } label: {
@@ -122,7 +123,7 @@ struct SessionDetailView: View {
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressableCard)
             .glassCard(cornerRadius: 20)
 
             // For a doctor's record system: the result as structured data.
@@ -138,7 +139,7 @@ struct SessionDetailView: View {
                     .foregroundStyle(.primary)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.pressableCard)
             .glassCard(cornerRadius: 20)
             if let exportError {
                 Text(exportError).font(.footnote).foregroundStyle(Theme.attention)

@@ -42,7 +42,7 @@ struct LearnView: View {
                     SafetyNote()
                         .padding(.top, 8)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressableCard)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 8)
             }

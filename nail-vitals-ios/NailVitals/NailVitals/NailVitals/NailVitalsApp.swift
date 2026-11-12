@@ -24,7 +24,7 @@ let liveOutlineEnabled = true
 @main
 struct NailVitalsApp: App {
     @State private var showSplash = true
-    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .classic
+    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .automatic
 
     var body: some Scene {
         WindowGroup {
@@ -39,7 +39,7 @@ struct NailVitalsApp: App {
                         .zIndex(1)
                 }
             }
-            // Dark or Classic (white), picked on Home. The camera stays dark.
+            // Automatic, White or Dark, picked on Home. The camera stays dark.
             .preferredColorScheme(appearance.colorScheme)
         }
     }

@@ -2,8 +2,8 @@
 //  ResultView.swift
 //  NailVitals
 //
-//  Shared pieces of the clubbing result: the wording for each verdict, the
-//  chip for one sign, and the dial for the profile angle. The result
+//  Shared pieces of the clubbing result: the wording for each verdict and
+//  the dial for the profile angle (each sign's number line is RangeBar). The result
 //  screens themselves are ReportCardView and SignDetailView. Every result
 //  screen MUST show the "screening aid, not a diagnosis" line (SafetyNote):
 //  a legal and ethical requirement from the project spec, not optional copy.
@@ -46,55 +46,6 @@ enum ResultView {
         return noDip
             ? detail + " No cuticle dip was found: clubbing does this, and so can a finger turned toward the camera."
             : detail
-    }
-}
-
-/// One sign: its value, a status icon, and the published cut-off.
-struct SignChip: View {
-    let kind: SignKind
-    let value: Double?
-    /// Shown instead of the number (e.g. "≥180°" for no cuticle dip).
-    var valueText: String? = nil
-
-    var body: some View {
-        VStack(spacing: 4) {
-            if let value {
-                let status = kind.status(of: value)
-                Image(systemName: icon(for: status))
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(ResultView.color(for: status))
-                Text(valueText ?? kind.formatted(value))
-                    .font(.system(size: 16, weight: .semibold))
-                    .monospacedDigit()
-                    .foregroundColor(.primary)
-            } else {
-                Image(systemName: "minus.circle")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundColor(.secondary)
-                Text("—")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundColor(.secondary)
-            }
-            Text(kind.plainName)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundColor(.primary.opacity(0.75))
-            Text(value == nil ? "not measured" : "\(kind.shortTitle) · limit \(kind.formattedThreshold)")
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
-        }
-        .lineLimit(1)
-        .minimumScaleFactor(0.8)
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 10)
-        .tileBackground(cornerRadius: 14)
-    }
-
-    private func icon(for status: SignStatus) -> String {
-        switch status {
-        case .typical: return "checkmark.circle.fill"
-        case .nearThreshold: return "circle.lefthalf.filled"
-        case .above: return "exclamationmark.circle.fill"
-        }
     }
 }
 

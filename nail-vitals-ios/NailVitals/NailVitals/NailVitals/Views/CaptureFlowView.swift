@@ -141,6 +141,7 @@ struct CaptureFlowView: View {
                     ScrollView {
                         VStack(spacing: 16) {
                             ReportCardView(readings: resultReadings, hand: hand, date: Date(), animated: true,
+                                           offersReminder: modelNailOnRight == nil,
                                            onOpen: { openSign = $0 })
                             askButton
                             SafetyNote()
@@ -246,7 +247,7 @@ struct CaptureFlowView: View {
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, minHeight: 44)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressableCard)
         .glassCard(cornerRadius: 20)
     }
 

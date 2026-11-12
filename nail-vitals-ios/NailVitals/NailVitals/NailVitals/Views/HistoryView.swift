@@ -63,7 +63,7 @@ struct HistoryView: View {
                 NavigationLink(value: session.id) {
                     SessionRow(session: session)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.pressableCard)
             }
             Button("Delete all results on this phone", role: .destructive) { confirmDelete = true }
                 .font(.footnote.weight(.medium))

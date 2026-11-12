@@ -26,13 +26,19 @@ struct ReportCardView: View {
     var extra: [SignResult] = []
     let hand: MeasuredHand
     let date: Date
-    /// Right after a scan: the banner, then each sign, appear one by one.
+    /// Right after a scan: the banner, then each sign, appear one by one,
+    /// with the result's buzz; the reminder set for this check-up is cleared.
     var animated = false
+    /// Offer the next check-up's reminder (the newest check-up only).
+    var offersReminder = false
     let onOpen: (NailSign) -> Void
 
     /// How many parts are showing (banner = 1, then one per sign, then
     /// the next step).
     @State private var revealed = 0
+    /// The buzz and the reminder clean-up happen once.
+    @State private var announced = false
+    @ObservedObject private var reminder = CheckupReminder.shared
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var report: CheckupReport { CheckupReport(readings: readings, extra: extra) }
@@ -81,13 +87,75 @@ struct ReportCardView: View {
                 Text(report.nextStep)
                     .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)
+                if offersReminder, let days = ReminderPlan.days(after: report.overall) {
+                    reminderControls(days: days)
+                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(16)
             .glassCard(cornerRadius: 20)
             .reveal(2 + report.results.count, of: shown)
         }
-        .onAppear { startReveal(parts: 2 + report.results.count) }
+        .onAppear {
+            startReveal(parts: 2 + report.results.count)
+            guard animated, !announced else { return }
+            announced = true
+            // A new check-up is done: its reminder has served its purpose.
+            reminder.cancel()
+            let overall = report.overall
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { Haptics.result(overall) }
+        }
+    }
+
+    /// The opt-in reminder: a button, or the date it's set for.
+    @ViewBuilder
+    private func reminderControls(days: Int) -> some View {
+        if let date = reminder.scheduledDate {
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    reminderSet(date)
+                    Spacer(minLength: 8)
+                    cancelReminder
+                }
+                VStack(alignment: .leading, spacing: 4) {
+                    reminderSet(date)
+                    cancelReminder
+                }
+            }
+            .padding(.top, 4)
+        } else {
+            Button { reminder.schedule(days: days) } label: {
+                Label(ReminderPlan.buttonTitle(days: days), systemImage: "bell")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(.rect)
+                    .tileBackground(cornerRadius: 14)
+            }
+            .buttonStyle(.pressableCard)
+            .padding(.top, 4)
+        }
+        if reminder.permissionDenied {
+            Text("Notifications are off for Nail Vitals. Turn them on in Settings.")
+                .font(.footnote)
+                .foregroundStyle(Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func reminderSet(_ date: Date) -> some View {
+        Label("Reminder set for \(date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))",
+              systemImage: "bell.fill")
+            .font(.subheadline.weight(.medium))
+            .foregroundStyle(.primary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var cancelReminder: some View {
+        Button("Cancel") { reminder.cancel() }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Theme.secondaryText)
+            .frame(minHeight: 44)
     }
 
     // MARK: - Rows
@@ -137,7 +205,7 @@ struct ReportCardView: View {
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(.rect)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressableCard)
         .accessibilityHint("Opens the details")
     }
 

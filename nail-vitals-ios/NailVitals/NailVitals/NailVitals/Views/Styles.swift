@@ -40,6 +40,30 @@ struct GlowButtonStyle: ButtonStyle {
     }
 }
 
+/// A tappable card, row or tile: it dips and dims the moment it's pressed,
+/// so the tap is confirmed at once and nobody taps twice to be sure.
+struct PressableCardStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        PressableBody(configuration: configuration)
+    }
+
+    private struct PressableBody: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+        var body: some View {
+            configuration.label
+                .scaleEffect(configuration.isPressed && !reduceMotion ? 0.98 : 1)
+                .opacity(configuration.isPressed ? 0.72 : 1)
+                .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+        }
+    }
+}
+
+extension ButtonStyle where Self == PressableCardStyle {
+    static var pressableCard: PressableCardStyle { PressableCardStyle() }
+}
+
 /// Secondary action: plain text that dims while pressed.
 struct GhostButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -78,7 +102,7 @@ struct EmptyStateCard: View {
     var body: some View {
         VStack(spacing: 10) {
             Image(systemName: icon)
-                .font(.system(size: 32, weight: .light))
+                .font(.largeTitle)
                 .foregroundStyle(Color.primary.opacity(0.6))
             Text(title)
                 .font(.system(size: 18, weight: .semibold))

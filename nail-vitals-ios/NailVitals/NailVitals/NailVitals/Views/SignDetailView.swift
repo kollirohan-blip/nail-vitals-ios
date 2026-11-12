@@ -91,9 +91,10 @@ struct SignDetailView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            HStack(spacing: 8) {
-                ForEach(SignKind.allCases, id: \.self) { kind in
-                    SignChip(kind: kind, value: assessment.values[kind],
+            card("Your three signs") {
+                ForEach(Array(SignKind.allCases.enumerated()), id: \.element) { index, kind in
+                    if index > 0 { Divider().opacity(0.5) }
+                    RangeBar(kind: kind, value: assessment.values[kind],
                              valueText: kind == .lovibond && report.noDip ? "≥180°" : nil)
                 }
             }
@@ -134,7 +135,7 @@ struct SignDetailView: View {
                 .foregroundStyle(.primary)
                 .frame(maxWidth: .infinity, minHeight: 44)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.pressableCard)
         .glassCard(cornerRadius: 20)
     }
 

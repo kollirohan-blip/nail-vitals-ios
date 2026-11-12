@@ -27,7 +27,7 @@ struct ScanView: View {
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
     @State private var showGuide = false
     @AppStorage("voiceGuidance") private var voiceOn = true
-    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .classic
+    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .automatic
     @State private var voice = VoiceCoach()
     @State private var haptics = Haptics()
     // Study tagging (testing builds): the selected person and skin tone.
@@ -174,8 +174,9 @@ struct ScanView: View {
                     },
                     onRestartSession: { sessionReadings = [$0] }
                 )
-                // Results follow the app's look (the camera behind stays dark).
-                .preferredColorScheme(appearance.colorScheme)
+                // Results follow the app's look (the camera behind stays dark);
+                // Automatic takes the phone's own setting here.
+                .preferredColorScheme(appearance.schemeOverCamera)
             }
         }
     }
