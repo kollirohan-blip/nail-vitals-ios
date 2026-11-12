@@ -19,9 +19,8 @@ struct NormsPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Compared with healthy fingers")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.primary.opacity(0.6))
-                .textCase(.uppercase)
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
             ForEach(SignKind.allCases, id: \.self) { kind in
                 if let value = values[kind] { row(kind, value) }
             }

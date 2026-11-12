@@ -2,9 +2,9 @@
 //  ResultsListView.swift
 //  NailVitals
 //
-//  The Results tab: every finished scan on this phone, newest first, and
-//  one scan's detail -- the verdict, each sign, each reading, a question
-//  to the assistant, and deleting it.
+//  A check-up in a list (SessionRow) and one check-up's page: its report
+//  card, a question to the assistant, sending it to a doctor, and
+//  deleting it.
 //
 
 import SwiftUI
@@ -52,47 +52,50 @@ struct ResultsListView: View {
     }
 }
 
-/// One scan in a list: verdict dot and label, date and finger, the values.
+/// One check-up in a list: when it was, the finger and its value, and the
+/// overall state as a pill.
 struct SessionRow: View {
     let session: ScanSession
-    /// A small heading above the verdict ("Last result" on Home).
+    /// A small heading above the date ("Last result" on Home).
     var caption: String? = nil
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
-        let assessment = ClubbingAssessment(readings: session.signs)
-        let color = ResultView.color(for: assessment.verdict)
-        HStack(spacing: 14) {
-            Circle()
-                .fill(color)
-                .frame(width: 10, height: 10)
-                .shadow(color: color.opacity(0.7), radius: 5)
-            VStack(alignment: .leading, spacing: 3) {
+        let report = session.report
+        let value = report.results.first { $0.sign == .clubbing }?.valueText
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
                 if let caption {
                     Text(caption)
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Color.primary.opacity(0.6))
-                        .textCase(.uppercase)
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.secondaryText)
                 }
-                Text(assessment.verdict.label)
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(color)
-                Text("\(session.date.formatted(.dateTime.month(.abbreviated).day())) · \(session.handLabel) index")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Color.primary.opacity(0.6))
+                Text(ReportCardView.dayText(session.date))
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(.primary)
+                Text([session.handLabel + " index", value.map { "nail angle " + $0 }].compactMap { $0 }.joined(separator: " · "))
+                    .font(.footnote)
+                    .monospacedDigit()
+                    .foregroundStyle(Theme.secondaryText)
+                if typeSize.isAccessibilitySize {
+                    StatePill(state: report.overall)
+                }
             }
             Spacer(minLength: 8)
-            Text(session.valuesSummary(assessment))
-                .font(.system(size: 13, weight: .medium))
-                .monospacedDigit()
-                .foregroundStyle(Color.primary.opacity(0.75))
-                .multilineTextAlignment(.trailing)
+            if !typeSize.isAccessibilitySize {
+                StatePill(state: report.overall)
+            }
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(Color.primary.opacity(0.35))
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Theme.secondaryText)
+                .accessibilityHidden(true)
         }
         .padding(16)
+        .frame(minHeight: 44)
         .contentShape(.rect)
-        .glassCard(cornerRadius: 22)
+        .glassCard(cornerRadius: 20)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -105,6 +108,8 @@ struct SessionDetailView: View {
     @State private var confirmDelete = false
     @State private var exportFile: ShareFile?
     @State private var exportError: String?
+    /// The sign whose page is open.
+    @State private var openSign: NailSign?
 
     var body: some View {
         ScrollView {
@@ -126,6 +131,12 @@ struct SessionDetailView: View {
         .sheet(item: $exportFile) { file in
             ActivityView(items: [file.url])
         }
+        .navigationDestination(item: $openSign) { sign in
+            if let session = history.session(id) {
+                SignDetailView(sign: sign, readings: session.signs, extra: session.extraSigns ?? [],
+                               recent: history.sessions.filter { $0.id != id && $0.date < session.date }.reversed())
+            }
+        }
         .confirmationDialog("Delete this result?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete result", role: .destructive) {
                 dismiss()
@@ -137,60 +148,19 @@ struct SessionDetailView: View {
     }
 
     private func content(_ session: ScanSession) -> some View {
-        let readings = session.signs
-        let assessment = ClubbingAssessment(readings: readings)
-        let steady = readings.count >= ClubbingAssessment.readingsForSteadyResult
-        let noDip = session.mostlyNoDip
-        let color = ResultView.color(for: assessment.verdict)
-        return VStack(spacing: 16) {
-            VStack(spacing: 10) {
-                HStack(spacing: 10) {
-                    Circle()
-                        .fill(color)
-                        .frame(width: 12, height: 12)
-                        .shadow(color: color.opacity(0.7), radius: 6)
-                    Text(assessment.verdict.label)
-                        .font(.system(size: 24, weight: .semibold))
-                        .foregroundStyle(color)
-                }
-                Text(ResultView.verdictDetail(assessment, steady: steady, noDip: noDip))
-                    .font(.system(size: 15))
-                    .foregroundStyle(Color.primary.opacity(0.85))
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("\(readings.count) reading\(readings.count == 1 ? "" : "s") · \(session.handLabel) index · \(session.date.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.primary.opacity(0.6))
-            }
-            .padding(20)
-            .frame(maxWidth: .infinity)
-            .glassCard(cornerRadius: 26)
-
-            HStack(spacing: 8) {
-                ForEach(SignKind.allCases, id: \.self) { kind in
-                    SignChip(kind: kind, value: assessment.values[kind],
-                             valueText: kind == .lovibond && noDip ? "≥180°" : nil)
-                }
-            }
-
-            NormsPanel(values: assessment.values, noDip: noDip)
-                .padding(18)
-                .glassCard(cornerRadius: 22)
-
-            readingsTable(readings)
-
-            QualityPanel(readings: readings)
-                .padding(18)
-                .glassCard(cornerRadius: 22)
+        VStack(spacing: 16) {
+            ReportCardView(readings: session.signs, extra: session.extraSigns ?? [],
+                           hand: MeasuredHand(rawValue: session.hand) ?? .right, date: session.date,
+                           onOpen: { openSign = $0 })
 
             Button { showAssistant = true } label: {
                 Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.glass)
+            .buttonStyle(.plain)
+            .glassCard(cornerRadius: 20)
 
             // For a doctor's record system: the result as structured data.
             Button {
@@ -200,60 +170,24 @@ struct SessionDetailView: View {
                     exportError = "Couldn't create the file. Try again."
                 }
             } label: {
-                Label("Export for a doctor (FHIR)", systemImage: "square.and.arrow.up")
-                    .font(.system(size: 14, weight: .medium))
+                Label("Send to doctor (FHIR file)", systemImage: "square.and.arrow.up")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
             }
-            .foregroundStyle(Color.primary.opacity(0.75))
+            .buttonStyle(.plain)
+            .glassCard(cornerRadius: 20)
             if let exportError {
-                Text(exportError).font(.system(size: 13)).foregroundStyle(Theme.attention)
+                Text(exportError).font(.footnote).foregroundStyle(Theme.attention)
             }
 
             Button("Delete this result", role: .destructive) { confirmDelete = true }
-                .font(.system(size: 13, weight: .medium))
-                .foregroundStyle(Theme.attention.opacity(0.85))
+                .font(.footnote.weight(.medium))
+                .foregroundStyle(Theme.attention)
+                .frame(minHeight: 44)
 
             SafetyNote()
         }
-    }
-
-    /// Each reading's three values; the result uses each sign's middle one.
-    private func readingsTable(_ readings: [FingerSigns]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Readings")
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(Color.primary.opacity(0.6))
-                .textCase(.uppercase)
-            Grid(alignment: .trailing, horizontalSpacing: 14, verticalSpacing: 8) {
-                GridRow {
-                    Text("#").gridColumnAlignment(.leading)
-                    Text("Nail")
-                    Text("Fingertip")
-                    Text("Thickness")
-                }
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(Color.primary.opacity(0.6))
-                ForEach(Array(readings.enumerated()), id: \.offset) { index, reading in
-                    GridRow {
-                        Text("\(index + 1)")
-                            .foregroundStyle(Color.primary.opacity(0.6))
-                        Text(reading.noCuticleDip ? "≥180°" : SignKind.lovibond.formattedOrDash(reading.lovibond))
-                        Text(SignKind.hyponychial.formattedOrDash(reading.hyponychial))
-                        Text(SignKind.depthRatio.formattedOrDash(reading.depthRatio))
-                    }
-                    .font(.system(size: 15, weight: .medium))
-                    .monospacedDigit()
-                    .foregroundStyle(Color.primary.opacity(0.9))
-                }
-            }
-            .frame(maxWidth: .infinity)
-            if readings.count >= ClubbingAssessment.readingsForSteadyResult {
-                Text("The result uses the middle value of each sign.")
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.primary.opacity(0.6))
-            }
-        }
-        .padding(18)
-        .glassCard(cornerRadius: 22)
     }
 }
 

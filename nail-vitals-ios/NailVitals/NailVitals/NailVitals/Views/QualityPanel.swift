@@ -42,9 +42,8 @@ struct QualityPanel: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Text("Measurement checks")
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(Color.primary.opacity(0.6))
-                    .textCase(.uppercase)
+                    .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
                 Spacer()
                 if !rows.isEmpty {
                     let passed = rows.filter { $0.failed == 0 }.count

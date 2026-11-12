@@ -2,12 +2,11 @@
 //  ResultView.swift
 //  NailVitals
 //
-//  Shows the result after capture: the profile (Lovibond) angle on the
-//  dial, the combined verdict from all three signs (ClubbingAssessment), and
-//  a row with each sign against its published cut-off. MUST include the
-//  "screening aid, not a diagnosis" framing every time -- this is a
-//  legal and ethical requirement stated in the project spec, not
-//  optional copy.
+//  Shared pieces of the clubbing result: the wording for each verdict, the
+//  chip for one sign, and the dial for the profile angle. The result
+//  screens themselves are ReportCardView and SignDetailView. Every result
+//  screen MUST show the "screening aid, not a diagnosis" line (SafetyNote):
+//  a legal and ethical requirement from the project spec, not optional copy.
 //
 //  With 3 or more readings in a session, each sign's middle value is used:
 //  single readings of the same finger vary by a few degrees with pose.
@@ -15,133 +14,7 @@
 
 import SwiftUI
 
-struct ResultView: View {
-    /// This session's readings, oldest first, ending with the one just taken.
-    let readings: [FingerSigns]
-
-    @State private var shown: Double = ResultGauge.minAngle
-    /// 0 nothing yet, 1 verdict, 2-4 one sign chip each.
-    @State private var revealed = 0
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var showAbout = false
-
-    private var assessment: ClubbingAssessment { ClubbingAssessment(readings: readings) }
-    private var steady: Bool { readings.count >= ClubbingAssessment.readingsForSteadyResult }
-    private var headline: Double? { assessment.values[.lovibond] }
-    /// The profile reading is "no cuticle dip" (Lovibond's angle
-    /// obliterated) rather than a measured angle: the latest reading, or
-    /// most of the session once the middle value is used.
-    private var noDipHeadline: Bool {
-        steady ? readings.filter(\.noCuticleDip).count * 2 > readings.count : readings.last?.noCuticleDip == true
-    }
-
-    var body: some View {
-        VStack(spacing: 18) {
-            if headline != nil {
-                VStack(spacing: 14) {
-                    if steady {
-                        Text("Middle of \(readings.count) readings")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(.secondary)
-                    }
-                    ResultGauge(angle: shown)
-                        .frame(width: 260, height: 150)
-                    VStack(spacing: 2) {
-                        if noDipHeadline {
-                            Text("≥180°")
-                                .font(.system(size: 48, weight: .bold))
-                                .foregroundColor(.primary)
-                            Text("No cuticle dip: Lovibond's sign")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.secondary)
-                        } else {
-                            CountingAngle(value: shown)
-                                .font(.system(size: 48, weight: .bold))
-                                .foregroundColor(.primary)
-                            Text("Nail angle (profile / Lovibond)")
-                                .font(.system(size: 13, weight: .medium))
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    verdict
-                        .opacity(revealed >= 1 ? 1 : 0)
-                        .offset(y: revealed >= 1 ? 0 : 8)
-                    signRow
-                    Button {
-                        showAbout = true
-                    } label: {
-                        Label("About these measurements", systemImage: "info.circle")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundColor(Theme.action)
-                    }
-                    if !steady {
-                        Text(steadierHint)
-                            .font(.system(size: 13))
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
-                    }
-                }
-                .padding(20)
-                .glassPanel(cornerRadius: 24)
-
-                NormsPanel(values: assessment.values, noDip: noDipHeadline)
-                    .padding(18)
-                    .glassPanel(cornerRadius: 22)
-                    .opacity(revealed >= 4 ? 1 : 0)
-                QualityPanel(readings: readings)
-                    .padding(18)
-                    .glassPanel(cornerRadius: 22)
-                    .opacity(revealed >= 4 ? 1 : 0)
-            } else {
-                VStack(spacing: 10) {
-                    Text("Couldn't get a reliable measurement")
-                        .font(.system(size: 22, weight: .bold))
-                        .multilineTextAlignment(.center)
-                    Text("Please retake the photo with your finger turned sideways.")
-                        .font(.system(size: 15))
-                        .multilineTextAlignment(.center)
-                }
-                .padding(20)
-                .glassPanel(cornerRadius: 24)
-            }
-
-            Text("This tool flags a pattern that may be worth discussing with a doctor. It does not diagnose any condition.")
-                .font(.system(size: 13, weight: .medium))
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .padding(.horizontal, 24)
-        .sheet(isPresented: $showAbout) { AboutMeasurementsView() }
-        .onAppear {
-            if let headline {
-                withAnimation(.spring(response: 1.1, dampingFraction: 0.8)) {
-                    shown = headline
-                }
-            }
-            reveal()
-        }
-        .onChange(of: headline) { _, newValue in
-            guard let newValue else { return }
-            withAnimation(.spring(response: 0.8, dampingFraction: 0.8)) { shown = newValue }
-        }
-    }
-
-    /// The dial sweeps first, then the verdict, then the chips one by one.
-    private func reveal() {
-        guard !reduceMotion else { revealed = 4; return }
-        for step in 1...4 {
-            let delay = 0.55 + Double(step - 1) * 0.15
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) { revealed = max(revealed, step) }
-            }
-        }
-    }
-
-    private var steadierHint: String {
-        let remaining = ClubbingAssessment.readingsForSteadyResult - readings.count
-        return "For a steadier result, measure \(remaining) more time\(remaining == 1 ? "" : "s"). The app will use the middle values."
-    }
-
+enum ResultView {
     static func color(for verdict: ClubbingAssessment.Verdict) -> Color {
         SignState(verdict).color
     }
@@ -150,23 +23,8 @@ struct ResultView: View {
         SignState(status).color
     }
 
-    private var verdict: some View {
-        let a = assessment
-        let fullDetail = Self.verdictDetail(a, steady: steady, noDip: noDipHeadline)
-        return VStack(spacing: 6) {
-            Text(a.verdict.label)
-                .font(.system(size: 20, weight: .semibold))
-                .foregroundColor(Self.color(for: a.verdict))
-                .multilineTextAlignment(.center)
-            Text(fullDetail)
-                .font(.system(size: 15))
-                .foregroundColor(.primary.opacity(0.85))
-                .multilineTextAlignment(.center)
-        }
-    }
-
     /// What the verdict means, in a sentence or two. `steady`: from enough
-    /// readings to use the middle values. Shared with the Results tab.
+    /// readings to use the middle values. Used by the report card and the sign page.
     static func verdictDetail(_ a: ClubbingAssessment, steady: Bool, noDip: Bool) -> String {
         let detail: String
         switch a.verdict {
@@ -188,17 +46,6 @@ struct ResultView: View {
         return noDip
             ? detail + " No cuticle dip was found: clubbing does this, and so can a finger turned toward the camera."
             : detail
-    }
-
-    private var signRow: some View {
-        HStack(spacing: 8) {
-            ForEach(Array(SignKind.allCases.enumerated()), id: \.element) { index, kind in
-                SignChip(kind: kind, value: assessment.values[kind],
-                         valueText: kind == .lovibond && noDipHeadline ? "≥180°" : nil)
-                    .opacity(revealed >= index + 2 ? 1 : 0)
-                    .scaleEffect(revealed >= index + 2 ? 1 : 0.85)
-            }
-        }
     }
 }
 
@@ -251,20 +98,6 @@ struct SignChip: View {
     }
 }
 
-/// The reading as text, counting smoothly while it animates.
-private struct CountingAngle: View, Animatable {
-    var value: Double
-    var animatableData: Double {
-        get { value }
-        set { value = newValue }
-    }
-
-    var body: some View {
-        Text(String(format: "%.1f°", value))
-            .monospacedDigit()
-    }
-}
-
 /// Semicircular dial from 140° to 220° for the profile angle, with zones
 /// around the 176° cut-off (typical, within measurement error, above) and
 /// a needle.
@@ -307,11 +140,9 @@ struct ResultGauge: View, Animatable {
                     p.addLine(to: point(angle, center, radius - 22))
                 }
                 .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                .shadow(color: color.opacity(0.8), radius: 6)
                 Circle()
                     .fill(color)
                     .frame(width: 14, height: 14)
-                    .shadow(color: color, radius: 6)
                     .position(center)
             }
         }

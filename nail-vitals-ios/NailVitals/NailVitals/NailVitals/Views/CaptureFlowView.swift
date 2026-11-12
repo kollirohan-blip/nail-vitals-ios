@@ -58,6 +58,8 @@ struct CaptureFlowView: View {
     /// only this reading when it wasn't usable.
     @State private var resultReadings: [FingerSigns] = []
     @State private var showAssistant = false
+    /// The sign whose page is open over the result.
+    @State private var openSign: NailSign?
     @State private var displayImage: UIImage?
     @State private var lovibondResult: LovibondResult?
     @State private var silhouette: DetectedSilhouette?
@@ -135,13 +137,17 @@ struct CaptureFlowView: View {
                 }
 
             case .result:
-                VStack {
+                VStack(spacing: 0) {
                     ScrollView {
-                        VStack {
-                            ResultView(readings: resultReadings)
-                                .padding(.top, 24)
+                        VStack(spacing: 16) {
+                            ReportCardView(readings: resultReadings, hand: hand, date: Date(), animated: true,
+                                           onOpen: { openSign = $0 })
                             askButton
+                            SafetyNote()
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 24)
+                        .padding(.bottom, 8)
                     }
                     .scrollBounceBehavior(.basedOnSize)
                     HStack(spacing: 12) {
@@ -154,6 +160,16 @@ struct CaptureFlowView: View {
                 }
                 .sheet(isPresented: $showAssistant) {
                     AskAssistantView(context: AssistantContext(readings: resultReadings, hand: hand))
+                }
+                .sheet(item: $openSign) { sign in
+                    NavigationStack {
+                        SignDetailView(sign: sign, readings: resultReadings)
+                            .toolbar {
+                                ToolbarItem(placement: .confirmationAction) {
+                                    Button("Done") { openSign = nil }
+                                }
+                            }
+                    }
                 }
 
             case .saved(let count):
@@ -226,13 +242,12 @@ struct CaptureFlowView: View {
             showAssistant = true
         } label: {
             Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(Theme.action)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 10)
-                .glassPanel(cornerRadius: 22)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .frame(maxWidth: .infinity, minHeight: 44)
         }
-        .padding(.top, 14)
+        .buttonStyle(.plain)
+        .glassCard(cornerRadius: 20)
     }
 
     private func finish(with confirmed: LovibondCandidate, manualDots: [CGPoint]?) {
