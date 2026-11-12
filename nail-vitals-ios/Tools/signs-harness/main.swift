@@ -63,5 +63,65 @@ check("everyStateHasItsOwnWordAndIcon") {
         && SignState.couldntCheck.symbol == "minus.circle" && SignState.typical.symbol == "checkmark.circle"
 }
 
+// MARK: - History file
+
+let oldHistory = #"[{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","date":"2026-10-02T18:00:00Z","hand":"right","readings":[{"lovibond":166.4,"hyponychial":179.1,"depthRatio":0.84,"noCuticleDip":false}]}]"#
+
+check("oldHistoryLoads") {
+    let s = ScanHistory.decode(Data(oldHistory.utf8))
+    return s.count == 1 && s[0].extraSigns == nil && s[0].report.results.map(\.sign) == [.clubbing]
+        && s[0].readings.first?.lovibond == 166.4
+}
+check("unknownSignIsDropped") {
+    // A result written by a newer build of the app.
+    let newer = oldHistory.replacingOccurrences(
+        of: #""hand":"right","#,
+        with: #""hand":"right","extraSigns":[{"sign":"futureSign","state":"typical","analyzerVersion":1},{"sign":"refill","state":"typical","value":1.4,"valueText":"1.4 s","analyzerVersion":1}],"#)
+    let s = ScanHistory.decode(Data(newer.utf8))
+    return s.count == 1 && s[0].extraSigns?.map(\.sign) == [.refill]
+}
+check("unknownStateIsDropped") {
+    let newer = oldHistory.replacingOccurrences(
+        of: #""hand":"right","#,
+        with: #""hand":"right","extraSigns":[{"sign":"refill","state":"futureState","analyzerVersion":1}],"#)
+    let s = ScanHistory.decode(Data(newer.utf8))
+    return s.count == 1 && s[0].extraSigns?.isEmpty == true
+}
+check("historyRoundTrip") {
+    let refill = SignResult(sign: .refill, state: .typical, value: 1.4, valueText: "1.4 s", reason: nil, analyzerVersion: 1)
+    let session = ScanSession(date: Date(timeIntervalSince1970: 1_790_000_000), hand: "left",
+                              readings: [StoredReading(reading(166, 179, 0.84))], extraSigns: [refill])
+    guard let data = ScanHistory.encode([session]) else { return false }
+    return ScanHistory.decode(data) == [session]
+}
+check("damagedFileGivesNoSessions") {
+    ScanHistory.decode(Data("{ not json".utf8)).isEmpty
+}
+
+check("damagedFileIsKeptAsideNotOverwritten") {
+    // A history file the app can't read must survive the next save.
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("nv-history-\(UUID().uuidString)")
+    try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let url = folder.appendingPathComponent("History.json")
+    try? Data("{ not json".utf8).write(to: url)
+    let history = ScanHistory(url: url)
+    history.add(readings: [reading(166, 179, 0.84)], hand: .right)
+    let kept = (try? FileManager.default.contentsOfDirectory(atPath: folder.path)) ?? []
+    let aside = kept.first { $0.hasPrefix("History-unreadable") }
+    let asideText = aside.flatMap { try? String(contentsOf: folder.appendingPathComponent($0), encoding: .utf8) }
+    return history.sessions.count == 1 && asideText == "{ not json" && ScanHistory(url: url).sessions.count == 1
+}
+check("addKeepsExtraSigns") {
+    let folder = FileManager.default.temporaryDirectory.appendingPathComponent("nv-history-\(UUID().uuidString)")
+    try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: folder) }
+    let url = folder.appendingPathComponent("History.json")
+    let refill = SignResult(sign: .refill, state: .typical, value: 1.4, valueText: "1.4 s", reason: nil, analyzerVersion: 1)
+    ScanHistory(url: url).add(readings: [reading(166, 179, 0.84)], hand: .left, extra: [refill])
+    let reloaded = ScanHistory(url: url).sessions
+    return reloaded.count == 1 && reloaded[0].extraSigns == [refill] && reloaded[0].hand == "left"
+}
+
 print(failures == 0 ? "signs-harness: all checks passed" : "signs-harness: \(failures) check(s) FAILED")
 exit(failures == 0 ? 0 : 1)
