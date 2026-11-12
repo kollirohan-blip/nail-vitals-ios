@@ -1,0 +1,192 @@
+true  variant       math@cuticle  full-analyze(nail side)  marker-err  other-side
+  150 nail R, cw       150.0          150.0                   0.0px     181.3
+  150 nail R, ccw      150.0          150.0                   0.0px     181.3
+  150 nail L, cw       150.0          150.0                   0.0px     181.3
+  150 nail L, ccw      150.0          150.0                   0.0px     181.3
+  150 nail R, rot      150.0          150.0                   0.0px     181.3
+  160 nail R, cw       160.0          160.0                   0.0px     181.3
+  160 nail R, ccw      160.0          160.0                   0.0px     181.3
+  160 nail L, cw       160.0          160.0                   0.0px     181.3
+  160 nail L, ccw      160.0          160.0                   0.0px     181.3
+  160 nail R, rot      160.0          160.0                   0.0px     181.3
+  170 nail R, cw       170.0          170.0                   0.0px     181.3
+  170 nail R, ccw      170.0          170.0                   0.0px     181.3
+  170 nail L, cw       170.0          170.0                   0.0px     181.3
+  170 nail L, ccw      170.0          170.0                   0.0px     181.3
+  170 nail R, rot      170.0          170.0                   0.0px     181.3
+  180 nail R, cw       180.0          181.3                  99.0px     181.3
+  180 nail R, ccw      180.0          181.3                  99.0px     181.3
+  180 nail L, cw       180.0          181.3                  99.0px     181.3
+  180 nail L, ccw      180.0          181.3                  99.0px     181.3
+  180 nail R, rot      180.0          181.3                  99.0px     181.3
+  190 nail R, cw       190.0          190.0                   0.0px     181.3
+  190 nail R, ccw      190.0          190.0                   0.0px     181.3
+  190 nail L, cw       190.0          190.0                   0.0px     181.3
+  190 nail L, ccw      190.0          190.0                   0.0px     181.3
+  190 nail R, rot      190.0          190.0                   0.0px     181.3
+  200 nail R, cw       200.0          200.0                   0.0px     181.3
+  200 nail R, ccw      200.0          200.0                   0.0px     181.3
+  200 nail L, cw       200.0          200.0                   0.0px     181.3
+  200 nail L, ccw      200.0          200.0                   0.0px     181.3
+  200 nail R, rot      200.0          200.0                   0.0px     181.3
+
+worst error: angle math at true cuticle = 0.0 deg, full analyze = 1.3 deg
+
+STRESS (jagged ±1.0px, nail curved 8°, 20 trials each) -- full automatic analyze, nail side
+r/nail   true   mean   worst-err  marker-err(mean)  found   math@true-cuticle worst-err
+ 80/1.2    150   146.9      4.0         3.9px          20/20        3.9
+ 80/1.2    160   156.9      3.9         4.3px          20/20        3.5
+ 80/1.2    170   166.7      3.7         9.4px          20/20        3.4
+ 80/1.2    180   174.8      6.2        29.1px          20/20        4.1
+ 80/1.2    190   187.5      3.0         9.5px          20/20        3.6
+ 80/1.2    200   197.4      3.3         3.5px          20/20        3.6
+ 80/1.9    150   148.1      2.8         2.5px          20/20        2.7
+ 80/1.9    160   158.1      2.6         3.6px          20/20        2.6
+ 80/1.9    170   167.9      3.2         5.3px          20/20        3.0
+ 80/1.9    180   175.9      4.8        59.1px          20/20        2.4
+ 80/1.9    190   181.3     14.9        45.9px          20/20        2.6
+ 80/1.9    200   184.8     25.0        48.1px          20/20        2.7
+ 80/2.5    150   148.5      2.6         2.5px          20/20        2.6
+ 80/2.5    160   158.6      2.2         3.2px          20/20        2.1
+ 80/2.5    170   168.5      2.3         4.8px          20/20        2.2
+ 80/2.5    180   178.0      4.8       110.6px          20/20        2.4
+ 80/2.5    190   187.0     14.2        19.1px          20/20        2.3
+ 80/2.5    200   194.0     24.2        19.8px          20/20        2.2
+110/1.2    150   147.0      3.7         3.7px          20/20        3.4
+110/1.2    160   156.9      3.5         6.1px          20/20        3.3
+110/1.2    170   166.7      4.0        12.1px          20/20        3.6
+110/1.2    180   175.0      5.7        42.2px          20/20        3.2
+110/1.2    190   187.6      3.3        10.3px          20/20        3.6
+110/1.2    200   197.3      3.4         4.2px          20/20        3.5
+110/1.9    150   148.0      2.5         2.0px          20/20        2.4
+110/1.9    160   158.1      2.5         3.4px          20/20        2.2
+110/1.9    170   168.0      2.6         7.7px          20/20        2.3
+110/1.9    180   178.3      6.3       111.9px          20/20        2.4
+110/1.9    190   186.5     14.6        22.4px          20/20        2.5
+110/1.9    200   190.4     24.3        39.5px          20/20        2.4
+140/1.5    150   147.5      2.9         3.8px          20/20        2.8
+140/1.5    160   157.7      2.6         6.6px          20/20        2.4
+140/1.5    170   167.4      3.1        10.5px          20/20        2.8
+140/1.5    180   175.4      4.9        89.8px          20/20        2.8
+140/1.5    190   186.8     14.0        19.8px          20/20        2.6
+140/1.5    200   197.9      2.4         5.1px          20/20        2.6
+
+POINTED TIP (taper 1.8, jagged, curved nail) -- width-based search (no hint)
+r/taper/cut% true   mean   worst-err  marker-err(mean)  found
+150/1.8/35    160   156.9      3.4         9.3px          20/20
+150/1.8/35    170   166.7      3.7        14.4px          20/20
+150/1.8/35    180   175.1      5.2        56.3px          20/20
+150/1.8/35    190   195.3      6.2       193.1px          20/20
+150/1.8/35    200   197.3      3.1         7.5px          20/20
+150/1.8/42    160   156.9      3.5         8.7px          20/20
+150/1.8/42    170   166.6      3.7        15.4px          20/20
+150/1.8/42    180   175.0      5.3        55.9px          20/20
+150/1.8/42    190   195.2      6.5       192.5px          20/20
+150/1.8/42    200   197.3      3.1         6.6px          20/20
+150/1.8/50    160   156.8      3.8         8.1px          20/20
+150/1.8/50    170   166.7      3.7        16.5px          20/20
+150/1.8/50    180   175.0      5.3        56.8px          20/20
+150/1.8/50    190   195.2      6.4       192.1px          20/20
+150/1.8/50    200   197.2      3.1         7.0px          20/20
+150/1.8/60    160   156.9      3.5         8.7px          20/20
+150/1.8/60    170   166.7      3.7        15.2px          20/20
+150/1.8/60    180   175.0      5.5        55.8px          20/20
+150/1.8/60    190   195.3      6.6       191.8px          20/20
+150/1.8/60    200   197.3      3.1         9.1px          20/20
+150/2.4/42    160   156.8      3.4         7.8px          20/20
+150/2.4/42    170   166.7      3.7        15.4px          20/20
+150/2.4/42    180   175.0      5.5        55.8px          20/20
+150/2.4/42    190   192.3      2.6       232.8px          20/20
+150/2.4/42    200   197.2      3.1         8.3px          20/20
+150/1.2/42    160   157.0      3.3         8.1px          20/20
+150/1.2/42    170   166.8      3.6        13.4px          20/20
+150/1.2/42    180   175.0      5.5        56.7px          20/20
+150/1.2/42    190   187.4      3.0        12.7px          20/20
+150/1.2/42    200   197.4      2.9         6.1px          20/20
+
+POINTED TIP (taper 1.8, jagged, curved nail) -- DIP-anchored search (hand-pose hint, jittered ±5%)
+r/taper/cut% true   mean   worst-err  marker-err(mean)  found
+150/1.8/35    160   156.3      4.0        10.1px          20/20
+150/1.8/35    170   166.1      4.3        20.1px          20/20
+150/1.8/35    180   175.1      5.2        44.1px          20/20
+150/1.8/35    190   189.3      5.5       124.0px          20/20
+150/1.8/35    200   196.7      3.7         9.9px          20/20
+150/1.8/42    160   157.0      3.5         7.4px          20/20
+150/1.8/42    170   166.8      3.8        17.1px          20/20
+150/1.8/42    180   175.0      5.4        61.2px          20/20
+150/1.8/42    190   197.3      8.3       217.5px          20/20
+150/1.8/42    200   197.5      3.2       113.9px          20/20
+150/1.8/50    160   157.4      3.2         4.7px          20/20
+150/1.8/50    170   167.3      3.4         8.9px          20/20
+150/1.8/50    180   175.3      5.1        71.5px          20/20
+150/1.8/50    190   193.2     14.3       216.0px          20/20
+150/1.8/50    200   196.7     24.1         9.5px          20/20
+150/1.8/60    160   158.8     11.9         8.5px          20/20
+150/1.8/60    170   168.0      2.7         9.9px          20/20
+150/1.8/60    180   180.4     15.4       127.6px          20/20
+150/1.8/60    190   184.1     15.1       166.3px          20/20
+150/1.8/60    200   186.3     24.9        64.9px          20/20
+150/2.4/42    160   156.3      4.1        11.0px          20/20
+150/2.4/42    170   166.1      4.3        20.9px          20/20
+150/2.4/42    180   175.1      5.3        41.5px          20/20
+150/2.4/42    190   193.1      3.8       229.1px          20/20
+150/2.4/42    200   196.9      3.5         9.6px          20/20
+150/1.2/42    160   157.5      2.9         4.6px          20/20
+150/1.2/42    170   167.5      3.0         9.2px          20/20
+150/1.2/42    180   176.8     26.8        81.9px          20/20
+150/1.2/42    190   196.5     17.7       166.7px          20/20
+150/1.2/42    200   203.9     24.2       196.2px          20/20
+
+MANUAL 3-POINT (dots placed 60px up the nail / on the cuticle / 80px along the skin)
+true  side   inside-by-outline  inside-by-finger-axis  no-inside-info
+ 150  right      150.0               150.0                  150.0
+ 150  left       150.0               150.0                  150.0
+ 160  right      160.0               160.0                  160.0
+ 160  left       160.0               160.0                  160.0
+ 170  right      170.0               170.0                  170.0
+ 170  left       170.0               170.0                  170.0
+ 180  right      180.0               180.0                  180.0
+ 180  left       180.0               180.0                  180.0
+ 190  right      190.0               190.0                  170.0
+ 190  left       190.0               190.0                  170.0
+ 200  right      200.0               200.0                  160.0
+ 200  left       200.0               200.0                  160.0
+worst manual error (outline or axis) = 0.0 deg
+
+FINGER SIGNS (jagged ±1px, joints jittered ±3% of finger length, 20 trials each, both nail sides)
+scale  true-hypo  mean   worst-err   true-ratio  mean    worst-err
+  1x      175     174.8     1.3  (20/20)   0.85     0.850   0.017  (20/20)
+  1x      185     184.7     2.6  (20/20)   0.95     0.948   0.010  (20/20)
+  1x      195     195.3     1.6  (20/20)   1.10     1.097   0.022  (20/20)
+  1x      180     180.0     1.6  (20/20)   1.00     1.001   0.011  (20/20)
+  1x      200     199.6     3.5  (20/20)   0.90     0.893   0.021  (20/20)
+  2x      175     175.0     0.9  (20/20)   0.85     0.852   0.019  (20/20)
+  2x      185     185.0     0.9  (20/20)   0.95     0.949   0.010  (20/20)
+  2x      195     194.8     1.1  (20/20)   1.10     1.093   0.025  (20/20)
+  2x      180     179.9     0.9  (20/20)   1.00     1.000   0.007  (20/20)
+  2x      200     200.0     1.7  (20/20)   0.90     0.895   0.021  (20/20)
+worst: hyponychial 3.5 deg, depth ratio 0.025
+
+COMBINED RESULT (cut-offs 176° / 192° / 1.0, ±3° / ±0.03 counts as close)
+ok   healthy: Typical range
+ok   clubbed, all three: Worth discussing with a doctor
+ok   two of three: Worth discussing with a doctor
+ok   one sign above: Measure again
+ok   one sign close to a cut-off: Typical range
+ok   two signs close to cut-offs: Measure again
+ok   one close, one above: Measure again
+ok   only profile, typical: Typical range
+ok   only profile, above: Measure again
+ok   implausible values ignored: Typical range
+ok   one outlier of three: Typical range
+ok   steady clubbing: Worth discussing with a doctor
+combined-result failures: 0
+
+HUMAN LABEL MATH (points placed exactly on the synthetic finger, both nail sides)
+right  hyponychial 175.0 (true 175)  depth ratio 0.850 (true 0.85)  profile 175.0
+left   hyponychial 175.0 (true 175)  depth ratio 0.850 (true 0.85)  profile 175.0
+right  hyponychial 185.0 (true 185)  depth ratio 0.950 (true 0.95)  profile 185.0
+left   hyponychial 185.0 (true 185)  depth ratio 0.950 (true 0.95)  profile 185.0
+right  hyponychial 195.0 (true 195)  depth ratio 1.100 (true 1.10)  profile 195.0
+left   hyponychial 195.0 (true 195)  depth ratio 1.100 (true 1.10)  profile 195.0
+worst human-label math error: hyponychial 0.00 deg, depth ratio 0.0000

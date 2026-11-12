@@ -1,5 +1,5 @@
-// Synthetic-finger regression test for AngleAnalyzer. Run from this folder:
-//   swiftc -O ../../NailVitals/NailVitals/NailVitals/Detection/{DetectedSilhouette,AngleAnalyzer,FingerSigns,ClubbingAssessment,HumanLabel}.swift main.swift -o angle-harness && ./angle-harness
+// Synthetic-finger regression test for AngleAnalyzer. Build and run with
+//   ../test.sh      (the file list lives there; output must match expected.txt)
 import CoreGraphics
 import Foundation
 

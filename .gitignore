@@ -14,3 +14,9 @@ testset/
 # Wrangler build/cache output
 server/gemini-proxy/.wrangler/
 server/gemini-proxy/node_modules/
+
+# Plan workspaces (scratch)
+.superpowers/
+__pycache__/
+nail-vitals-ios/Tools/signs-harness/signs-harness
+nail-vitals-ios/Tools/*/build.log
