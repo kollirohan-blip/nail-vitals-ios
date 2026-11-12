@@ -123,5 +123,27 @@ check("addKeepsExtraSigns") {
     return reloaded.count == 1 && reloaded[0].extraSigns == [refill] && reloaded[0].hand == "left"
 }
 
+// MARK: - Accuracy lines (validation.json)
+
+/// The app source folder, passed by test.sh.
+let appFolder = CommandLine.arguments.count > 1 ? CommandLine.arguments[1] : "."
+
+check("validationParses") {
+    guard let data = FileManager.default.contents(atPath: appFolder + "/Signs/validation.json") else { return false }
+    let all = ValidationData.parse(data)
+    guard let clubbing = all[.clubbing] else { return false }
+    return clubbing.lines.count == 4 && clubbing.lines[0].label == "Healthy photos measured"
+        && clubbing.lines[0].value == "81, none flagged" && clubbing.note?.isEmpty == false
+}
+check("validationOnlyCoversKnownSigns") {
+    // An entry for a sign this build doesn't know is skipped, the rest stay.
+    let json = #"[{"sign":"futureSign","updated":"2027-01-01","lines":[]},{"sign":"refill","updated":"2026-12-01","lines":[{"label":"Videos timed by hand","value":"40"}]}]"#
+    let all = ValidationData.parse(Data(json.utf8))
+    return all.count == 1 && all[.refill]?.lines.first?.value == "40"
+}
+check("brokenValidationFileGivesNothing") {
+    ValidationData.parse(Data(#"{"broken""#.utf8)).isEmpty
+}
+
 print(failures == 0 ? "signs-harness: all checks passed" : "signs-harness: \(failures) check(s) FAILED")
 exit(failures == 0 ? 0 : 1)

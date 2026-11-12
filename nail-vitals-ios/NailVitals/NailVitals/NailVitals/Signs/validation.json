@@ -1,0 +1,13 @@
+[
+  {
+    "sign": "clubbing",
+    "updated": "2026-10-16",
+    "lines": [
+      { "label": "Healthy photos measured", "value": "81, none flagged" },
+      { "label": "Scan sessions", "value": "23 over 8 days" },
+      { "label": "A scan vs your own average", "value": "usually within ±3.4°" },
+      { "label": "Designed healthy and clubbed shapes", "value": "read Typical and Flagged" }
+    ],
+    "note": "Computer renders of the two designs; real clubbed fingers haven't been tested yet."
+  }
+]

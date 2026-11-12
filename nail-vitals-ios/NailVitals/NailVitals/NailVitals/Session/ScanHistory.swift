@@ -67,15 +67,6 @@ extension ScanSession {
         case id, date, hand, readings, extraSigns
     }
 
-    /// Decodes whatever it can of one array element, so one entry this
-    /// build doesn't understand can't fail the whole file.
-    private struct Lenient<Value: Decodable>: Decodable {
-        let value: Value?
-        init(from decoder: Decoder) throws {
-            value = try? Value(from: decoder)
-        }
-    }
-
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id)
