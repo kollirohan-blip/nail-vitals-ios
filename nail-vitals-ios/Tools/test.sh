@@ -30,10 +30,10 @@ fi
 
 if [ -f signs-harness/main.swift ]; then
   echo "== signs-harness"
-  SIGNS=($APP/Signs/*.swift)
+  shopt -s nullglob; SIGNS=($APP/Signs/*.swift); shopt -u nullglob
   EXTRA=()
   [ -f signs-harness/extra-sources.txt ] && while read -r f; do [ -n "$f" ] && EXTRA+=("$APP/$f"); done < signs-harness/extra-sources.txt
-  if swiftc -O "${DETECTION[@]}" "${SIGNS[@]}" "${EXTRA[@]}" signs-harness/main.swift -o signs-harness/signs-harness 2> signs-harness/build.log; then
+  if swiftc -O "${DETECTION[@]}" ${SIGNS[@]+"${SIGNS[@]}"} ${EXTRA[@]+"${EXTRA[@]}"} signs-harness/main.swift -o signs-harness/signs-harness 2> signs-harness/build.log; then
     ./signs-harness/signs-harness "$APP" || fail=1
   else
     echo "FAIL: build (see signs-harness/build.log)"; grep error signs-harness/build.log | head -8; fail=1
