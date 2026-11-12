@@ -2,22 +2,20 @@
 //  HomeTabs.swift
 //  NailVitals
 //
-//  The app's home side: five tabs on a Liquid Glass tab bar. Home keeps
-//  the scan button, the finger choice, the two beta tests and the last
-//  result; all
-//  results, trends, the guides and the chat each have their own tab.
-//  Neutral colors here: color only marks result states.
+//  The app's home side: four tabs. Home starts a check-up (HomeView);
+//  History holds every check-up and the trends; Learn has the guides; Ask
+//  is the chat. Neutral colors here: color only marks result states.
 //
 
 import SwiftUI
 
 enum AppTab: Hashable {
-    case home, results, trends, learn, chat
+    case home, history, learn, ask
 }
 
 struct HomeTabs: View {
     @ObservedObject var history: ScanHistory
-    /// The scan button zooms open into the camera.
+    /// The start button zooms open into the camera.
     var transition: Namespace.ID? = nil
     let onStartScan: () -> Void
     /// Scans a printed model finger on a stand (no hand to detect).
@@ -28,18 +26,16 @@ struct HomeTabs: View {
     var body: some View {
         TabView(selection: $tab) {
             Tab("Home", systemImage: "house.fill", value: AppTab.home) {
-                HomeTab(history: history, transition: transition, onStartScan: onStartScan, onStartModelScan: onStartModelScan)
+                HomeView(history: history, transition: transition, onStartScan: onStartScan,
+                         onStartModelScan: onStartModelScan, onShowHistory: { tab = .history })
             }
-            Tab("Results", systemImage: "list.bullet.rectangle.portrait.fill", value: AppTab.results) {
-                ResultsListView(history: history)
-            }
-            Tab("Trends", systemImage: "chart.xyaxis.line", value: AppTab.trends) {
-                TrendsView(history: history)
+            Tab("History", systemImage: "clock.arrow.circlepath", value: AppTab.history) {
+                HistoryView(history: history)
             }
             Tab("Learn", systemImage: "book.closed.fill", value: AppTab.learn) {
                 LearnView()
             }
-            Tab("Chat", systemImage: "bubble.left.and.text.bubble.right.fill", value: AppTab.chat) {
+            Tab("Ask", systemImage: "bubble.left.and.text.bubble.right.fill", value: AppTab.ask) {
                 // A fresh chat for each new result.
                 AskAssistantView(context: AssistantContext(readings: history.latest?.signs ?? [],
                                                            hand: history.latest.flatMap { MeasuredHand(rawValue: $0.hand) } ?? .right),
@@ -49,170 +45,6 @@ struct HomeTabs: View {
         }
         .tint(.primary)
         .tabBarMinimizeBehavior(.onScrollDown)
-    }
-}
-
-/// The scan button, the finger choice and the last result.
-struct HomeTab: View {
-    @ObservedObject var history: ScanHistory
-    var transition: Namespace.ID? = nil
-    let onStartScan: () -> Void
-    var onStartModelScan: () -> Void = {}
-
-    @AppStorage("measuredHand") private var hand: MeasuredHand = .right
-    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .classic
-    @State private var showStudy = false
-    @State private var showNailCheck = false
-    @State private var showSchamroth = false
-    @State private var breathe = false
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                AppBackground()
-                VStack(spacing: 0) {
-                    header
-                    Spacer(minLength: 20)
-                    scanButton
-                    Picker("Finger", selection: $hand) {
-                        ForEach(MeasuredHand.allCases, id: \.self) { Text("\($0.label) index").tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .frame(maxWidth: 230)
-                    .padding(.top, 30)
-                    Text("Checks for finger clubbing · 3 quick side photos")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Color.primary.opacity(0.6))
-                        .padding(.top, 10)
-                    HStack(spacing: 12) {
-                        testCard("Nail color", "Liver and kidney nail patterns", icon: "hand.raised.fingers.spread") { showNailCheck = true }
-                        testCard("Schamroth window", "The gap between two nails", icon: "rhombus") { showSchamroth = true }
-                    }
-                    .padding(.top, 18)
-                    Spacer(minLength: 20)
-                    lastResult
-                    SafetyNote()
-                        .padding(.top, 14)
-                        .padding(.bottom, 10)
-                }
-                .padding(.horizontal, 20)
-            }
-            .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: UUID.self) { SessionDetailView(history: history, id: $0) }
-            .sheet(isPresented: $showStudy) { StudyPanelView() }
-            .fullScreenCover(isPresented: $showNailCheck) { NailCheckView() }
-            .fullScreenCover(isPresented: $showSchamroth) { SchamrothView() }
-        }
-    }
-
-    /// The small logo in the top-left corner, and one menu on the right.
-    private var header: some View {
-        HStack(alignment: .center) {
-            BrandMark()
-            Spacer()
-            Menu {
-                Picker("Look", selection: $appearance) {
-                    ForEach(AppAppearance.allCases, id: \.self) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.inline)
-                Button(action: onStartModelScan) {
-                    Label("Scan a model finger", systemImage: "cube.transparent")
-                }
-                if saveCapturesForTesting {
-                    Button { showStudy = true } label: {
-                        Label("Study", systemImage: "person.2.fill")
-                    }
-                }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(.primary)
-                    .frame(width: 38, height: 38)
-                    .roundSurface()
-            }
-            .accessibilityLabel("Options")
-        }
-        .padding(.leading, 6)
-        .padding(.top, 14)
-    }
-
-    /// A big disc (glass in Dark, white in Classic) with a slow breathing ring.
-    private var scanButton: some View {
-        Button(action: onStartScan) {
-            VStack(spacing: 10) {
-                Image(systemName: "viewfinder")
-                    .font(.system(size: 46, weight: .light))
-                Text("Scan")
-                    .font(.system(size: 22, weight: .semibold))
-            }
-            .foregroundStyle(.primary)
-            .frame(width: 196, height: 196)
-            .contentShape(.circle)
-        }
-        .buttonStyle(.plain)
-        .roundSurface()
-        .background {
-            Circle()
-                .stroke(Color.primary.opacity(0.18), lineWidth: 1.5)
-                .scaleEffect(breathe ? 1.16 : 1.02)
-                .opacity(breathe ? 0 : 1)
-        }
-        .modifier(ScanTransitionSource(namespace: transition))
-        .accessibilityLabel("Start scan")
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeOut(duration: 2.4).repeatForever(autoreverses: false)) { breathe = true }
-        }
-    }
-
-    /// One of the beta tests, as a small glass card.
-    private func testCard(_ title: String, _ detail: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    Image(systemName: icon)
-                        .font(.system(size: 18, weight: .medium))
-                    Spacer()
-                    Text("BETA")
-                        .font(.system(size: 10, weight: .bold))
-                        .foregroundStyle(Color.primary.opacity(0.55))
-                }
-                Text(title)
-                    .font(.system(size: 15, weight: .semibold))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                Text(detail)
-                    .font(.system(size: 12))
-                    .foregroundStyle(Color.primary.opacity(0.6))
-                    .lineLimit(2, reservesSpace: true)
-            }
-            .foregroundStyle(.primary)
-            .padding(14)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .contentShape(.rect)
-            .glassCard(cornerRadius: 20)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(title), beta: \(detail)")
-    }
-
-    @ViewBuilder
-    private var lastResult: some View {
-        if let latest = history.latest {
-            NavigationLink(value: latest.id) {
-                SessionRow(session: latest, caption: "Last result")
-            }
-            .buttonStyle(.plain)
-        } else {
-            Text("Your results show up here after your first scan.")
-                .font(.system(size: 14))
-                .foregroundStyle(Color.primary.opacity(0.6))
-                .multilineTextAlignment(.center)
-                .padding(16)
-                .frame(maxWidth: .infinity)
-                .glassCard(cornerRadius: 22)
-        }
     }
 }
 

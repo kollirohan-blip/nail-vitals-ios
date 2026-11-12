@@ -34,7 +34,6 @@ struct ReportCardView: View {
     /// the next step).
     @State private var revealed = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.dynamicTypeSize) private var typeSize
 
     private var report: CheckupReport { CheckupReport(readings: readings, extra: extra) }
     /// Everything shows at once unless this is the animated reveal.
@@ -98,25 +97,26 @@ struct ReportCardView: View {
     private func signRow(_ result: SignResult, _ report: CheckupReport) -> some View {
         Button { onOpen(result.sign) } label: {
             VStack(alignment: .leading, spacing: 10) {
-                if typeSize.isAccessibilitySize {
-                    // Very large text: stack, so nothing is squeezed.
-                    VStack(alignment: .leading, spacing: 6) {
-                        rowTitle(result)
-                        HStack(spacing: 8) {
-                            rowValue(result)
-                            StatePill(state: result.state)
-                        }
-                    }
-                } else {
+                // One line when it fits; otherwise the value and state go
+                // under the name (long state names, very large text).
+                ViewThatFits(in: .horizontal) {
                     HStack(spacing: 8) {
                         rowTitle(result)
                         Spacer(minLength: 8)
                         rowValue(result)
                         StatePill(state: result.state)
-                        Image(systemName: "chevron.right")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(Theme.secondaryText)
-                            .accessibilityHidden(true)
+                        chevron
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            rowTitle(result)
+                            Spacer(minLength: 8)
+                            chevron
+                        }
+                        HStack(spacing: 8) {
+                            rowValue(result)
+                            StatePill(state: result.state)
+                        }
                     }
                 }
                 if result.state == .couldntCheck, let reason = result.reason {
@@ -139,6 +139,13 @@ struct ReportCardView: View {
         }
         .buttonStyle(.plain)
         .accessibilityHint("Opens the details")
+    }
+
+    private var chevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.secondaryText)
+            .accessibilityHidden(true)
     }
 
     private func rowTitle(_ result: SignResult) -> some View {
@@ -164,14 +171,15 @@ struct ReportCardView: View {
         let value = report.assessment.values[kind]
         let state = value.map { SignState(kind.status(of: $0)) } ?? .couldntCheck
         let shown = kind == .lovibond && report.noDip ? "≥180°" : kind.formattedOrDash(value)
-        return HStack(spacing: 8) {
+        let name = HStack(spacing: 8) {
             Image(systemName: state.symbol)
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(state.color)
             Text(kind.plainName)
                 .font(.subheadline)
                 .foregroundStyle(.primary)
-            Spacer(minLength: 6)
+        }
+        let numbers = HStack(spacing: 8) {
             Text(shown)
                 .font(.subheadline.weight(.semibold))
                 .monospacedDigit()
@@ -179,6 +187,17 @@ struct ReportCardView: View {
             Text("limit \(kind.formattedThreshold)")
                 .font(.footnote)
                 .foregroundStyle(Theme.secondaryText)
+        }
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: 8) {
+                name
+                Spacer(minLength: 6)
+                numbers
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                name
+                numbers.padding(.leading, 26)
+            }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("\(kind.plainName): \(value == nil ? "not measured" : shown), \(state.label). Limit \(kind.formattedThreshold).")

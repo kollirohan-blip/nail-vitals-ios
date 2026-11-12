@@ -35,6 +35,8 @@ enum Theme {
     /// Main buttons: charcoal in Classic, white in Dark (no cyan outside
     /// the camera).
     static let action = shade(dark: 0xFFFFFF, classic: 0x1C1C1E)
+    /// Text and icons on a main button.
+    static let onAction = shade(dark: 0x000000, classic: 0xFFFFFF)
     /// Supporting text.
     static let secondaryText = shade(dark: 0xAEAEB2, classic: 0x636366)
     /// The page behind the cards.

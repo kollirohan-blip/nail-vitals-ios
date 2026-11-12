@@ -9,49 +9,6 @@
 
 import SwiftUI
 
-struct ResultsListView: View {
-    @ObservedObject var history: ScanHistory
-    @State private var confirmDelete = false
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 12) {
-                    if history.sessions.isEmpty {
-                        EmptyStateCard(icon: "list.bullet.rectangle.portrait",
-                                       title: "No results yet",
-                                       text: "Each finished scan shows up here, newest first. Only the numbers are saved, on this phone.")
-                            .padding(.top, 40)
-                    } else {
-                        ForEach(history.sessions.reversed()) { session in
-                            NavigationLink(value: session.id) {
-                                SessionRow(session: session)
-                            }
-                            .buttonStyle(.plain)
-                        }
-                        Button("Delete all results on this phone", role: .destructive) { confirmDelete = true }
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(Theme.attention.opacity(0.85))
-                            .padding(.top, 10)
-                    }
-                    SafetyNote()
-                        .padding(.top, 8)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
-            }
-            .background(AppBackground())
-            .navigationTitle("Results")
-            .navigationDestination(for: UUID.self) { SessionDetailView(history: history, id: $0) }
-            .confirmationDialog("Delete all saved results from this phone?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                Button("Delete all results", role: .destructive) { history.deleteAll() }
-            } message: {
-                Text("This can't be undone.")
-            }
-        }
-    }
-}
-
 /// One check-up in a list: when it was, the finger and its value, and the
 /// overall state as a pill.
 struct SessionRow: View {
@@ -59,40 +16,46 @@ struct SessionRow: View {
     /// A small heading above the date ("Last result" on Home).
     var caption: String? = nil
 
-    @Environment(\.dynamicTypeSize) private var typeSize
-
     var body: some View {
         let report = session.report
         let value = report.results.first { $0.sign == .clubbing }?.valueText
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                if let caption {
-                    Text(caption)
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Theme.secondaryText)
-                }
+        let detail = Text([session.handLabel + " index", value].compactMap { $0 }.joined(separator: " · "))
+            .font(.footnote)
+            .monospacedDigit()
+            .foregroundStyle(Theme.secondaryText)
+        VStack(alignment: .leading, spacing: 6) {
+            if let caption {
+                Text(caption)
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.secondaryText)
+            }
+            HStack(alignment: .firstTextBaseline) {
                 Text(ReportCardView.dayText(session.date))
                     .font(.body.weight(.semibold))
                     .foregroundStyle(.primary)
-                Text([session.handLabel + " index", value.map { "nail angle " + $0 }].compactMap { $0 }.joined(separator: " · "))
-                    .font(.footnote)
-                    .monospacedDigit()
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.secondaryText)
-                if typeSize.isAccessibilitySize {
+                    .accessibilityHidden(true)
+            }
+            // Side by side when both fit on one line; stacked otherwise
+            // (long state names, very large text).
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    detail
+                    Spacer(minLength: 8)
+                    StatePill(state: report.overall)
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    detail
                     StatePill(state: report.overall)
                 }
             }
-            Spacer(minLength: 8)
-            if !typeSize.isAccessibilitySize {
-                StatePill(state: report.overall)
-            }
-            Image(systemName: "chevron.right")
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(Theme.secondaryText)
-                .accessibilityHidden(true)
         }
         .padding(16)
-        .frame(minHeight: 44)
+        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .contentShape(.rect)
         .glassCard(cornerRadius: 20)
         .accessibilityElement(children: .combine)

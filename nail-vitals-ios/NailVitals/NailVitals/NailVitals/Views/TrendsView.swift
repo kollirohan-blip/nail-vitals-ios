@@ -2,47 +2,15 @@
 //  TrendsView.swift
 //  NailVitals
 //
-//  The Trends tab: one chart per sign across past scans (each scan's
-//  middle value), with the published cut-off as a dashed line. Points take
-//  the result colors; everything else stays neutral.
+//  One chart per sign across past check-ups (each check-up's middle
+//  value), with the published cut-off as a dashed line. Points take the
+//  result colors; everything else stays neutral. Shown on the History tab.
 //
 
 import SwiftUI
 import Charts
 
-struct TrendsView: View {
-    @ObservedObject var history: ScanHistory
-
-    var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 14) {
-                    if history.sessions.count < 2 {
-                        EmptyStateCard(icon: "chart.xyaxis.line",
-                                       title: "Trends start at two scans",
-                                       text: "Each sign gets its own chart after your second scan. Scanning every few weeks shows whether anything changes.")
-                            .padding(.top, 40)
-                    } else {
-                        ForEach(SignKind.allCases, id: \.self) { kind in
-                            SignTrendCard(kind: kind, sessions: history.sessions)
-                        }
-                        Text("Dashed line: the published cut-off. Each point is one scan.")
-                            .font(.system(size: 12))
-                            .foregroundStyle(Color.primary.opacity(0.6))
-                            .multilineTextAlignment(.center)
-                    }
-                    SafetyNote()
-                        .padding(.top, 8)
-                }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 8)
-            }
-            .background(AppBackground())
-            .navigationTitle("Trends")
-        }
-    }
-}
-
+/// One sign across past check-ups, on the History tab.
 struct SignTrendCard: View {
     let kind: SignKind
     let sessions: [ScanSession]

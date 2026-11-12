@@ -2,14 +2,17 @@
 //  LearnView.swift
 //  NailVitals
 //
-//  The Learn tab: how to hold your finger for a scan, and the science
-//  behind the three signs (the same pages the camera and result screens
-//  open as sheets).
+//  The Learn tab: how to hold your finger for a scan, the science behind
+//  the clubbing signs (the same pages the camera and result screens open
+//  as sheets), and the two beta tests with their explanations.
 //
 
 import SwiftUI
 
 struct LearnView: View {
+    @State private var showNailCheck = false
+    @State private var showSchamroth = false
+
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -22,11 +25,19 @@ struct LearnView: View {
                     }
                     NavigationLink {
                         AboutMeasurementsContent()
-                            .navigationTitle("The science")
+                            .navigationTitle("Clubbing")
                             .navigationBarTitleDisplayMode(.inline)
                     } label: {
-                        row(icon: "book.closed.fill", title: "The science",
+                        row(icon: "angle", title: "Clubbing",
                             text: "The three signs, their published cut-offs, and the studies behind them.")
+                    }
+                    Button { showNailCheck = true } label: {
+                        row(icon: "hand.raised.fingers.spread", title: "Nail colour bands (beta)",
+                            text: "Terry's and half-and-half nails: what they are, and a test from a photo of your nails.")
+                    }
+                    Button { showSchamroth = true } label: {
+                        row(icon: "rhombus", title: "Schamroth window (beta)",
+                            text: "The small gap between two nails held back to back, and a test for it.")
                     }
                     SafetyNote()
                         .padding(.top, 8)
@@ -37,6 +48,8 @@ struct LearnView: View {
             }
             .background(AppBackground())
             .navigationTitle("Learn")
+            .fullScreenCover(isPresented: $showNailCheck) { NailCheckView() }
+            .fullScreenCover(isPresented: $showSchamroth) { SchamrothView() }
         }
     }
 
@@ -49,11 +62,12 @@ struct LearnView: View {
                 .background(Color.primary.opacity(0.07), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(.primary)
                 Text(text)
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.primary.opacity(0.6))
+                    .font(.subheadline)
+                    .foregroundStyle(Theme.secondaryText)
+                    .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Spacer(minLength: 4)

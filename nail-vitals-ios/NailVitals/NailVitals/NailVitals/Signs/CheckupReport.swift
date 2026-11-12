@@ -87,7 +87,7 @@ nonisolated struct CheckupReport {
         case .measureAgain:
             return "Measure again in good light, with your finger straight. If it reads the same on another day, mention it at your next checkup."
         case .worthDiscussing:
-            return "Show this result to a doctor. Only a doctor can say what it means. Mention any symptoms you've noticed."
+            return "Show this result to a doctor. In History, \"Send to doctor\" makes a file you can share with them."
         case .couldntCheck:
             return "Try again in good light, in front of a plain background that's much lighter or darker than your skin."
         }

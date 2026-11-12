@@ -145,5 +145,46 @@ check("brokenValidationFileGivesNothing") {
     ValidationData.parse(Data(#"{"broken""#.utf8)).isEmpty
 }
 
+// MARK: - Home wording
+
+var utc = Calendar(identifier: .gregorian)
+utc.timeZone = TimeZone(identifier: "UTC")!
+func day(_ text: String) -> Date { ISO8601DateFormatter().date(from: text + "T12:00:00Z")! }
+let now = day("2026-11-12")
+
+check("noCheckupsYet") {
+    CheckupWording.lastCheckupLine(date: nil, overall: nil, now: now, calendar: utc) == "No check-ups yet"
+}
+check("lastCheckupToday") {
+    CheckupWording.lastCheckupLine(date: day("2026-11-12"), overall: .typical, now: now, calendar: utc)
+        == "Last check-up today · nothing stood out"
+}
+check("lastCheckupYesterday") {
+    CheckupWording.lastCheckupLine(date: day("2026-11-11"), overall: .measureAgain, now: now, calendar: utc)
+        == "Last check-up yesterday · measure again"
+}
+check("lastCheckupDaysAgo") {
+    CheckupWording.lastCheckupLine(date: day("2026-11-09"), overall: .typical, now: now, calendar: utc)
+        == "Last check-up 3 days ago · nothing stood out"
+}
+check("lastCheckupWeeksAgo") {
+    CheckupWording.lastCheckupLine(date: day("2026-10-20"), overall: .worthDiscussing, now: now, calendar: utc)
+        == "Last check-up 3 weeks ago · worth discussing with a doctor"
+}
+check("lastCheckupLongAgoShowsTheDate") {
+    let line = CheckupWording.lastCheckupLine(date: day("2026-08-01"), overall: .couldntCheck, now: now, calendar: utc)
+    return line.hasPrefix("Last check-up on ") && line.hasSuffix(" · couldn't check") && !line.contains("ago")
+}
+check("aClockSetBackNeverSaysNegativeDays") {
+    // The last check-up is dated after "now" (the phone's clock was changed).
+    CheckupWording.lastCheckupLine(date: day("2026-11-14"), overall: .typical, now: now, calendar: utc)
+        == "Last check-up today · nothing stood out"
+}
+check("greetings") {
+    CheckupWording.greeting(hour: 6) == "Good morning" && CheckupWording.greeting(hour: 12) == "Good afternoon"
+        && CheckupWording.greeting(hour: 16) == "Good afternoon" && CheckupWording.greeting(hour: 17) == "Good evening"
+        && CheckupWording.greeting(hour: 2) == "Good evening"
+}
+
 print(failures == 0 ? "signs-harness: all checks passed" : "signs-harness: \(failures) check(s) FAILED")
 exit(failures == 0 ? 0 : 1)

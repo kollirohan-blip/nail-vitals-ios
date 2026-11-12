@@ -45,6 +45,8 @@ struct StatePill: View {
             Image(systemName: state.symbol)
                 .imageScale(.small)
             Text(text ?? state.label)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
         }
         .font(.subheadline.weight(.semibold))
         .foregroundStyle(state.color)
