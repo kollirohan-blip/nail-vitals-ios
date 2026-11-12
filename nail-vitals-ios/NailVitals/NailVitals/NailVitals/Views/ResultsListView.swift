@@ -156,16 +156,6 @@ struct SessionDetailView: View {
 
 extension ScanSession {
     var handLabel: String { MeasuredHand(rawValue: hand)?.label ?? "Right" }
-
-    /// Most readings found no cuticle dip (the profile counts as ≥180°).
-    var mostlyNoDip: Bool { readings.filter(\.noCuticleDip).count * 2 > readings.count }
-
-    /// "168.0° · 179.0°\nratio 0.84": the two angles, then the depth ratio.
-    func valuesSummary(_ assessment: ClubbingAssessment) -> String {
-        let profile = mostlyNoDip ? "≥180°" : SignKind.lovibond.formattedOrDash(assessment.values[.lovibond])
-        let hyponychial = SignKind.hyponychial.formattedOrDash(assessment.values[.hyponychial])
-        return "\(profile) · \(hyponychial)\nratio \(SignKind.depthRatio.formattedOrDash(assessment.values[.depthRatio]))"
-    }
 }
 
 extension SignKind {

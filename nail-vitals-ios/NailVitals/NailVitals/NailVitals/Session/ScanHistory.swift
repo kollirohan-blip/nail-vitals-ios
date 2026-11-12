@@ -62,7 +62,8 @@ nonisolated struct ScanSession: Codable, Identifiable, Equatable {
     var report: CheckupReport { CheckupReport(readings: signs, extra: extraSigns ?? []) }
 }
 
-extension ScanSession {
+// nonisolated: decoded off the main actor (ScanHistory.decode).
+nonisolated extension ScanSession {
     private enum CodingKeys: String, CodingKey {
         case id, date, hand, readings, extraSigns
     }
