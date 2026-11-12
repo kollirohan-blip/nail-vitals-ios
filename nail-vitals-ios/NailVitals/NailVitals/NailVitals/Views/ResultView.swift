@@ -143,19 +143,11 @@ struct ResultView: View {
     }
 
     static func color(for verdict: ClubbingAssessment.Verdict) -> Color {
-        switch verdict {
-        case .typical: return Theme.aligned
-        case .measureAgain: return Theme.adjusting
-        case .worthDiscussing: return Theme.attention
-        }
+        SignState(verdict).color
     }
 
     static func color(for status: SignStatus) -> Color {
-        switch status {
-        case .typical: return Theme.aligned
-        case .nearThreshold: return Theme.adjusting
-        case .above: return Theme.attention
-        }
+        SignState(status).color
     }
 
     private var verdict: some View {

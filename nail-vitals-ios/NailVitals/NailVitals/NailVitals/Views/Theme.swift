@@ -10,12 +10,14 @@
 //  20 pt and up).
 //
 //  The camera uses cyan / amber / green. The home side (tabs) stays
-//  neutral -- white and gray on graphite -- and uses color only for
-//  result states.
+//  neutral and flat -- white cards on light gray, or dark gray cards on
+//  black -- and uses color only for result states.
 //
-//  Two looks, picked on Home (AppAppearance): Dark, and Classic (white).
-//  Each color has a Classic shade dark enough to read on white. The camera
-//  screen is always dark, so it always gets the bright shades.
+//  Two looks, picked on Home (AppAppearance): Classic (white, the
+//  default) and Dark. Each color has a Classic shade that keeps text at
+//  4.5:1 or better on white, on the gray background and on its own tinted
+//  pill (checked Nov 11: 4.55 to 5.99). The camera screen is always dark,
+//  so it always gets the bright shades.
 //
 
 import SwiftUI
@@ -23,14 +25,22 @@ import UIKit
 
 enum Theme {
     static let searching = shade(dark: 0x00E5FF, classic: 0x007A99)
-    static let adjusting = shade(dark: 0xFFB300, classic: 0xA35F00)
+    static let adjusting = shade(dark: 0xFFB300, classic: 0x945500)
     static let aligned = shade(dark: 0x00E676, classic: 0x087A4B)
     /// Coral: a sign above its cut-off, or "worth discussing".
-    static let attention = shade(dark: 0xFF6B6B, classic: 0xCF3B3B)
-    /// Main buttons after a scan: cyan in Dark, charcoal in Classic.
-    static let action = shade(dark: 0x00E5FF, classic: 0x1C1C1E)
-    /// Background glow only, on the home side.
-    static let violet = Color(red: 0.56, green: 0.42, blue: 1)
+    static let attention = shade(dark: 0xFF6B6B, classic: 0xBF3030)
+    /// Gray: a sign the app couldn't check. Never amber, so it can't look
+    /// like a warning.
+    static let unmeasured = shade(dark: 0xAEAEB2, classic: 0x636366)
+    /// Main buttons: charcoal in Classic, white in Dark (no cyan outside
+    /// the camera).
+    static let action = shade(dark: 0xFFFFFF, classic: 0x1C1C1E)
+    /// Supporting text.
+    static let secondaryText = shade(dark: 0xAEAEB2, classic: 0x636366)
+    /// The page behind the cards.
+    static let background = shade(dark: 0x000000, classic: 0xF2F2F7)
+    /// Cards and tiles.
+    static let card = shade(dark: 0x1C1C1E, classic: 0xFFFFFF)
 
     static func color(for state: CaptureState) -> Color {
         switch state {

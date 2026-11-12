@@ -3,13 +3,13 @@
 //  NailVitals
 //
 //  Shared styling: a solid capsule for the main action, a quiet text
-//  button for secondary ones, and cards. Dark uses glowing color and glass;
-//  Classic (white) uses plain white cards with a hairline edge.
+//  button for secondary ones, and cards. Flat in both looks: white cards
+//  with a hairline edge in Classic, dark gray cards on black in Dark.
 //
 
 import SwiftUI
 
-/// Main action: solid glowing capsule; dims when disabled.
+/// Main action: solid capsule; dims when disabled.
 struct GlowButtonStyle: ButtonStyle {
     var color: Color = Theme.aligned
 
@@ -31,9 +31,8 @@ struct GlowButtonStyle: ButtonStyle {
                 .padding(.horizontal, 28)
                 .padding(.vertical, 13)
                 .background(Capsule().fill(color))
-                .shadow(color: scheme == .dark ? color.opacity(isEnabled ? 0.6 : 0) : .black.opacity(isEnabled ? 0.12 : 0),
-                        radius: configuration.isPressed ? 4 : (scheme == .dark ? 12 : 8),
-                        y: scheme == .dark ? 0 : 3)
+                .shadow(color: .black.opacity(scheme == .light && isEnabled ? 0.12 : 0),
+                        radius: configuration.isPressed ? 4 : 8, y: 3)
                 .scaleEffect(configuration.isPressed ? 0.96 : 1)
                 .opacity(isEnabled ? 1 : 0.4)
                 .animation(.spring(response: 0.25, dampingFraction: 0.7), value: configuration.isPressed)
@@ -52,30 +51,18 @@ struct GhostButtonStyle: ButtonStyle {
     }
 }
 
-/// The home side's backdrop: graphite with faint emerald and violet glows
-/// in Dark; plain light gray in Classic.
+/// The home side's backdrop: plain light gray in Classic, black in Dark.
 struct AppBackground: View {
-    @Environment(\.colorScheme) private var scheme
-
     var body: some View {
-        ZStack {
-            if scheme == .dark {
-                Color(red: 0.055, green: 0.06, blue: 0.075)
-                RadialGradient(colors: [Theme.aligned.opacity(0.10), .clear], center: .topLeading, startRadius: 20, endRadius: 460)
-                RadialGradient(colors: [Theme.violet.opacity(0.14), .clear], center: .bottomTrailing, startRadius: 20, endRadius: 500)
-            } else {
-                Color(red: 0.953, green: 0.953, blue: 0.965)   // #F3F3F6
-            }
-        }
-        .ignoresSafeArea()
+        Theme.background.ignoresSafeArea()
     }
 }
 
 /// The safety line every result shows.
 struct SafetyNote: View {
     var body: some View {
-        Text("This tool flags a pattern that may be worth discussing with a doctor. It does not diagnose any condition.")
-            .font(.system(size: 12, weight: .medium))
+        Text("A screening aid, not a diagnosis. This tool flags a pattern that may be worth discussing with a doctor. It does not diagnose any condition.")
+            .font(.footnote.weight(.medium))
             .foregroundStyle(Color.primary.opacity(0.6))
             .multilineTextAlignment(.center)
             .frame(maxWidth: .infinity)
@@ -109,13 +96,12 @@ struct EmptyStateCard: View {
 }
 
 extension View {
-    /// Liquid Glass card in Dark (the home side); white card in Classic.
+    /// A card: white in Classic, dark gray in Dark.
     func glassCard(cornerRadius: CGFloat = 24) -> some View {
         modifier(CardBackground(cornerRadius: cornerRadius, kind: .glass))
     }
 
-    /// Frosted-glass card with a faint edge highlight in Dark; white card
-    /// in Classic.
+    /// A card on the camera side's screens; same surface as glassCard.
     func glassPanel(cornerRadius: CGFloat = 20) -> some View {
         modifier(CardBackground(cornerRadius: cornerRadius, kind: .panel))
     }
@@ -128,8 +114,8 @@ extension View {
 }
 
 extension View {
-    /// A round control's surface: interactive glass in Dark; a white disc
-    /// with a soft shadow in Classic.
+    /// A round control's surface: a white disc with a soft shadow in
+    /// Classic, a dark gray disc in Dark.
     func roundSurface() -> some View {
         modifier(RoundSurface())
     }
@@ -147,7 +133,11 @@ private struct RoundSurface: ViewModifier {
                     .shadow(color: .black.opacity(0.08), radius: 14, y: 5)
             }
         } else {
-            content.glassEffect(.regular.interactive(), in: .circle)
+            content.background {
+                Circle()
+                    .fill(Theme.card)
+                    .overlay(Circle().stroke(Color.white.opacity(0.10), lineWidth: 1))
+            }
         }
     }
 }
@@ -168,12 +158,10 @@ private struct CardBackground: ViewModifier {
                 .shadow(color: .black.opacity(kind == .tile ? 0 : 0.05), radius: 12, y: 4)
         } else {
             switch kind {
-            case .glass:
-                content.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
-            case .panel:
+            case .glass, .panel:
                 content
-                    .background(.ultraThinMaterial, in: shape)
-                    .overlay(shape.stroke(Color.white.opacity(0.12), lineWidth: 1))
+                    .background(Theme.card, in: shape)
+                    .overlay(shape.stroke(Color.white.opacity(0.08), lineWidth: 1))
             case .tile:
                 content.background(Color.white.opacity(0.06), in: shape)
             }
