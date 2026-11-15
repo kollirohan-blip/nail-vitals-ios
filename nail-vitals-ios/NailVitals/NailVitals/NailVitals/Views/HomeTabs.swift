@@ -27,7 +27,7 @@ struct HomeTabs: View {
         TabView(selection: $tab) {
             Tab("Home", systemImage: "house.fill", value: AppTab.home) {
                 HomeView(history: history, transition: transition, onStartScan: onStartScan,
-                         onStartModelScan: onStartModelScan, onShowHistory: { tab = .history })
+                         onStartModelScan: onStartModelScan)
             }
             Tab("History", systemImage: "clock.arrow.circlepath", value: AppTab.history) {
                 HistoryView(history: history)

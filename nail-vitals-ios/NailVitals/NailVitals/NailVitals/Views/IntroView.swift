@@ -70,7 +70,8 @@ struct IntroView: View {
                     dismiss()
                 }
             }
-            .buttonStyle(GlowButtonStyle(color: .primary))
+            .buttonStyle(.primaryAction)
+            .padding(.horizontal, 24)
             .padding(.top, 26)
             .padding(.bottom, 30)
         }

@@ -300,5 +300,32 @@ check("oldResultsHaveNoChecks") {
     return s.rows.isEmpty && s.badge == nil
 }
 
+// MARK: - Minimal Home and History wording
+
+check("statusLineForANewUser") {
+    CheckupWording.statusLine(hand: nil, overall: nil, date: nil, now: now, calendar: utc) == "No assessments yet"
+}
+check("statusLineSaysFingerStateAndWhen") {
+    CheckupWording.statusLine(hand: .right, overall: .typical, date: day("2026-11-10"), now: now, calendar: utc)
+        == "Right index · Typical · assessed 2 days ago"
+}
+check("statusLineToday") {
+    CheckupWording.statusLine(hand: .left, overall: .worthDiscussing, date: day("2026-11-12"), now: now, calendar: utc)
+        == "Left index · Worth discussing · assessed today"
+}
+check("comparisonNamesBothValuesAndTheEarlierDate") {
+    CheckupWording.comparison(.lovibond, latest: 166.8, previous: 168.1, previousDate: day("2026-11-05"), calendar: utc)
+        == "Latest 166.8° · previous 168.1° (Nov 5)"
+}
+check("smallChangeIsCalledNormal") {
+    CheckupWording.changeNote(.lovibond, latest: 166.8, previous: 168.1)
+        == "Within the usual day-to-day range (± 3°)."
+}
+check("bigChangeAsksForAnotherAssessmentNotADiagnosis") {
+    let note = CheckupWording.changeNote(.lovibond, latest: 166.8, previous: 174.6)
+    return note == "More than the usual day-to-day range (± 3°). Assess again with your finger held straight to check it."
+        && !note.contains("worse") && !note.contains("better")
+}
+
 print(failures == 0 ? "signs-harness: all checks passed" : "signs-harness: \(failures) check(s) FAILED")
 exit(failures == 0 ? 0 : 1)

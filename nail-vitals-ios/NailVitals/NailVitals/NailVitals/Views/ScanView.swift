@@ -26,6 +26,8 @@ struct ScanView: View {
     @State private var sessionReadings: [FingerSigns] = []
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
     @State private var showGuide = false
+    /// The pose guide shows by itself the first time the camera opens.
+    @AppStorage("hasSeenPoseGuide") private var hasSeenPoseGuide = false
     @AppStorage("voiceGuidance") private var voiceOn = true
     @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .automatic
     @State private var voice = VoiceCoach()
@@ -113,6 +115,10 @@ struct ScanView: View {
         .onAppear {
             camera.checkPermissionAndStart()
             haptics.prepare()
+            if !modelMode && !hasSeenPoseGuide {
+                hasSeenPoseGuide = true
+                showGuide = true
+            }
         }
         .onDisappear {
             camera.stop()

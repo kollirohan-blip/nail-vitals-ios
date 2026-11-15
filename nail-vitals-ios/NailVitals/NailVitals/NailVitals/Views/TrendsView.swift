@@ -66,7 +66,7 @@ struct SignTrendCard: View {
                 }
             }
             if points.count < 2 {
-                Text("Not enough scans with this sign yet.")
+                Text("Not enough assessments with this sign yet.")
                     .font(.subheadline)
                     .foregroundStyle(Color.primary.opacity(0.6))
             } else {

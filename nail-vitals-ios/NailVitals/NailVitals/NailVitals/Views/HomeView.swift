@@ -2,14 +2,14 @@
 //  HomeView.swift
 //  NailVitals
 //
-//  The Home tab: one big button to start a check-up, and nothing to
-//  decide before it. Under it: what the app checks, the last result and a
-//  small trend. Testing tools (study tags, the model finger) sit in the
-//  options menu, out of the normal flow.
+//  The Home tab, as little as possible: one status line, one picture (your
+//  latest nail angle on the app's arc, or the pose for someone new), one
+//  button to start an assessment, one row for the other tests, and one
+//  line on privacy and what the app is. Everything else (look, finger,
+//  reminder, data, research tools) is in Settings behind the gear.
 //
 
 import SwiftUI
-import Charts
 
 struct HomeView: View {
     @ObservedObject var history: ScanHistory
@@ -18,278 +18,268 @@ struct HomeView: View {
     let onStartScan: () -> Void
     /// Scans a printed model finger on a stand (no hand to detect).
     var onStartModelScan: () -> Void = {}
-    /// Switches to the History tab.
-    var onShowHistory: () -> Void = {}
 
     @AppStorage("measuredHand") private var hand: MeasuredHand = .right
-    @AppStorage(AppAppearance.storageKey) private var appearance: AppAppearance = .automatic
-    @State private var showStudy = false
+    @State private var showSettings = false
+    @State private var showMoreTests = false
     @State private var showNailCheck = false
     @State private var showSchamroth = false
-    @State private var showScience = false
-    @Environment(\.dynamicTypeSize) private var typeSize
+    @State private var openLatest: UUID?
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(spacing: Spacing.component) {
                     header
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(CheckupWording.greeting(hour: Calendar.current.component(.hour, from: Date())))
-                            .font(.title.weight(.bold))
-                            .accessibilityAddTraits(.isHeader)
-                        Text(CheckupWording.lastCheckupLine(date: history.latest?.date,
-                                                            overall: history.latest?.report.overall))
-                            .font(.subheadline)
-                            .foregroundStyle(Theme.secondaryText)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    VStack(spacing: 4) {
+                    statusLine
+                    hero
+                    VStack(spacing: Spacing.tight) {
                         startButton
-                        fingerMenu
+                        Text("3 guided side photos · about a minute")
+                            .font(.footnote)
+                            .foregroundStyle(Theme.secondaryText)
+                        fingerPicker
+                            .padding(.top, Spacing.tight)
                     }
-                    checks
-                    lastResult
-                    if history.sessions.count >= 2 {
-                        trend
-                    }
-                    SafetyNote()
-                        .padding(.top, 4)
+                    moreTests
+                    footer
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 16)
+                .padding(.bottom, Spacing.component)
             }
+            .scrollBounceBehavior(.basedOnSize)
             .background(AppBackground())
             .toolbar(.hidden, for: .navigationBar)
-            .navigationDestination(for: UUID.self) { SessionDetailView(history: history, id: $0) }
-            .sheet(isPresented: $showStudy) { StudyPanelView() }
-            .sheet(isPresented: $showScience) { AboutMeasurementsView() }
+            .navigationDestination(item: $openLatest) { SessionDetailView(history: history, id: $0) }
+            .sheet(isPresented: $showSettings) {
+                SettingsView(history: history, onStartModelScan: onStartModelScan)
+            }
+            .sheet(isPresented: $showMoreTests) { moreTestsSheet }
             .fullScreenCover(isPresented: $showNailCheck) { NailCheckView().dynamicTypeSize(...DynamicTypeSize.accessibility1) }
             .fullScreenCover(isPresented: $showSchamroth) { SchamrothView().dynamicTypeSize(...DynamicTypeSize.accessibility1) }
         }
     }
 
-    /// The small logo, and one menu for the look and the testing tools.
+    // MARK: - Pieces
+
     private var header: some View {
-        HStack(alignment: .center) {
+        HStack {
             BrandMark()
             Spacer()
-            Menu {
-                Picker("Look", selection: $appearance) {
-                    ForEach(AppAppearance.allCases, id: \.self) { Text($0.label).tag($0) }
-                }
-                .pickerStyle(.inline)
-                Button(action: onStartModelScan) {
-                    Label("Scan a model finger", systemImage: "cube.transparent")
-                }
-                if saveCapturesForTesting {
-                    Button { showStudy = true } label: {
-                        Label("Study", systemImage: "person.2.fill")
-                    }
-                }
-            } label: {
-                Image(systemName: "ellipsis")
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape")
                     // Fixed size: the icon sits in a fixed 44-pt disc.
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundStyle(Theme.text)
                     .frame(width: 44, height: 44)
                     .roundSurface()
             }
-            .accessibilityLabel("Options")
+            .accessibilityLabel("Settings")
         }
         .padding(.top, 10)
     }
 
-    private var startButton: some View {
-        Button(action: onStartScan) {
-            VStack(spacing: 6) {
-                Image(systemName: "viewfinder")
-                    .font(.title.weight(.medium))
-                Text("Start assessment")
-                    .font(.title2.weight(.semibold))
-                    .multilineTextAlignment(.center)
-                Text("3 side photos of your index finger")
-                    .font(.subheadline)
-                    .multilineTextAlignment(.center)
-            }
-            .foregroundStyle(Theme.onAction)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 26)
-            .padding(.horizontal, 16)
-            .background(Theme.action, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
-            .contentShape(.rect)
-        }
-        .buttonStyle(.pressableCard)
-        .modifier(ScanTransitionSource(namespace: transition))
-        .accessibilityLabel("Start assessment. 3 side photos of your index finger.")
-    }
-
-    /// Which index finger the check-up measures.
-    private var fingerMenu: some View {
-        Menu {
-            Picker("Finger", selection: $hand) {
-                ForEach(MeasuredHand.allCases, id: \.self) { Text("\($0.label) index finger").tag($0) }
-            }
-        } label: {
-            HStack(spacing: 6) {
-                Text("\(hand.label) index finger")
-                Image(systemName: "chevron.up.chevron.down")
-                    .imageScale(.small)
-            }
+    private var statusLine: some View {
+        Text(CheckupWording.statusLine(hand: history.latest.flatMap { MeasuredHand(rawValue: $0.hand) },
+                                       overall: history.latest?.report.overall,
+                                       date: history.latest?.date))
             .font(.subheadline.weight(.medium))
-            .foregroundStyle(Theme.text)
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .contentShape(.rect)
-        }
-        .accessibilityLabel("Finger to measure: \(hand.label) index finger")
+            .foregroundStyle(Theme.secondaryText)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
-    // MARK: - What it checks
-
-    private var checks: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("What it checks")
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
-            // The main check, then the two beta tests side by side (stacked
-            // at very large text sizes).
-            Button { showScience = true } label: {
-                HStack(spacing: 14) {
-                    Image(systemName: "angle")
-                        .font(.title3.weight(.medium))
-                        .frame(width: 28)
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Clubbing")
-                            .font(.subheadline.weight(.semibold))
-                        Text("Nail and fingertip shape: 3 signs from the side photos")
+    /// The latest nail angle on the arc (tap to open it), or the pose to
+    /// hold for someone who hasn't assessed yet.
+    @ViewBuilder
+    private var hero: some View {
+        if let latest = history.latest, let angle = latest.report.assessment.values[.lovibond] {
+            let report = latest.report
+            Button { openLatest = latest.id } label: {
+                VStack(spacing: Spacing.tight) {
+                    ResultGauge(angle: angle, uncertainty: report.noDip ? 0 : (Repeatability.range95[.lovibond] ?? 0))
+                        .frame(width: 280, height: 170)
+                        .accessibilityHidden(true)
+                    Text(report.noDip ? "≥180°" : SignKind.lovibond.formatted(angle))
+                        .heroNumber()
+                        .foregroundStyle(Theme.text)
+                    HStack(spacing: Spacing.tight) {
+                        StatePill(state: report.overall)
+                        Text("Latest nail angle")
                             .font(.footnote)
                             .foregroundStyle(Theme.secondaryText)
-                            .multilineTextAlignment(.leading)
-                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    Spacer(minLength: 4)
-                    Image(systemName: "chevron.right")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Theme.secondaryText)
                 }
-                .foregroundStyle(Theme.text)
-                .padding(14)
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .frame(maxWidth: .infinity)
                 .contentShape(.rect)
-                .glassCard(cornerRadius: 20)
             }
             .buttonStyle(.pressableCard)
             .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Clubbing: nail and fingertip shape, 3 signs from the side photos. Opens the science.")
-
-            let columns = typeSize.isAccessibilitySize
-                ? [GridItem(.flexible())]
-                : [GridItem(.flexible(), spacing: 12), GridItem(.flexible())]
-            LazyVGrid(columns: columns, spacing: 12) {
-                betaTile("Nail appearance", "Terry's and half-and-half patterns", icon: "hand.raised.fingers.spread") { showNailCheck = true }
-                betaTile("Schamroth window", "The gap between two nails", icon: "rhombus") { showSchamroth = true }
-            }
-        }
-    }
-
-    /// One of the beta tests, opened on its own.
-    private func betaTile(_ title: String, _ detail: String, icon: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(alignment: .center) {
-                    Image(systemName: icon)
-                        .font(.body.weight(.medium))
-                    Spacer()
-                    Text("Beta")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Theme.secondaryText)
+            .accessibilityLabel("Latest nail angle \(report.noDip ? "180 degrees or more" : SignKind.lovibond.formatted(angle)), \(report.overall.label). Opens the result.")
+        } else {
+            VStack(spacing: Spacing.normal) {
+                ZStack {
+                    FingerProfileShape()
+                        .stroke(Theme.text, style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round))
+                    LovibondAngleMark()
+                        .stroke(Theme.accent, style: StrokeStyle(lineWidth: 4, lineCap: .round))
                 }
-                .frame(minHeight: 24)
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-                Text(detail)
-                    .font(.footnote)
+                .frame(width: 96, height: 170)
+                Text("Point your index finger up, side-on. The photo takes itself.")
+                    .font(.subheadline)
                     .foregroundStyle(Theme.secondaryText)
-                    .multilineTextAlignment(.leading)
+                    .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .foregroundStyle(Theme.text)
-            .padding(14)
-            .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
-            .contentShape(.rect)
-            .glassCard(cornerRadius: 20)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, Spacing.tight)
+            .accessibilityElement(children: .combine)
+        }
+    }
+
+    private var startButton: some View {
+        Button(action: onStartScan) {
+            Label("Start assessment", systemImage: "viewfinder")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Theme.onAccent)
+                .frame(maxWidth: .infinity, minHeight: 58)
+                .background(Theme.accent, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .contentShape(.rect)
         }
         .buttonStyle(.pressableCard)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(title), beta test: \(detail)")
+        .modifier(ScanTransitionSource(namespace: transition))
+        .accessibilityHint("3 guided side photos of your \(hand.label.lowercased()) index finger")
     }
 
-    // MARK: - Last result and trend
-
-    @ViewBuilder
-    private var lastResult: some View {
-        if let latest = history.latest {
-            NavigationLink(value: latest.id) {
-                SessionRow(session: latest, caption: "Last result")
-            }
-            .buttonStyle(.pressableCard)
-        } else {
-            Text("Your results show up here after your first assessment.")
-                .font(.subheadline)
-                .foregroundStyle(Theme.secondaryText)
-                .multilineTextAlignment(.center)
-                .padding(16)
-                .frame(maxWidth: .infinity)
-                .glassCard(cornerRadius: 20)
+    /// Which index finger the assessment measures.
+    private var fingerPicker: some View {
+        Picker("Finger", selection: $hand) {
+            ForEach(MeasuredHand.allCases, id: \.self) { Text("\($0.label) index").tag($0) }
         }
+        .pickerStyle(.segmented)
+        .frame(maxWidth: 260)
+        .accessibilityLabel("Finger to measure")
     }
 
-    /// The nail angle across check-ups, small; opens History.
-    private var trend: some View {
-        let points = history.sessions.compactMap { session -> (date: Date, value: Double)? in
-            session.report.assessment.values[.lovibond].map { (session.date, $0) }
-        }
-        return Button(action: onShowHistory) {
-            HStack(spacing: 14) {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Your trend")
-                        .font(.subheadline.weight(.semibold))
+    private var moreTests: some View {
+        Button { showMoreTests = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "square.grid.2x2")
+                    .font(.body.weight(.medium))
+                    .foregroundStyle(Theme.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("More tests")
+                        .font(.body.weight(.semibold))
                         .foregroundStyle(Theme.text)
-                    Text("\(history.sessions.count) assessments")
+                    Text("Nail appearance · Schamroth window")
                         .font(.footnote)
                         .foregroundStyle(Theme.secondaryText)
                 }
                 Spacer(minLength: 8)
-                if points.count >= 2 {
-                    Chart {
-                        ForEach(Array(points.enumerated()), id: \.offset) { index, point in
-                            LineMark(x: .value("Assessment", index), y: .value("Nail angle", point.value))
-                                .foregroundStyle(Theme.secondaryText)
-                                .interpolationMethod(.monotone)
-                        }
-                        if let last = points.last {
-                            PointMark(x: .value("Assessment", points.count - 1), y: .value("Nail angle", last.value))
-                                .foregroundStyle(SignState(SignKind.lovibond.status(of: last.value)).color)
-                                .symbolSize(40)
-                        }
-                    }
-                    .chartXAxis(.hidden)
-                    .chartYAxis(.hidden)
-                    .chartYScale(domain: .automatic(includesZero: false))
-                    .frame(width: 110, height: 36)
-                    .accessibilityHidden(true)
-                }
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(Theme.secondaryText)
                     .accessibilityHidden(true)
             }
-            .padding(16)
-            .frame(minHeight: 44)
+            .padding(Spacing.normal)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(.rect)
             .glassCard(cornerRadius: 20)
         }
         .buttonStyle(.pressableCard)
-        .accessibilityLabel("Your trend: \(history.sessions.count) assessments. Opens History.")
+    }
+
+    private var footer: some View {
+        VStack(spacing: 4) {
+            Label("Photos never leave this phone", systemImage: "lock.fill")
+                .font(.footnote.weight(.medium))
+            Text("A screening aid, not a diagnosis.")
+                .font(.footnote)
+        }
+        .foregroundStyle(Theme.secondaryText)
+        .multilineTextAlignment(.center)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .combine)
+    }
+
+    // MARK: - More tests
+
+    private var moreTestsSheet: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(spacing: Spacing.normal) {
+                    Text("These tests are still being checked for accuracy. They don't affect your assessment result.")
+                        .font(.subheadline)
+                        .foregroundStyle(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    testRow("Nail appearance", "Pale nails with a darker band at the tip, the pattern of Terry's and half-and-half nails. From a photo of your nails from above.", icon: "hand.raised.fingers.spread") {
+                        showMoreTests = false
+                        showNailCheck = true
+                    }
+                    testRow("Schamroth window", "Press the backs of your two index fingertips together, nail to nail. A small diamond-shaped gap normally shows between them.", icon: "rhombus") {
+                        showMoreTests = false
+                        showSchamroth = true
+                    }
+                }
+                .padding(20)
+            }
+            .background(AppBackground())
+            .navigationTitle("More tests")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showMoreTests = false }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .tint(Theme.accent)
+    }
+
+    private func testRow(_ title: String, _ detail: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(alignment: .top, spacing: 14) {
+                Image(systemName: icon)
+                    .font(.title3)
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 30)
+                VStack(alignment: .leading, spacing: 4) {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { testTitle(title); validationTag }
+                        VStack(alignment: .leading, spacing: 2) { testTitle(title); validationTag }
+                    }
+                    Text(detail)
+                        .font(.footnote)
+                        .foregroundStyle(Theme.secondaryText)
+                        .multilineTextAlignment(.leading)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Theme.secondaryText)
+                    .accessibilityHidden(true)
+            }
+            .padding(Spacing.normal)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(.rect)
+            .glassCard(cornerRadius: 20)
+        }
+        .buttonStyle(.pressableCard)
+        .accessibilityLabel("\(title), validation in progress: \(detail)")
+    }
+
+    private func testTitle(_ title: String) -> some View {
+        Text(title)
+            .font(.body.weight(.semibold))
+            .foregroundStyle(Theme.text)
+    }
+
+    private var validationTag: some View {
+        Text("Validation in progress")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(Theme.secondaryText)
     }
 }

@@ -106,7 +106,7 @@ struct ResultGauge: View, Animatable {
                 // How far a scan usually moves from day to day.
                 if uncertainty > 0 {
                     arc(from: angle - uncertainty, to: angle + uncertainty, center: center, radius: radius)
-                        .stroke(Color.primary.opacity(0.22), style: StrokeStyle(lineWidth: 24, lineCap: .butt))
+                        .stroke(Color.primary.opacity(0.16), style: StrokeStyle(lineWidth: 26, lineCap: .round))
                 }
 
                 let color = SignState(kind.status(of: angle)).color

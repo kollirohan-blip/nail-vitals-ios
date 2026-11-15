@@ -1,7 +1,8 @@
 // ContentView.swift
 //
-// The app's root: the home tabs, with a guided scan opening full-screen
-// over them. A finished scan is saved to the history and shows on Home.
+// The app's root: the home tabs, with a guided assessment opening
+// full-screen over them. A finished assessment is saved to the history and
+// shows on Home. First launch shows the welcome screens.
 
 import SwiftUI
 
@@ -13,8 +14,8 @@ struct ContentView: View {
     @State private var scanning = false
     /// A printed model finger on a stand: measured like a finger, kept out of the history.
     @State private var scanningModel = false
-    @AppStorage("hasSeenPoseGuide") private var hasSeenPoseGuide = false
-    @State private var showGuide = false
+    @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
+    @State private var showWelcome = false
     @Namespace private var scanTransition
 
     var body: some View {
@@ -34,17 +35,22 @@ struct ContentView: View {
                 )
                 .navigationTransition(.zoom(sourceID: "scan", in: scanTransition))
             }
-            // The picture intro, once, on first launch.
-            .sheet(isPresented: $showGuide, onDismiss: { hasSeenPoseGuide = true }) {
-                IntroView()
+            // What the app is, where photos go, which finger: once, on
+            // first launch. How to hold the finger is shown the first time
+            // the camera opens (ScanView).
+            .fullScreenCover(isPresented: $showWelcome) {
+                WelcomeView {
+                    hasSeenWelcome = true
+                    showWelcome = false
+                }
             }
-            .onAppear(perform: showGuideOnFirstLaunch)
-            .onChange(of: splashFinished) { _, _ in showGuideOnFirstLaunch() }
+            .onAppear(perform: showWelcomeOnFirstLaunch)
+            .onChange(of: splashFinished) { _, _ in showWelcomeOnFirstLaunch() }
     }
 
-    private func showGuideOnFirstLaunch() {
-        if splashFinished && !hasSeenPoseGuide && !showGuide {
-            showGuide = true
+    private func showWelcomeOnFirstLaunch() {
+        if splashFinished && !hasSeenWelcome && !showWelcome {
+            showWelcome = true
         }
     }
 }
