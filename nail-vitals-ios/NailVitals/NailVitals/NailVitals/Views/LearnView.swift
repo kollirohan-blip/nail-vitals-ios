@@ -48,8 +48,8 @@ struct LearnView: View {
             }
             .background(AppBackground())
             .navigationTitle("Learn")
-            .fullScreenCover(isPresented: $showNailCheck) { NailCheckView() }
-            .fullScreenCover(isPresented: $showSchamroth) { SchamrothView() }
+            .fullScreenCover(isPresented: $showNailCheck) { NailCheckView().dynamicTypeSize(...DynamicTypeSize.accessibility1) }
+            .fullScreenCover(isPresented: $showSchamroth) { SchamrothView().dynamicTypeSize(...DynamicTypeSize.accessibility1) }
         }
     }
 

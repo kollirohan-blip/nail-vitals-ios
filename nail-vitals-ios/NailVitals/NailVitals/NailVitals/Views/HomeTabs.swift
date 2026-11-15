@@ -69,7 +69,7 @@ struct BrandMark: View {
             .background(scheme == .dark ? Color(red: 0.13, green: 0.14, blue: 0.16) : .white, in: tile)
             .overlay(tile.stroke(Color.primary.opacity(0.1), lineWidth: 1))
             Text("Nail Vitals")
-                .font(.system(size: 17, weight: .semibold))
+                .font(.body.weight(.semibold))
                 .foregroundStyle(.primary)
         }
         .accessibilityElement(children: .combine)

@@ -41,7 +41,7 @@ struct SchamrothView: View {
                 case .analyzing:
                     VStack(spacing: 14) {
                         ProgressView()
-                        Text("Looking for the window…").font(.system(size: 15, weight: .medium))
+                        Text("Looking for the window…").font(.subheadline.weight(.medium))
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .review:
@@ -85,13 +85,13 @@ struct SchamrothView: View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("BETA · EXPERIMENTAL")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(Color.primary.opacity(0.6))
                 Text("Looks for the small gap between your nails")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.title3.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
                 Text("Press the backs of your two index fingertips together, nail to nail. Normally a small diamond-shaped gap, the window, shows between the nails near the cuticles. In clubbing it disappears (Schamroth, 1976).")
-                    .font(.system(size: 15))
+                    .font(.subheadline)
                     .foregroundStyle(Color.primary.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)
                 SchamrothPoseDrawing()
@@ -114,7 +114,7 @@ struct SchamrothView: View {
 
             Button { cameraMode = .timer } label: {
                 Label("Use the timer (phone on a stand)", systemImage: "timer")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
             }
@@ -122,7 +122,7 @@ struct SchamrothView: View {
             .tint(Theme.action)
             Button { cameraMode = .helper } label: {
                 Label("Someone else takes it", systemImage: "camera.fill")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.body.weight(.medium))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
             }
@@ -130,17 +130,17 @@ struct SchamrothView: View {
             .tint(.primary)
             PhotosPicker(selection: $pickerItem, matching: .images) {
                 Label("Choose a photo", systemImage: "photo.on.rectangle")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.body.weight(.medium))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
             }
             .buttonStyle(.glass)
             .tint(.primary)
             if let loadError {
-                Text(loadError).font(.system(size: 13)).foregroundStyle(Theme.attention)
+                Text(loadError).font(.footnote).foregroundStyle(Theme.attention)
             }
             Text("The photo stays on this screen. Nothing is saved or sent.")
-                .font(.system(size: 13))
+                .font(.footnote)
                 .foregroundStyle(Color.primary.opacity(0.6))
             SafetyNote()
         }
@@ -153,7 +153,7 @@ struct SchamrothView: View {
                 .frame(width: 26)
                 .foregroundStyle(Color.primary.opacity(0.8))
             Text(text)
-                .font(.system(size: 15))
+                .font(.subheadline)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -195,7 +195,7 @@ struct SchamrothView: View {
         VStack(alignment: .leading, spacing: 10) {
             if gap != nil {
                 Text("Is the outlined gap the window between your nails?")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.body.weight(.semibold))
                 HStack(spacing: 10) {
                     Button("Not the window") { gap = nil; tapNote = "Tap the window on the photo if you can see one." }
                         .buttonStyle(GhostButtonStyle())
@@ -204,11 +204,11 @@ struct SchamrothView: View {
                 }
             } else {
                 Text("No window found automatically")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.body.weight(.semibold))
                 Text(tapNote ?? (found.map { $0.indexFingers.count < 2 } == true
                                  ? "The app couldn't find both index fingers in this photo. If you can see a small gap between your nails, tap it. Otherwise retake the photo."
                                  : "If you can see a small gap between your nails, tap it on the photo."))
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .foregroundStyle(Color.primary.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)
                 Button("There's no gap") { finish(windowSeen: false) }
@@ -226,26 +226,26 @@ struct SchamrothView: View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("BETA · EXPERIMENTAL")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(Color.primary.opacity(0.6))
                 HStack(spacing: 10) {
                     Circle().fill(seen ? Theme.aligned : Theme.adjusting).frame(width: 12, height: 12)
                     Text(seen ? "Window seen" : "No window seen")
-                        .font(.system(size: 24, weight: .semibold))
+                        .font(.title.weight(.semibold))
                         .foregroundStyle(seen ? Theme.aligned : Theme.adjusting)
                 }
                 Text(seen
                      ? "A small gap between the nail beds is the usual finding (Schamroth, 1976)."
                      : "In clubbing the window disappears (Schamroth, 1976). It also closes if the fingertips aren't pressed nail to nail at the last joint, or if the photo isn't taken from the side. Try again; if it stays closed, mention it to your doctor along with your clubbing scan.")
-                    .font(.system(size: 15))
+                    .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)
                 if seen, let gap, let thickness = found?.fingerWidth {
                     Text(String(format: "The window is about %.0f%% of your fingertip's thickness long.", gap.length / thickness * 100))
-                        .font(.system(size: 13))
+                        .font(.footnote)
                         .foregroundStyle(Color.primary.opacity(0.7))
                 }
                 Text("This check is experimental and hasn't been tested on enough people to know how often it's right.")
-                    .font(.system(size: 13))
+                    .font(.footnote)
                     .foregroundStyle(Color.primary.opacity(0.65))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -413,7 +413,7 @@ struct SchamrothCameraView: View {
                 Text(mode == .timer
                      ? "Stand the phone up, fingertips nail to nail, side on, in the frame. Tap Start: the photo is taken after 3, 2, 1."
                      : "Fingertips nail to nail, side on, close to the camera. Tap the button.")
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.subheadline.weight(.medium))
                     .foregroundStyle(.white)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 18)
@@ -425,7 +425,7 @@ struct SchamrothCameraView: View {
                         Circle().stroke(Color.white.opacity(0.85), lineWidth: 4)
                         if mode == .timer {
                             Text(countdown == nil ? "Start" : "Stop")
-                                .font(.system(size: 17, weight: .semibold))
+                                .font(.body.weight(.semibold))
                                 .foregroundStyle(.white)
                         } else {
                             Circle().fill(Color.white).padding(8)

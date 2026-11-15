@@ -32,7 +32,7 @@ struct AboutMeasurementsContent: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
                 Text("From one side photo of your index finger, the app measures three signs that doctors use to check for finger clubbing.")
-                    .font(.system(size: 15))
+                    .font(.subheadline)
                     .foregroundColor(.primary.opacity(0.85))
 
                 sign(.lovibond,
@@ -68,7 +68,7 @@ struct AboutMeasurementsContent: View {
 
                 section("Why a doctor, not just the app") {
                     Text("Clubbing is a sign, not a disease. It can go along with lung, heart, liver or digestive conditions, and some people are born with it and are healthy. Only a doctor can find out what it means for you. The app gives a steady, repeatable measurement you can bring to that conversation.")
-                        .font(.system(size: 15))
+                        .font(.subheadline)
                         .foregroundColor(.primary.opacity(0.85))
                 }
 
@@ -87,7 +87,7 @@ struct AboutMeasurementsContent: View {
                 }
 
                 Text("This tool flags a pattern that may be worth discussing with a doctor. It does not diagnose any condition.")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.footnote.weight(.medium))
                     .foregroundColor(.secondary)
                     .padding(.top, 4)
             }
@@ -101,22 +101,22 @@ struct AboutMeasurementsContent: View {
             HStack(alignment: .firstTextBaseline) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(kind.plainName)
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.body.weight(.semibold))
                         .foregroundColor(.primary)
                     Text(kind.title)
-                        .font(.system(size: 13))
+                        .font(.footnote)
                         .foregroundColor(.secondary)
                 }
                 Spacer()
                 Text("cut-off \(kind.formattedThreshold)")
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.footnote.weight(.semibold))
                     .foregroundColor(.primary.opacity(0.7))
             }
             Text(what)
-                .font(.system(size: 15))
+                .font(.subheadline)
                 .foregroundColor(.primary.opacity(0.85))
             Text(healthy)
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundColor(.secondary)
         }
         .padding(14)
@@ -127,7 +127,7 @@ struct AboutMeasurementsContent: View {
     private func section(_ title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
-                .font(.system(size: 17, weight: .semibold))
+                .font(.body.weight(.semibold))
                 .foregroundColor(.primary)
             content()
         }
@@ -137,14 +137,14 @@ struct AboutMeasurementsContent: View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
             Circle().fill(Color.primary.opacity(0.6)).frame(width: 5, height: 5)
             Text(text)
-                .font(.system(size: 15))
+                .font(.subheadline)
                 .foregroundColor(.primary.opacity(0.85))
         }
     }
 
     private func source(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 13))
+            .font(.footnote)
             .foregroundColor(.secondary)
     }
 }

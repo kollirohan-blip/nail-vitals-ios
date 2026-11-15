@@ -120,6 +120,9 @@ struct CaptureFlowView: View {
                         onManual: { stage = .manual($0) },
                         noDipNote: noDipResult == nil ? nil : "The nail runs straight out of the skin with no dip. Clubbing does this, and so does a finger turned toward the camera. If you can see the flat of your nail, tap Retake and turn your finger sideways. Otherwise, check the dot and tap Looks right."
                     )
+                    // Laid out around the photo: text grows to the first
+                    // accessibility size only.
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                 }
 
             case .manual(let suggestion):
@@ -134,6 +137,7 @@ struct CaptureFlowView: View {
                         onConfirm: { finish(with: $0, manualDots: $1) },
                         onCancel: onDismiss
                     )
+                    .dynamicTypeSize(...DynamicTypeSize.accessibility1)
                 }
 
             case .result:
@@ -188,7 +192,7 @@ struct CaptureFlowView: View {
                         .font(.system(size: 34))
                         .foregroundColor(Theme.adjusting)
                     Text(message)
-                        .font(.system(size: 16))
+                        .font(.body)
                         .foregroundColor(.primary)
                         .multilineTextAlignment(.center)
                     Button("Try again", action: onDismiss)
@@ -585,7 +589,7 @@ private struct MeasuringView: View {
                 HStack(spacing: 10) {
                     ProgressView().tint(.primary)
                     Text("Measuring…")
-                        .font(.system(size: 16, weight: .semibold))
+                        .font(.body.weight(.semibold))
                         .foregroundColor(.primary)
                 }
                 .padding(.horizontal, 20)
@@ -617,10 +621,10 @@ private struct FingerQuestionView: View {
                 .font(.system(size: 34))
                 .foregroundColor(Theme.adjusting)
             Text(title)
-                .font(.system(size: 22, weight: .bold))
+                .font(.title2.weight(.bold))
                 .foregroundColor(.primary)
             Text(message)
-                .font(.system(size: 16))
+                .font(.body)
                 .foregroundColor(.primary.opacity(0.8))
                 .multilineTextAlignment(.center)
             VStack(spacing: 10) {
@@ -669,12 +673,12 @@ private struct ReadingSavedView: View {
 
             VStack(spacing: 8) {
                 Text(count.map { "Reading \($0) of \(target) saved" } ?? "That one didn't work")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.title.weight(.bold))
                     .foregroundColor(.primary)
                 Text(count == nil
                      ? "The measurement wasn't reliable. Let's take it again."
                      : "Keep the same pose for the next one.")
-                    .font(.system(size: 16))
+                    .font(.body)
                     .foregroundColor(.primary.opacity(0.75))
                     .multilineTextAlignment(.center)
             }

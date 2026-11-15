@@ -89,13 +89,13 @@ struct NailCheckView: View {
         VStack(spacing: 16) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("BETA · EXPERIMENTAL")
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.caption.weight(.semibold))
                     .foregroundStyle(Color.primary.opacity(0.6))
                 Text("Looks for a pale nail with a darker band at the tip")
-                    .font(.system(size: 20, weight: .semibold))
+                    .font(.title3.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
                 Text("Doctors call this Terry's nails when the band is narrow, and half-and-half nails when it covers about half the nail.")
-                    .font(.system(size: 15))
+                    .font(.subheadline)
                     .foregroundStyle(Color.primary.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -115,7 +115,7 @@ struct NailCheckView: View {
             if UIImagePickerController.isSourceTypeAvailable(.camera) {
                 Button { showCamera = true } label: {
                     Label("Take a photo", systemImage: "camera.fill")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 6)
                 }
@@ -124,17 +124,17 @@ struct NailCheckView: View {
             }
             PhotosPicker(selection: $pickerItem, matching: .images) {
                 Label("Choose a photo", systemImage: "photo.on.rectangle")
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.body.weight(.medium))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 6)
             }
             .buttonStyle(.glass)
             .tint(.primary)
             if let loadError {
-                Text(loadError).font(.system(size: 13)).foregroundStyle(Theme.attention)
+                Text(loadError).font(.footnote).foregroundStyle(Theme.attention)
             }
             Text("The photo stays on this screen. Nothing is saved or sent.")
-                .font(.system(size: 13))
+                .font(.footnote)
                 .foregroundStyle(Color.primary.opacity(0.6))
             SafetyNote()
         }
@@ -147,7 +147,7 @@ struct NailCheckView: View {
                 .frame(width: 26)
                 .foregroundStyle(Color.primary.opacity(0.8))
             Text(text)
-                .font(.system(size: 15))
+                .font(.subheadline)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
@@ -157,7 +157,7 @@ struct NailCheckView: View {
     private func marking(_ photo: UIImage) -> some View {
         VStack(spacing: 0) {
             Text(instruction)
-                .font(.system(size: 15, weight: .medium))
+                .font(.subheadline.weight(.medium))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 20)
@@ -229,7 +229,7 @@ struct NailCheckView: View {
                     Button {
                         withAnimation(.snappy) { zoom = 1; pan = .zero }
                     } label: {
-                        Text("1×").font(.system(size: 13, weight: .semibold)).frame(width: 36, height: 36)
+                        Text("1×").font(.footnote.weight(.semibold)).frame(width: 36, height: 36)
                     }
                     .buttonStyle(.glass)
                     .position(x: geo.size.width - 30, y: geo.size.height - 30)
@@ -298,15 +298,15 @@ struct NailCheckView: View {
         let reading = Self.reading(nail.pattern)
         return HStack(alignment: .top, spacing: 12) {
             Text("\(index + 1)")
-                .font(.system(size: 13, weight: .bold))
+                .font(.footnote.weight(.bold))
                 .frame(width: 26, height: 26)
                 .background(Color.primary.opacity(0.08), in: Circle())
             VStack(alignment: .leading, spacing: 3) {
                 Text(reading.title)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundStyle(nail.pattern.kind == .paleWithBand ? Theme.attention : .primary)
                 Text(reading.detail)
-                    .font(.system(size: 13))
+                    .font(.footnote)
                     .foregroundStyle(Color.primary.opacity(0.65))
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -344,17 +344,17 @@ struct NailCheckView: View {
         return VStack(alignment: .leading, spacing: 10) {
             if flagged > 0 {
                 Text("Pattern seen on \(flagged) of \(nails.count) nail\(nails.count == 1 ? "" : "s")")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.title3.weight(.semibold))
                     .foregroundStyle(Theme.attention)
                 Text("Terry's-type nails have been linked with liver cirrhosis, heart failure and adult-onset diabetes, and also appear with normal ageing. Half-and-half nails are seen in 20–50% of people with chronic kidney disease.")
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("No band pattern on \(nails.count) nail\(nails.count == 1 ? "" : "s")")
-                    .font(.system(size: 18, weight: .semibold))
+                    .font(.title3.weight(.semibold))
             }
             Text("Nail color in a photo depends on the light, the camera and skin tone. This check is experimental and hasn't been tested on enough people to know how often it's right.")
-                .font(.system(size: 13))
+                .font(.footnote)
                 .foregroundStyle(Color.primary.opacity(0.65))
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -447,7 +447,7 @@ private struct NailLine: View {
                 segment(a, b, .white.opacity(0.8), dashed: pattern.kind == .unclear)
             }
             Text("\(number)")
-                .font(.system(size: 12, weight: .bold))
+                .font(.caption.weight(.bold))
                 .foregroundStyle(.black)
                 .frame(width: 20, height: 20)
                 .background(.white, in: Circle())

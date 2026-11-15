@@ -48,7 +48,7 @@ struct QualityPanel: View {
                 if !rows.isEmpty {
                     let passed = rows.filter { $0.failed == 0 }.count
                     Text("\(passed) of \(rows.count) passed")
-                        .font(.system(size: 13, weight: .semibold))
+                        .font(.footnote.weight(.semibold))
                         .foregroundStyle(passed == rows.count ? Theme.aligned : Theme.adjusting)
                 }
             }
@@ -57,35 +57,35 @@ struct QualityPanel: View {
                     Image(systemName: row.failed == 0 ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
                         .foregroundStyle(row.failed == 0 ? Theme.aligned : Theme.adjusting)
                     Text(row.label)
-                        .font(.system(size: 15, weight: .medium))
+                        .font(.subheadline.weight(.medium))
                         .foregroundStyle(.primary)
                     Spacer()
                     Text(row.failed == 0
                          ? (row.passed == 1 ? "passed" : "all \(row.passed)")
                          : "\(row.failed) of \(row.passed + row.failed) not")
-                        .font(.system(size: 13))
+                        .font(.footnote)
                         .foregroundStyle(Color.primary.opacity(0.6))
                 }
             }
             if rows.isEmpty {
                 Text("Saved before the app recorded its checks.")
-                    .font(.system(size: 13))
+                    .font(.footnote)
                     .foregroundStyle(Color.primary.opacity(0.6))
             }
             if let estimated = estimatedJoints {
                 Text(estimated)
-                    .font(.system(size: 12))
+                    .font(.caption)
                     .foregroundStyle(Color.primary.opacity(0.6))
             }
             Divider().opacity(0.5)
             if let spread = spreadText {
                 Text(spread)
-                    .font(.system(size: 13))
+                    .font(.footnote)
                     .foregroundStyle(Color.primary.opacity(0.8))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Text(repeatText)
-                .font(.system(size: 13))
+                .font(.footnote)
                 .foregroundStyle(Color.primary.opacity(0.8))
                 .fixedSize(horizontal: false, vertical: true)
         }

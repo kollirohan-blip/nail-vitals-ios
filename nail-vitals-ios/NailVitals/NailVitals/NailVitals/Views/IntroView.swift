@@ -25,7 +25,7 @@ struct IntroView: View {
             HStack {
                 Spacer()
                 Button("Skip") { dismiss() }
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.body.weight(.medium))
                     .foregroundStyle(Color.primary.opacity(0.6))
                     .opacity(page < cards.count - 1 ? 1 : 0)
             }
@@ -39,10 +39,10 @@ struct IntroView: View {
                             .frame(height: 280)
                         VStack(spacing: 10) {
                             Text(cards[i].title)
-                                .font(.system(size: 26, weight: .bold))
+                                .font(.title.weight(.bold))
                                 .foregroundStyle(.primary)
                             Text(cards[i].text)
-                                .font(.system(size: 17))
+                                .font(.body)
                                 .foregroundStyle(Color.primary.opacity(0.65))
                         }
                         .multilineTextAlignment(.center)
@@ -137,7 +137,7 @@ private struct FrameArt: View {
             .frame(width: 70, height: 150)
             .offset(y: 30)
             Label("Hold still", systemImage: "checkmark.circle.fill")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.caption.weight(.semibold))
                 .foregroundStyle(Theme.aligned)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
@@ -162,7 +162,7 @@ private struct ThreePhotosArt: View {
                     }
                     .frame(width: 70, height: 70)
                     Text("\(n)")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.primary.opacity(0.55))
                 }
             }

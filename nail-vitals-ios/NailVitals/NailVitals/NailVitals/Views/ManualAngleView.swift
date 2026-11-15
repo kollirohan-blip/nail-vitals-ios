@@ -60,7 +60,7 @@ struct ManualAngleView: View {
                             .padding(.top, 12)
                     } else {
                         Text((note.map { $0 + "\n" } ?? "") + "Drag the dots onto the edge of your nail: 2 where the nail meets the skin, 1 on the nail a quarter of the way to its tip, 3 on the skin the same distance below 2")
-                            .font(.system(size: 14, weight: .semibold))
+                            .font(.subheadline.weight(.semibold))
                             .foregroundColor(.primary)
                             .multilineTextAlignment(.center)
                             .padding(14)
@@ -103,13 +103,13 @@ struct ManualAngleView: View {
         VStack(spacing: 12) {
             if let angle {
                 Text("\(angle, specifier: "%.1f")°")
-                    .font(.system(size: 32, weight: .bold))
+                    .font(.largeTitle.weight(.bold))
                     .foregroundColor(isPlausible ? .primary : Theme.attention)
                     .monospacedDigit()
             }
             if angle != nil && !isPlausible {
                 Text("That angle isn't realistic. Check the order along the edge: 1 on the nail, 2 at the cuticle, 3 further down the skin.")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.footnote.weight(.medium))
                     .foregroundColor(Theme.attention)
                     .multilineTextAlignment(.center)
             }
@@ -117,7 +117,7 @@ struct ManualAngleView: View {
                 Button(flipped ? "Nail fold bulges outward (tap to flip)" : "Nail fold dips inward (tap to flip)") {
                     flipped.toggle()
                 }
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundColor(Theme.adjusting)
             }
             HStack(spacing: 12) {
@@ -147,7 +147,7 @@ struct ManualAngleView: View {
                 .overlay(Circle().stroke(Color.white, lineWidth: 1.5))
                 .frame(width: 12, height: 12)
             Text("\(i + 1)")
-                .font(.system(size: 12, weight: .bold))
+                .font(.caption.weight(.bold))
                 .foregroundColor(colors[i])
                 .shadow(color: .black, radius: 2)
                 .offset(x: 13, y: -13)

@@ -163,30 +163,30 @@ struct InflectionPointConfirmation: View {
         VStack(spacing: 12) {
             if let noDipNote {
                 Text(noDipNote)
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.footnote.weight(.medium))
                     .foregroundColor(.primary.opacity(0.85))
                     .multilineTextAlignment(.center)
             }
             if let side = selectedSide, noDipNote != nil, liveAngles[side] == nil {
                 Text("No dip where the nail meets the skin")
-                    .font(.system(size: 20, weight: .bold))
+                    .font(.title3.weight(.bold))
                     .foregroundColor(.primary)
                     .multilineTextAlignment(.center)
             } else if let side = selectedSide {
                 Text("Is the dot where your nail meets the skin?")
-                    .font(.system(size: 17, weight: .semibold))
+                    .font(.body.weight(.semibold))
                     .foregroundColor(.primary)
                     .multilineTextAlignment(.center)
                 Text("\(displayAngle(for: side), specifier: "%.1f")°")
-                    .font(.system(size: 30, weight: .bold))
+                    .font(.title.weight(.bold))
                     .foregroundColor(.primary)
                     .monospacedDigit()
                 Text("If not, drag it there.")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.footnote.weight(.medium))
                     .foregroundColor(.primary.opacity(0.7))
             } else {
                 Text("Tap the dot where your nail meets the skin")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundColor(.primary)
                     .multilineTextAlignment(.center)
             }
@@ -201,7 +201,7 @@ struct InflectionPointConfirmation: View {
 
             if let onManual {
                 Button("Place the points myself") { onManual(selectedCandidate()) }
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.footnote.weight(.medium))
                     .foregroundColor(.primary.opacity(0.8))
             }
         }

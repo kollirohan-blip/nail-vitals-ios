@@ -28,20 +28,20 @@ struct NormsPanel: View {
                 Divider().opacity(0.5)
                 HStack(alignment: .firstTextBaseline) {
                     Text("Nail Vitals Index")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.subheadline.weight(.semibold))
                     Spacer()
                     Text((noDip ? "≥ " : "") + String(format: "%+.1f", index))
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.body.weight(.semibold))
                         .monospacedDigit()
                 }
                 .foregroundStyle(.primary)
                 Text("How far your finger sits from the healthy average in the studies above: 0 is average, and each 1 is one standard deviation. It describes; it has no cut-off and isn't a diagnosis.")
-                    .font(.system(size: 12))
+                    .font(.caption)
                     .foregroundStyle(Color.primary.opacity(0.6))
                     .fixedSize(horizontal: false, vertical: true)
             }
             Text("Percentile: the share of healthy fingers with a lower value.")
-                .font(.system(size: 12))
+                .font(.caption)
                 .foregroundStyle(Color.primary.opacity(0.6))
         }
     }
@@ -52,19 +52,19 @@ struct NormsPanel: View {
         return VStack(alignment: .leading, spacing: 3) {
             HStack(alignment: .firstTextBaseline) {
                 Text(kind.plainName)
-                    .font(.system(size: 15, weight: .medium))
+                    .font(.subheadline.weight(.medium))
                 Text(shown)
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.subheadline.weight(.semibold))
                     .monospacedDigit()
                 Spacer()
                 Text(standing(kind, value))
-                    .font(.system(size: 14, weight: .semibold))
+                    .font(.subheadline.weight(.semibold))
                     .foregroundStyle(color(kind, value))
             }
             .foregroundStyle(.primary)
             Text(norm.map { "Healthy average \(kind.formatted($0.mean)) (SD \(String(format: "%.1f", $0.sd))) · \($0.source)" }
                  ?? "No published healthy spread to compare with; healthy fingers stay below \(kind.formattedThreshold).")
-                .font(.system(size: 12))
+                .font(.caption)
                 .foregroundStyle(Color.primary.opacity(0.6))
                 .fixedSize(horizontal: false, vertical: true)
         }

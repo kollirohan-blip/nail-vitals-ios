@@ -87,7 +87,7 @@ struct AskAssistantView: View {
             text = "Answers come from \(answeredBy). Your questions and result numbers are sent to it, never your photo. " + text
         }
         return Label(text, systemImage: "info.circle")
-            .font(.system(size: 13))
+            .font(.footnote)
             .foregroundColor(.secondary)
             .padding(12)
             .tileBackground(cornerRadius: 12)
@@ -95,7 +95,7 @@ struct AskAssistantView: View {
 
     private func contextChip(_ angle: Double, _ verdict: ClubbingAssessment.Verdict) -> some View {
         Text(String(format: "Your reading: %.1f° · %@", angle, verdict.label))
-            .font(.system(size: 13, weight: .semibold))
+            .font(.footnote.weight(.semibold))
             .foregroundColor(.primary.opacity(0.85))
             .padding(.horizontal, 12)
             .padding(.vertical, 6)
@@ -105,12 +105,12 @@ struct AskAssistantView: View {
     private var suggestionList: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Try asking")
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundColor(.secondary)
             ForEach(suggestions, id: \.self) { question in
                 Button { send(question) } label: {
                     Text(question)
-                        .font(.system(size: 15))
+                        .font(.subheadline)
                         .foregroundColor(.primary)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
@@ -143,7 +143,7 @@ struct AskAssistantView: View {
             }
         case .notice:
             Text(message.text)
-                .font(.system(size: 13))
+                .font(.footnote)
                 .foregroundColor(.secondary)
                 .frame(maxWidth: .infinity)
         }

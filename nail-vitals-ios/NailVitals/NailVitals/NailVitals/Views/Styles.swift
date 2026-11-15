@@ -25,7 +25,7 @@ struct GlowButtonStyle: ButtonStyle {
 
         var body: some View {
             configuration.label
-                .font(.system(size: 16, weight: .semibold))
+                .font(.body.weight(.semibold))
                 // Bright fills in Dark take black text; deep fills in Classic, white.
                 .foregroundColor(scheme == .dark ? .black : .white)
                 .padding(.horizontal, 28)
@@ -68,7 +68,7 @@ extension ButtonStyle where Self == PressableCardStyle {
 struct GhostButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 16, weight: .semibold))
+            .font(.body.weight(.semibold))
             .foregroundColor(.primary.opacity(configuration.isPressed ? 0.5 : 0.85))
             .padding(.horizontal, 16)
             .padding(.vertical, 13)
@@ -105,10 +105,10 @@ struct EmptyStateCard: View {
                 .font(.largeTitle)
                 .foregroundStyle(Color.primary.opacity(0.6))
             Text(title)
-                .font(.system(size: 18, weight: .semibold))
+                .font(.title3.weight(.semibold))
                 .foregroundStyle(.primary)
             Text(text)
-                .font(.system(size: 14))
+                .font(.subheadline)
                 .foregroundStyle(Color.primary.opacity(0.65))
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)

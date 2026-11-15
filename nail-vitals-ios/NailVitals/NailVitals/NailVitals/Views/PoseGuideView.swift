@@ -32,7 +32,7 @@ struct PoseGuideView: View {
         ScrollView {
             VStack(spacing: 22) {
                 Text("How to hold your finger")
-                    .font(.system(size: 26, weight: .bold))
+                    .font(.title.weight(.bold))
                     .foregroundColor(.primary)
                     .padding(.top, 28)
 
@@ -57,7 +57,7 @@ struct PoseGuideView: View {
                                 .foregroundColor(.primary.opacity(0.7))
                                 .frame(width: 26)
                             Text(step.1)
-                                .font(.system(size: 15))
+                                .font(.subheadline)
                                 .foregroundColor(.primary.opacity(0.88))
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -89,7 +89,7 @@ struct PoseGuideView: View {
                     .foregroundStyle(.white, good ? Theme.aligned : Theme.attention)
             }
             Text(caption)
-                .font(.system(size: 13, weight: .medium))
+                .font(.footnote.weight(.medium))
                 .foregroundColor(.primary.opacity(0.8))
                 .multilineTextAlignment(.center)
                 .frame(height: 34, alignment: .top)

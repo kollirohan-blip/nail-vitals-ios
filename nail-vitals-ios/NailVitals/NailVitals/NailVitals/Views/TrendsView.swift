@@ -52,26 +52,22 @@ struct SignTrendCard: View {
     var body: some View {
         let points = points
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(kind.plainName)
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundStyle(.primary)
-                    Text(kind.title)
-                        .font(.system(size: 12))
-                        .foregroundStyle(Color.primary.opacity(0.6))
+            // Name on the left, latest value on the right; stacked when
+            // they don't fit (very large text).
+            ViewThatFits(in: .horizontal) {
+                HStack(alignment: .firstTextBaseline) {
+                    names
+                    Spacer()
+                    latest(points.last)
                 }
-                Spacer()
-                if let last = points.last {
-                    Text("latest \(kind.formatted(last.value))")
-                        .font(.system(size: 13, weight: .semibold))
-                        .monospacedDigit()
-                        .foregroundStyle(ResultView.color(for: kind.status(of: last.value)))
+                VStack(alignment: .leading, spacing: 4) {
+                    names
+                    latest(points.last)
                 }
             }
             if points.count < 2 {
                 Text("Not enough scans with this sign yet.")
-                    .font(.system(size: 14))
+                    .font(.subheadline)
                     .foregroundStyle(Color.primary.opacity(0.6))
             } else {
                 Chart {
@@ -84,7 +80,7 @@ struct SignTrendCard: View {
                         .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
                         .annotation(position: .top, alignment: .leading) {
                             Text("cut-off \(kind.formattedThreshold)")
-                                .font(.system(size: 10, weight: .medium))
+                                .font(.caption2.weight(.medium))
                                 .foregroundStyle(Color.primary.opacity(0.6))
                         }
                     ForEach(points) { point in
@@ -117,9 +113,35 @@ struct SignTrendCard: View {
                     }
                 }
                 .frame(height: 150)
+                // The chart is a fixed size, so its own labels stop growing
+                // at the largest standard size; the heading above scales fully.
+                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
             }
         }
         .padding(18)
         .glassCard()
+    }
+
+    private var names: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(kind.plainName)
+                .font(.body.weight(.semibold))
+                .foregroundStyle(.primary)
+            Text(kind.title)
+                .font(.caption)
+                .foregroundStyle(Theme.secondaryText)
+        }
+    }
+
+    @ViewBuilder
+    private func latest(_ point: Point?) -> some View {
+        if let point {
+            Text("latest \(kind.formatted(point.value))")
+                .font(.footnote.weight(.semibold))
+                .monospacedDigit()
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(ResultView.color(for: kind.status(of: point.value)))
+        }
     }
 }

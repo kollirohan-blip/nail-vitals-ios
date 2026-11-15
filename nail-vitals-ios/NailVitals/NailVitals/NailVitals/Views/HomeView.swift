@@ -64,8 +64,8 @@ struct HomeView: View {
             .navigationDestination(for: UUID.self) { SessionDetailView(history: history, id: $0) }
             .sheet(isPresented: $showStudy) { StudyPanelView() }
             .sheet(isPresented: $showScience) { AboutMeasurementsView() }
-            .fullScreenCover(isPresented: $showNailCheck) { NailCheckView() }
-            .fullScreenCover(isPresented: $showSchamroth) { SchamrothView() }
+            .fullScreenCover(isPresented: $showNailCheck) { NailCheckView().dynamicTypeSize(...DynamicTypeSize.accessibility1) }
+            .fullScreenCover(isPresented: $showSchamroth) { SchamrothView().dynamicTypeSize(...DynamicTypeSize.accessibility1) }
         }
     }
 

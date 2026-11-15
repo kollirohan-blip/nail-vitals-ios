@@ -40,19 +40,23 @@ struct StatePill: View {
     /// Shown instead of the state's own word ("your normal", "not seen").
     var text: String? = nil
 
+    @Environment(\.dynamicTypeSize) private var typeSize
+
     var body: some View {
         HStack(spacing: 5) {
             Image(systemName: state.symbol)
                 .imageScale(.small)
             Text(text ?? state.label)
-                .lineLimit(1)
+                // One line normally; at the accessibility text sizes it
+                // may wrap to two rather than be cut off.
+                .lineLimit(typeSize.isAccessibilitySize ? 2 : 1)
                 .minimumScaleFactor(0.8)
         }
         .font(.subheadline.weight(.semibold))
         .foregroundStyle(state.color)
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
-        .background(StateTint(color: state.color, shape: Capsule()))
+        .background(StateTint(color: state.color, shape: RoundedRectangle(cornerRadius: 16, style: .continuous)))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(text ?? state.label)
     }
