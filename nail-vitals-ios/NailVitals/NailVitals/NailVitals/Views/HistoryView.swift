@@ -12,7 +12,7 @@ struct HistoryView: View {
     @ObservedObject var history: ScanHistory
 
     private enum Mode: String, CaseIterable {
-        case checkups = "Check-ups"
+        case checkups = "Assessments"
         case trends = "Trends"
     }
 
@@ -55,8 +55,8 @@ struct HistoryView: View {
     private var checkups: some View {
         if history.sessions.isEmpty {
             EmptyStateCard(icon: "clock.arrow.circlepath",
-                           title: "No check-ups yet",
-                           text: "Each finished check-up shows up here, newest first. Only the numbers are saved, on this phone.")
+                           title: "No assessments yet",
+                           text: "Each finished assessment shows up here, newest first. Only the numbers are saved, on this phone.")
                 .padding(.top, 24)
         } else {
             ForEach(history.sessions.reversed()) { session in
@@ -67,7 +67,7 @@ struct HistoryView: View {
             }
             Button("Delete all results on this phone", role: .destructive) { confirmDelete = true }
                 .font(.footnote.weight(.medium))
-                .foregroundStyle(Theme.attention)
+                .foregroundStyle(Theme.destructive)
                 .frame(minHeight: 44)
         }
     }
@@ -76,14 +76,14 @@ struct HistoryView: View {
     private var trends: some View {
         if history.sessions.count < 2 {
             EmptyStateCard(icon: "chart.xyaxis.line",
-                           title: "Trends start at two check-ups",
-                           text: "Each sign gets its own chart after your second check-up. Checking every few weeks shows whether anything changes.")
+                           title: "Trends start at two assessments",
+                           text: "Each sign gets its own chart after your second assessment. Assessing every few weeks shows whether anything changes.")
                 .padding(.top, 24)
         } else {
             ForEach(SignKind.allCases, id: \.self) { kind in
                 SignTrendCard(kind: kind, sessions: history.sessions)
             }
-            Text("Dashed line: the published cut-off. Each point is one check-up.")
+            Text("Dashed line: the published cut-off. Each point is one assessment.")
                 .font(.footnote)
                 .foregroundStyle(Theme.secondaryText)
                 .multilineTextAlignment(.center)

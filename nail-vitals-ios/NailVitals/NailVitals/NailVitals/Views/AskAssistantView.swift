@@ -111,7 +111,7 @@ struct AskAssistantView: View {
                 Button { send(question) } label: {
                     Text(question)
                         .font(.subheadline)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Theme.text)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 10)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -137,7 +137,7 @@ struct AskAssistantView: View {
             HStack {
                 Text(message.text)
                     .padding(12)
-                    .foregroundColor(.primary)
+                    .foregroundColor(Theme.text)
                     .tileBackground(cornerRadius: 16)
                 Spacer(minLength: 48)
             }

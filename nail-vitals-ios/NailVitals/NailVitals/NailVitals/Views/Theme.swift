@@ -16,8 +16,9 @@
 //  Three looks, picked on Home (AppAppearance): Automatic (follows the
 //  phone, the default), White and Dark. Every state color keeps text at
 //  4.5:1 or better on the background, on a card and on its own tinted
-//  pill, in both schemes (checked Nov 12: light 4.55 to 5.99, dark 4.82
-//  to 6.66). Dark is a very dark gray, not pure black: pure black behind
+//  pill, in both schemes (checked Nov 14: light 4.55 to 5.99, dark 4.82
+//  to 6.66). One accent (deep teal) marks what can be tapped; red appears
+//  only on destructive actions. Dark is a very dark gray, not pure black: pure black behind
 //  white text gives some people glare halos. The camera screen is always
 //  dark, so it always gets the bright shades.
 //
@@ -29,16 +30,27 @@ enum Theme {
     static let searching = shade(dark: 0x00E5FF, classic: 0x007A99)
     static let adjusting = shade(dark: 0xFFB300, classic: 0x945500)
     static let aligned = shade(dark: 0x00E676, classic: 0x087A4B)
-    /// Coral: a sign above its cut-off, or "worth discussing".
-    static let attention = shade(dark: 0xFF7B7B, classic: 0xBF3030)
+    /// Burnt orange: a sign above its cut-off, or "worth discussing". Not
+    /// red: red is kept for destructive actions (Delete), so a flagged
+    /// result doesn't read as an alarm.
+    static let attention = shade(dark: 0xFB923C, classic: 0xB93C0B)
     /// Gray: a sign the app couldn't check. Never amber, so it can't look
     /// like a warning.
     static let unmeasured = shade(dark: 0xAEAEB2, classic: 0x636366)
-    /// Main buttons: charcoal in Classic, white in Dark (no cyan outside
-    /// the camera).
-    static let action = shade(dark: 0xFFFFFF, classic: 0x1C1C1E)
-    /// Text and icons on a main button.
-    static let onAction = shade(dark: 0x000000, classic: 0xFFFFFF)
+    /// Red, for destructive actions only (Delete).
+    static let destructive = shade(dark: 0xFF7B7B, classic: 0xB42318)
+    /// The one brand accent, a deep blue-leaning teal: the main button,
+    /// links and selected items. Blue enough not to be mistaken for the
+    /// "typical" green.
+    static let accent = shade(dark: 0x4FB3C4, classic: 0x0D6E84)
+    /// Text and icons on the accent.
+    static let onAccent = shade(dark: 0x0B1215, classic: 0xFFFFFF)
+    /// Main buttons use the accent.
+    static let action = accent
+    static let onAction = onAccent
+    /// Main text: black on light, off-white on dark (pure white on a dark
+    /// screen gives some people glare halos).
+    static let text = shade(dark: 0xF8FAFC, classic: 0x000000)
     /// Supporting text.
     static let secondaryText = shade(dark: 0xAEAEB2, classic: 0x636366)
     /// The page behind the cards.
@@ -65,6 +77,18 @@ enum Theme {
     }
 }
 
+/// One spacing scale (8-point steps), so every screen breathes the same way.
+enum Spacing {
+    /// Between closely related lines.
+    static let tight: CGFloat = 8
+    /// Inside cards, between rows.
+    static let normal: CGFloat = 16
+    /// Between components.
+    static let component: CGFloat = 24
+    /// Between sections.
+    static let section: CGFloat = 32
+}
+
 extension AppAppearance {
     /// What SwiftUI should prefer; nil follows the phone's setting.
     var colorScheme: ColorScheme? {
@@ -80,5 +104,17 @@ extension AppAppearance {
     /// would otherwise inherit the camera's dark.
     var schemeOverCamera: ColorScheme {
         colorScheme ?? (UITraitCollection.current.userInterfaceStyle == .dark ? .dark : .light)
+    }
+}
+
+/// Starts a new assessment (opens the camera) from any screen.
+private struct StartAssessmentKey: EnvironmentKey {
+    static let defaultValue: () -> Void = {}
+}
+
+extension EnvironmentValues {
+    var startAssessment: () -> Void {
+        get { self[StartAssessmentKey.self] }
+        set { self[StartAssessmentKey.self] = newValue }
     }
 }

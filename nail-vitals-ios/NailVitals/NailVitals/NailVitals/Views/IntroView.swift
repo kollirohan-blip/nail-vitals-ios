@@ -40,7 +40,7 @@ struct IntroView: View {
                         VStack(spacing: 10) {
                             Text(cards[i].title)
                                 .font(.title.weight(.bold))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(Theme.text)
                             Text(cards[i].text)
                                 .font(.body)
                                 .foregroundStyle(Color.primary.opacity(0.65))

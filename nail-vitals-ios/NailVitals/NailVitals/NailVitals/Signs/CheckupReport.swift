@@ -83,11 +83,11 @@ nonisolated struct CheckupReport {
     var nextStep: String {
         switch overall {
         case .typical:
-            return "Nothing to do now. Check again in a few weeks to build your trend."
+            return "Nothing to do now. Assess again in a few weeks to build your trend."
         case .measureAgain:
-            return "Measure again in good light, with your finger straight. If it reads the same on another day, mention it at your next checkup."
+            return "Assess again in good light, with your finger straight. If it reads the same on another day, mention it at your next doctor's visit."
         case .worthDiscussing:
-            return "Show this result to a doctor. In History, \"Send to doctor\" makes a file you can share with them."
+            return "Show this result to a doctor. In History, \"Share with your doctor\" makes a file you can share with them."
         case .couldntCheck:
             return "Try again in good light, in front of a plain background that's much lighter or darker than your skin."
         }

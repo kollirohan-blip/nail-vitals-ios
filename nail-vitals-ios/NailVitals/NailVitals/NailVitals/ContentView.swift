@@ -20,6 +20,7 @@ struct ContentView: View {
     var body: some View {
         HomeTabs(history: history, transition: scanTransition, onStartScan: { scanning = true },
                  onStartModelScan: { scanningModel = true })
+            .environment(\.startAssessment, { scanning = true })
             .fullScreenCover(isPresented: $scanningModel) {
                 ScanView(modelMode: true, onClose: { scanningModel = false }, onSessionDone: { _, _ in scanningModel = false })
             }

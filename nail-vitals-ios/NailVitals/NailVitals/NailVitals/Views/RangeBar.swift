@@ -18,6 +18,9 @@ struct RangeBar: View {
     let value: Double?
     /// Shown instead of the number (e.g. "≥180°" for no cuticle dip).
     var valueText: String? = nil
+    /// Each reading behind the value, drawn as small dots so the spread
+    /// between photos is visible.
+    var readings: [Double] = []
 
     @Environment(\.colorScheme) private var scheme
     @Environment(\.dynamicTypeSize) private var typeSize
@@ -59,6 +62,12 @@ struct RangeBar: View {
                         .fill(Color.primary.opacity(0.75))
                         .frame(width: 2, height: 20)
                         .offset(x: width * scale.limitFraction - 1)
+                    ForEach(Array(readings.enumerated()), id: \.offset) { _, reading in
+                        Circle()
+                            .fill(Color.primary.opacity(0.55))
+                            .frame(width: 6, height: 6)
+                            .offset(x: min(max(width * scale.fraction(of: reading) - 3, 0), width - 6), y: 7)
+                    }
                     if let value {
                         Circle()
                             .fill(state.color)
@@ -74,7 +83,7 @@ struct RangeBar: View {
                             Text("past the limit")
                                 .frame(width: width, alignment: .trailing)
                         }
-                        Text("limit \(kind.formattedThreshold)")
+                        Text(kind.formattedThreshold)
                             .fixedSize()
                             .position(x: min(max(width * scale.limitFraction, 36), width - 36), y: labelHeight / 2)
                     }
@@ -95,9 +104,10 @@ struct RangeBar: View {
         VStack(alignment: .leading, spacing: 1) {
             Text(kind.plainName)
                 .font(.subheadline.weight(.semibold))
-            Text(kind.title)
+            Text("\(kind.title) · \(kind.limitLabel)")
                 .font(.caption)
                 .foregroundStyle(Theme.secondaryText)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

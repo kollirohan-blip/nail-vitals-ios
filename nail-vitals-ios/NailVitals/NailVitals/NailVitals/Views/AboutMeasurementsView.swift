@@ -78,17 +78,33 @@ struct AboutMeasurementsContent: View {
                     bullet("This app has only been checked on a small number of people so far.")
                 }
 
+                section("Why sources give different numbers") {
+                    bullet("Lovibond's 1938 description, judged by eye at the bedside, put a normal nail angle near 160° and clubbing above 180°.")
+                    bullet("Measured on silhouettes, healthy fingers averaged 168° (Bentley 1976). A 2001 JAMA review found that people without clubbing don't go above 176°. The app uses these measured values.")
+                    bullet("Between a typical value and the limit there is no sharp line, so the app shows a \"close to the limit\" zone 3° either side of it, and needs 2 of the 3 signs to agree before it suggests talking to a doctor.")
+                    bullet("The limits were set by measuring fingers directly. Whether they hold exactly for a phone photo is what the app's own tests check; see \"How accurate is this?\" on your result.")
+                }
+
                 section("Sources") {
-                    source("Myers KA, Farquhar DR. The rational clinical examination: does this patient have clubbing? JAMA. 2001;286(3):341–347.")
-                    source("Husarik D, Vavricka SR, Mark M, Schaffner A, Walter RB. Assessment of digital clubbing in medical inpatients by digital photography and computerised analysis. Swiss Med Wkly. 2002;132:132–138.")
-                    source("Bentley D, Moore A, Shwachman H. Finger clubbing: a quantitative survey by analysis of the shadowgraph. Lancet. 1976;2:164–167.")
-                    source("Regan GM, Tagg B, Thomson ML. Subjective assessment and objective measurement of finger clubbing. Lancet. 1967;1:530–532.")
+                    ForEach(Source.all, id: \.url) { item in
+                        if let url = URL(string: item.url) {
+                            Link(destination: url) {
+                                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                                    Text(item.citation)
+                                        .font(.footnote)
+                                        .multilineTextAlignment(.leading)
+                                    Image(systemName: "arrow.up.right")
+                                        .font(.caption.weight(.semibold))
+                                }
+                                .foregroundStyle(Theme.accent)
+                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            }
+                        }
+                    }
                     source("Schamroth L. Personal experience. S Afr Med J. 1976;50(9):297–300.")
                 }
 
-                Text("This tool flags a pattern that may be worth discussing with a doctor. It does not diagnose any condition.")
-                    .font(.footnote.weight(.medium))
-                    .foregroundColor(.secondary)
+                SafetyNote()
                     .padding(.top, 4)
             }
             .padding(20)
@@ -102,7 +118,7 @@ struct AboutMeasurementsContent: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(kind.plainName)
                         .font(.body.weight(.semibold))
-                        .foregroundColor(.primary)
+                        .foregroundColor(Theme.text)
                     Text(kind.title)
                         .font(.footnote)
                         .foregroundColor(.secondary)
@@ -128,7 +144,7 @@ struct AboutMeasurementsContent: View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.body.weight(.semibold))
-                .foregroundColor(.primary)
+                .foregroundColor(Theme.text)
             content()
         }
     }

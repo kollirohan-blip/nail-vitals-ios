@@ -231,7 +231,7 @@ struct StudyPanelView: View {
                     Text(person.code)
                         .font(.system(size: 17, weight: .semibold))
                         .monospacedDigit()
-                        .foregroundColor(.primary)
+                        .foregroundColor(Theme.text)
                 }
             }
             .buttonStyle(.plain)

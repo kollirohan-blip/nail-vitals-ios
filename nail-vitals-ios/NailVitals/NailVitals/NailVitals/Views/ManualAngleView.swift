@@ -61,7 +61,7 @@ struct ManualAngleView: View {
                     } else {
                         Text((note.map { $0 + "\n" } ?? "") + "Drag the dots onto the edge of your nail: 2 where the nail meets the skin, 1 on the nail a quarter of the way to its tip, 3 on the skin the same distance below 2")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundColor(.primary)
+                            .foregroundColor(Theme.text)
                             .multilineTextAlignment(.center)
                             .padding(14)
                             .glassPanel(cornerRadius: 16)

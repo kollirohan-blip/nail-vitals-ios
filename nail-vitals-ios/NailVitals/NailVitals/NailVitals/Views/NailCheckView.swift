@@ -53,7 +53,7 @@ struct NailCheckView: View {
                 }
             }
             .background(AppBackground())
-            .navigationTitle("Nail color check")
+            .navigationTitle("Nail appearance")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {

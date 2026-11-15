@@ -3,7 +3,7 @@
 //  NailVitals
 //
 //  Home's two lines of text: a greeting for the time of day, and when the
-//  last check-up was and how it came out. Plain logic, so
+//  last assessment was and how it came out. Plain logic, so
 //  Tools/signs-harness can test it.
 //
 
@@ -19,13 +19,13 @@ nonisolated enum CheckupWording {
         }
     }
 
-    /// "Last check-up 3 days ago · nothing stood out".
+    /// "Last assessment 3 days ago · nothing stood out".
     /// - Parameters:
-    ///   - date: when the last check-up was; nil when there isn't one.
+    ///   - date: when the last assessment was; nil when there isn't one.
     ///   - overall: its overall state.
     static func lastCheckupLine(date: Date?, overall: SignState?, now: Date = Date(),
                                 calendar: Calendar = .current) -> String {
-        guard let date else { return "No check-ups yet" }
+        guard let date else { return "No assessments yet" }
         // Whole calendar days; a date after "now" (the clock was changed)
         // counts as today.
         let days = max(0, calendar.dateComponents([.day], from: calendar.startOfDay(for: date),
@@ -48,6 +48,6 @@ nonisolated enum CheckupWording {
         case .worthDiscussing: outcome = "worth discussing with a doctor"
         case .couldntCheck, nil: outcome = "couldn't check"
         }
-        return "Last check-up \(when) · \(outcome)"
+        return "Last assessment \(when) · \(outcome)"
     }
 }

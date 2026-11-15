@@ -41,6 +41,8 @@ struct NailVitalsApp: App {
             }
             // Automatic, White or Dark, picked on Home. The camera stays dark.
             .preferredColorScheme(appearance.colorScheme)
+            // Off-white on dark, black on light, unless a view says otherwise.
+            .foregroundStyle(Theme.text)
         }
     }
 }

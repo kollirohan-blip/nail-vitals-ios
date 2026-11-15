@@ -19,7 +19,7 @@ nonisolated enum SignGroup: String, CaseIterable {
     var title: String {
         switch self {
         case .shape: return "Shape"
-        case .colour: return "Colour"
+        case .colour: return "Color"
         case .circulation: return "Circulation"
         case .extra: return "Extra"
         }

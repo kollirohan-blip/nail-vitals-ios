@@ -64,6 +64,58 @@ extension ButtonStyle where Self == PressableCardStyle {
     static var pressableCard: PressableCardStyle { PressableCardStyle() }
 }
 
+/// The one main action on a screen: a full-width accent button.
+struct PrimaryActionStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.body.weight(.semibold))
+            .foregroundStyle(Theme.onAccent)
+            .frame(maxWidth: .infinity, minHeight: 50)
+            .padding(.horizontal, Spacing.normal)
+            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .opacity(configuration.isPressed ? 0.8 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+extension ButtonStyle where Self == PrimaryActionStyle {
+    static var primaryAction: PrimaryActionStyle { PrimaryActionStyle() }
+}
+
+/// A headline measurement: large rounded tabular numerals. The numbers
+/// are the product, so they are the most designed thing on screen.
+private struct HeroNumber: ViewModifier {
+    @ScaledMetric(relativeTo: .largeTitle) private var size: CGFloat = 52
+
+    func body(content: Content) -> some View {
+        content
+            .font(.system(size: size, weight: .bold, design: .rounded))
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+    }
+}
+
+extension View {
+    func heroNumber() -> some View { modifier(HeroNumber()) }
+}
+
+/// A small label above a group of content.
+struct SectionLabel: View {
+    let text: String
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        Text(text)
+            .font(.footnote.weight(.semibold))
+            .tracking(0.6)
+            .textCase(.uppercase)
+            .foregroundStyle(Theme.secondaryText)
+            .accessibilityAddTraits(.isHeader)
+    }
+}
+
 /// Secondary action: plain text that dims while pressed.
 struct GhostButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -106,7 +158,7 @@ struct EmptyStateCard: View {
                 .foregroundStyle(Color.primary.opacity(0.6))
             Text(title)
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.text)
             Text(text)
                 .font(.subheadline)
                 .foregroundStyle(Color.primary.opacity(0.65))

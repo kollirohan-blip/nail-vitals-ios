@@ -126,7 +126,7 @@ struct SignTrendCard: View {
         VStack(alignment: .leading, spacing: 2) {
             Text(kind.plainName)
                 .font(.body.weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.text)
             Text(kind.title)
                 .font(.caption)
                 .foregroundStyle(Theme.secondaryText)

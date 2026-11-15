@@ -2,9 +2,10 @@
 //  QualityPanel.swift
 //  NailVitals
 //
-//  Under a result: which checks the readings passed, how far the readings
-//  spread, and how much a scan on another day usually moves (measured,
-//  see Repeatability). No overall score: each line is a real check.
+//  The checks behind a result (CheckSummary): which passed and, one tap
+//  away, each check's measured number against the threshold it had to
+//  meet. No overall score: each line is a real check of the measurement,
+//  and none of them says anything about health.
 //
 
 import SwiftUI
@@ -12,87 +13,93 @@ import SwiftUI
 struct QualityPanel: View {
     let readings: [FingerSigns]
 
-    private struct Row: Identifiable {
-        let id: String
-        let label: String
-        let passed: Int
-        let failed: Int
-    }
-
-    /// One row per check that was measured on at least one reading.
-    private var rows: [Row] {
-        var rows = ReadingQuality.Check.allCases.compactMap { check -> Row? in
-            let results = readings.compactMap { $0.quality?.passed(check) }
-            guard !results.isEmpty else { return nil }
-            return Row(id: check.rawValue, label: check.label,
-                       passed: results.filter { $0 }.count, failed: results.filter { !$0 }.count)
-        }
-        // Readings 2 and 3 against the first (FingerIdentity); a mismatch
-        // isn't counted unless the user started over with that finger.
-        let prints = readings.compactMap(\.identity)
-        if prints.count >= 2 {
-            let failed = prints.dropFirst().filter { FingerIdentity.mismatch(first: prints[0], later: $0) != nil }.count
-            rows.append(Row(id: "same", label: "Same finger each time", passed: prints.count - failed, failed: failed))
-        }
-        return rows
-    }
+    @State private var showNumbers = false
 
     var body: some View {
-        let rows = self.rows
+        let summary = CheckSummary(readings: readings)
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Measurement checks")
-                    .font(.headline)
-                    .accessibilityAddTraits(.isHeader)
-                Spacer()
-                if !rows.isEmpty {
-                    let passed = rows.filter { $0.failed == 0 }.count
-                    Text("\(passed) of \(rows.count) passed")
-                        .font(.footnote.weight(.semibold))
-                        .foregroundStyle(passed == rows.count ? Theme.aligned : Theme.adjusting)
-                }
-            }
-            ForEach(rows) { row in
-                HStack(spacing: 10) {
-                    Image(systemName: row.failed == 0 ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
-                        .foregroundStyle(row.failed == 0 ? Theme.aligned : Theme.adjusting)
-                    Text(row.label)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(.primary)
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    title
                     Spacer()
-                    Text(row.failed == 0
-                         ? (row.passed == 1 ? "passed" : "all \(row.passed)")
-                         : "\(row.failed) of \(row.passed + row.failed) not")
-                        .font(.footnote)
-                        .foregroundStyle(Color.primary.opacity(0.6))
+                    badge(summary)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    title
+                    badge(summary)
                 }
             }
-            if rows.isEmpty {
+            ForEach(summary.rows) { row in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 10) {
+                        Image(systemName: row.failed == 0 ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                            .foregroundStyle(row.failed == 0 ? Theme.aligned : Theme.adjusting)
+                        Text(row.label)
+                            .font(.subheadline.weight(.medium))
+                        Spacer(minLength: 8)
+                        Text(row.failed == 0
+                             ? (row.passed == 1 ? "passed" : "all \(row.passed)")
+                             : "\(row.failed) of \(row.passed + row.failed) not")
+                            .font(.footnote)
+                            .foregroundStyle(Theme.secondaryText)
+                    }
+                    if showNumbers, let detail = row.detail {
+                        Text(detail)
+                            .font(.footnote)
+                            .monospacedDigit()
+                            .foregroundStyle(Theme.secondaryText)
+                            .padding(.leading, 30)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+                .accessibilityElement(children: .combine)
+            }
+            if summary.rows.isEmpty {
                 Text("Saved before the app recorded its checks.")
                     .font(.footnote)
-                    .foregroundStyle(Color.primary.opacity(0.6))
+                    .foregroundStyle(Theme.secondaryText)
+            } else {
+                Button {
+                    withAnimation(.easeOut(duration: 0.2)) { showNumbers.toggle() }
+                } label: {
+                    Label(showNumbers ? "Hide the numbers" : "Show the numbers behind each check",
+                          systemImage: showNumbers ? "chevron.up" : "chevron.down")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Theme.accent)
+                        .frame(minHeight: 44, alignment: .leading)
+                }
             }
             if let estimated = estimatedJoints {
                 Text(estimated)
-                    .font(.caption)
-                    .foregroundStyle(Color.primary.opacity(0.6))
-            }
-            Divider().opacity(0.5)
-            if let spread = spreadText {
-                Text(spread)
                     .font(.footnote)
-                    .foregroundStyle(Color.primary.opacity(0.8))
-                    .fixedSize(horizontal: false, vertical: true)
+                    .foregroundStyle(Theme.secondaryText)
             }
-            Text(repeatText)
-                .font(.footnote)
-                .foregroundStyle(Color.primary.opacity(0.8))
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
+    private var title: some View {
+        Text("Measurement checks")
+            .font(.headline)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    @ViewBuilder
+    private func badge(_ summary: CheckSummary) -> some View {
+        if let text = summary.badge {
+            Text(text.replacingOccurrences(of: " checks", with: ""))
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(summary.passedCount == summary.rows.count ? Theme.aligned : Theme.adjusting)
+        }
+    }
+
+    private var estimatedJoints: String? {
+        let n = readings.filter { $0.quality?.jointsFromHandPose == false }.count
+        guard n > 0 else { return nil }
+        return "Finger joints estimated from the outline in \(n) reading\(n == 1 ? "" : "s") (hand pose didn't find them)."
+    }
+
     /// How far apart this session's readings are, per sign.
-    private var spreadText: String? {
+    static func spreadText(_ readings: [FingerSigns]) -> String? {
         guard readings.count >= 2 else { return nil }
         func spread(_ kind: SignKind) -> String? {
             let values = readings.compactMap { r -> Double? in
@@ -107,17 +114,11 @@ struct QualityPanel: View {
     }
 
     /// The measured session-to-session range (Repeatability).
-    private var repeatText: String {
+    static var repeatText: String {
         let parts = SignKind.allCases.compactMap { kind -> String? in
             guard let r = Repeatability.range95[kind] else { return nil }
             return kind == .depthRatio ? String(format: "ratio ±%.2f", r) : String(format: "%@ ±%.0f°", kind.plainName.lowercased(), r)
         }
         return "A scan on another day usually lands within \(parts.joined(separator: " · ")) of this result (measured over \(Repeatability.sessions) repeat sessions)."
-    }
-
-    private var estimatedJoints: String? {
-        let n = readings.filter { $0.quality?.jointsFromHandPose == false }.count
-        guard n > 0 else { return nil }
-        return "Finger joints estimated from the outline in \(n) reading\(n == 1 ? "" : "s") (hand pose didn't find them)."
     }
 }

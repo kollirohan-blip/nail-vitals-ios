@@ -2,11 +2,12 @@
 //  ReportCardView.swift
 //  NailVitals
 //
-//  One check-up as a report card. It answers "is this good or bad?" first
-//  (the banner), then lists every sign that was checked, grouped by Shape,
-//  Colour, Circulation and Extra, then says what to do next. Each sign row
-//  opens that sign's detail page. The caller adds the safety line and its
-//  own buttons underneath.
+//  One assessment as a report card. It answers "is this good or bad?"
+//  first (the banner), then lists each sign that was checked with one
+//  number, its state and how many measurement checks passed, then gives
+//  one main thing to do next, chosen by the result. Each sign row opens
+//  that sign's page, where the detail lives. The caller adds the safety
+//  line and its secondary buttons underneath.
 //
 //  The order follows what people look for in a test result: the result,
 //  what it means, what to do next, then the details (one tap away).
@@ -20,17 +21,21 @@ extension NailSign: Identifiable {
 }
 
 struct ReportCardView: View {
-    /// The check-up's side readings, oldest first.
+    /// The assessment's side readings, oldest first.
     let readings: [FingerSigns]
     /// Results for the signs other than clubbing.
     var extra: [SignResult] = []
     let hand: MeasuredHand
     let date: Date
     /// Right after a scan: the banner, then each sign, appear one by one,
-    /// with the result's buzz; the reminder set for this check-up is cleared.
+    /// with the result's buzz; the reminder set for this assessment is cleared.
     var animated = false
-    /// Offer the next check-up's reminder (the newest check-up only).
+    /// Offer the next assessment's reminder (the newest assessment only).
     var offersReminder = false
+    /// Starts a new assessment; nil where the screen has its own button.
+    var onAssessAgain: (() -> Void)? = nil
+    /// Shares this assessment with a doctor; nil before it's saved.
+    var onShare: (() -> Void)? = nil
     let onOpen: (NailSign) -> Void
 
     /// How many parts are showing (banner = 1, then one per sign, then
@@ -47,7 +52,7 @@ struct ReportCardView: View {
 
     var body: some View {
         let report = self.report
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: Spacing.normal) {
             Text("\(Self.dayText(date)) · \(hand.label) index finger")
                 .font(.footnote)
                 .foregroundStyle(Theme.secondaryText)
@@ -65,11 +70,8 @@ struct ReportCardView: View {
             ForEach(SignGroup.allCases, id: \.self) { group in
                 let results = report.results(in: group)
                 if !results.isEmpty {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(group.title)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Theme.secondaryText)
-                            .accessibilityAddTraits(.isHeader)
+                    VStack(alignment: .leading, spacing: Spacing.tight) {
+                        SectionLabel(group.title)
                         VStack(spacing: 0) {
                             ForEach(results) { result in
                                 signRow(result, report)
@@ -81,18 +83,17 @@ struct ReportCardView: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 10) {
                 Text("What to do next")
                     .font(.headline)
+                    .accessibilityAddTraits(.isHeader)
                 Text(report.nextStep)
                     .font(.subheadline)
                     .fixedSize(horizontal: false, vertical: true)
-                if offersReminder, let days = ReminderPlan.days(after: report.overall) {
-                    reminderControls(days: days)
-                }
+                nextAction(report)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
+            .padding(Spacing.normal)
             .glassCard(cornerRadius: 20)
             .reveal(2 + report.results.count, of: shown)
         }
@@ -100,16 +101,130 @@ struct ReportCardView: View {
             startReveal(parts: 2 + report.results.count)
             guard animated, !announced else { return }
             announced = true
-            // A new check-up is done: its reminder has served its purpose.
+            // A new assessment is done: its reminder has served its purpose.
             reminder.cancel()
             let overall = report.overall
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { Haptics.result(overall) }
         }
     }
 
+    // MARK: - Rows
+
+    /// A sign: its name, one number, its state, and how many measurement
+    /// checks passed. The detail is on the sign's page.
+    private func signRow(_ result: SignResult, _ report: CheckupReport) -> some View {
+        Button { onOpen(result.sign) } label: {
+            VStack(alignment: .leading, spacing: 6) {
+                // One line when it fits; otherwise the value and state go
+                // under the name (long state names, very large text).
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        rowTitle(result)
+                        Spacer(minLength: 8)
+                        rowValue(result, report)
+                        StatePill(state: result.state)
+                        chevron
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack {
+                            rowTitle(result)
+                            Spacer(minLength: 8)
+                            chevron
+                        }
+                        HStack(spacing: 8) {
+                            rowValue(result, report)
+                            StatePill(state: result.state)
+                        }
+                    }
+                }
+                if result.state == .couldntCheck, let reason = result.reason {
+                    Text(reason)
+                        .font(.footnote)
+                        .foregroundStyle(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if result.sign == .clubbing, result.state != .couldntCheck {
+                    Label(clubbingCaption, systemImage: "checkmark.seal")
+                        .font(.footnote)
+                        .foregroundStyle(Theme.secondaryText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .padding(Spacing.normal)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(.rect)
+        }
+        .buttonStyle(.pressableCard)
+        .accessibilityHint("Opens the details")
+    }
+
+    /// "3 signs · 5 of 5 checks passed"
+    private var clubbingCaption: String {
+        ["3 signs", CheckSummary(readings: readings).badge].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    private var chevron: some View {
+        Image(systemName: "chevron.right")
+            .font(.footnote.weight(.semibold))
+            .foregroundStyle(Theme.secondaryText)
+            .accessibilityHidden(true)
+    }
+
+    private func rowTitle(_ result: SignResult) -> some View {
+        Text(result.sign.title)
+            .font(.body.weight(.semibold))
+            .foregroundStyle(Theme.text)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    /// The sign's one number; the nail angle carries its day-to-day range.
+    @ViewBuilder
+    private func rowValue(_ result: SignResult, _ report: CheckupReport) -> some View {
+        let text: String? = result.sign == .clubbing && !report.noDip
+            ? result.value.map(SignKind.lovibond.withUncertainty) ?? result.valueText
+            : result.valueText
+        if let text {
+            Text(text)
+                .font(.body.weight(.semibold))
+                .monospacedDigit()
+                .foregroundStyle(Theme.text)
+                .lineLimit(1)
+                .fixedSize()
+        }
+    }
+
+    // MARK: - The one next action
+
+    @ViewBuilder
+    private func nextAction(_ report: CheckupReport) -> some View {
+        switch NextAction(after: report.overall) {
+        case .remind(let days):
+            if offersReminder { reminderControls(days: days, primary: true) }
+        case .assessAgain:
+            if let onAssessAgain {
+                Button("Assess again", action: onAssessAgain)
+                    .buttonStyle(.primaryAction)
+            }
+            if offersReminder, let days = ReminderPlan.days(after: report.overall) {
+                reminderControls(days: days, primary: false)
+            }
+        case .shareWithDoctor:
+            if let onShare {
+                Button(action: onShare) {
+                    VStack(spacing: 2) {
+                        Text("Share with your doctor")
+                        Text("FHIR health-record file")
+                            .font(.caption)
+                    }
+                }
+                .buttonStyle(.primaryAction)
+            }
+        }
+    }
+
     /// The opt-in reminder: a button, or the date it's set for.
     @ViewBuilder
-    private func reminderControls(days: Int) -> some View {
+    private func reminderControls(days: Int, primary: Bool) -> some View {
         if let date = reminder.scheduledDate {
             ViewThatFits(in: .horizontal) {
                 HStack {
@@ -122,18 +237,18 @@ struct ReportCardView: View {
                     cancelReminder
                 }
             }
-            .padding(.top, 4)
+        } else if primary {
+            Button { reminder.schedule(days: days) } label: {
+                Label(ReminderPlan.buttonTitle(days: days), systemImage: "bell")
+            }
+            .buttonStyle(.primaryAction)
         } else {
             Button { reminder.schedule(days: days) } label: {
                 Label(ReminderPlan.buttonTitle(days: days), systemImage: "bell")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Theme.accent)
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .contentShape(.rect)
-                    .tileBackground(cornerRadius: 14)
             }
-            .buttonStyle(.pressableCard)
-            .padding(.top, 4)
         }
         if reminder.permissionDenied {
             Text("Notifications are off for Nail Vitals. Turn them on in Settings.")
@@ -147,138 +262,15 @@ struct ReportCardView: View {
         Label("Reminder set for \(date.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))",
               systemImage: "bell.fill")
             .font(.subheadline.weight(.medium))
-            .foregroundStyle(.primary)
+            .foregroundStyle(Theme.text)
             .fixedSize(horizontal: false, vertical: true)
     }
 
     private var cancelReminder: some View {
         Button("Cancel") { reminder.cancel() }
             .font(.subheadline.weight(.semibold))
-            .foregroundStyle(Theme.secondaryText)
+            .foregroundStyle(Theme.accent)
             .frame(minHeight: 44)
-    }
-
-    // MARK: - Rows
-
-    /// A sign: its name, value and state. Clubbing also lists its three
-    /// measured signs.
-    private func signRow(_ result: SignResult, _ report: CheckupReport) -> some View {
-        Button { onOpen(result.sign) } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                // One line when it fits; otherwise the value and state go
-                // under the name (long state names, very large text).
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) {
-                        rowTitle(result)
-                        Spacer(minLength: 8)
-                        rowValue(result)
-                        StatePill(state: result.state)
-                        chevron
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            rowTitle(result)
-                            Spacer(minLength: 8)
-                            chevron
-                        }
-                        HStack(spacing: 8) {
-                            rowValue(result)
-                            StatePill(state: result.state)
-                        }
-                    }
-                }
-                if result.state == .couldntCheck, let reason = result.reason {
-                    Text(reason)
-                        .font(.footnote)
-                        .foregroundStyle(Theme.secondaryText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                if result.sign == .clubbing, result.state != .couldntCheck {
-                    VStack(spacing: 6) {
-                        ForEach(SignKind.allCases, id: \.self) { kind in
-                            clubbingLine(kind, report)
-                        }
-                    }
-                }
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .contentShape(.rect)
-        }
-        .buttonStyle(.pressableCard)
-        .accessibilityHint("Opens the details")
-    }
-
-    private var chevron: some View {
-        Image(systemName: "chevron.right")
-            .font(.footnote.weight(.semibold))
-            .foregroundStyle(Theme.secondaryText)
-            .accessibilityHidden(true)
-    }
-
-    private func rowTitle(_ result: SignResult) -> some View {
-        Text(result.sign.title)
-            .font(.body.weight(.semibold))
-            .foregroundStyle(.primary)
-            .fixedSize(horizontal: false, vertical: true)
-    }
-
-    @ViewBuilder
-    private func rowValue(_ result: SignResult) -> some View {
-        if let text = result.valueText {
-            Text(text)
-                .font(.body.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-                .fixedSize()
-        }
-    }
-
-    /// One of the three clubbing signs: its state icon, name, value and
-    /// published limit.
-    private func clubbingLine(_ kind: SignKind, _ report: CheckupReport) -> some View {
-        let value = report.assessment.values[kind]
-        let state = value.map { SignState(kind.status(of: $0)) } ?? .couldntCheck
-        let shown = kind == .lovibond && report.noDip ? "≥180°" : kind.formattedOrDash(value)
-        let name = HStack(spacing: 8) {
-            Image(systemName: state.symbol)
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(state.color)
-            Text(kind.plainName)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-        }
-        // Each number stays whole on one line, whatever the text size.
-        let valueText = Text(shown)
-            .font(.subheadline.weight(.semibold))
-            .monospacedDigit()
-            .foregroundStyle(.primary)
-            .lineLimit(1)
-            .fixedSize()
-        let limitText = Text("limit \(kind.formattedThreshold)")
-            .font(.footnote)
-            .foregroundStyle(Theme.secondaryText)
-            .lineLimit(1)
-            .fixedSize()
-        return ViewThatFits(in: .horizontal) {
-            HStack(spacing: 8) {
-                name
-                Spacer(minLength: 6)
-                valueText
-                limitText
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                name
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) { valueText; limitText }
-                    VStack(alignment: .leading, spacing: 0) { valueText; limitText }
-                }
-                .padding(.leading, 26)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(kind.plainName): \(value == nil ? "not measured" : shown), \(state.label). Limit \(kind.formattedThreshold).")
     }
 
     // MARK: - Wording
@@ -325,7 +317,7 @@ struct ReportCardView: View {
         guard animated, !reduceMotion else { return }
         for step in 1...parts {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.25 + Double(step - 1) * 0.18) {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.8)) { revealed = max(revealed, step) }
+                withAnimation(.easeOut(duration: 0.6)) { revealed = max(revealed, step) }
             }
         }
     }

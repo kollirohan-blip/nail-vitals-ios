@@ -78,7 +78,7 @@ struct StateBanner: View {
             .foregroundStyle(state.color)
             Text(detail)
                 .font(.subheadline)
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.text)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)

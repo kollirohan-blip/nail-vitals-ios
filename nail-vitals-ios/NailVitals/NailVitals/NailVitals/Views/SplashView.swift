@@ -42,7 +42,7 @@ struct SplashView: View {
                 VStack(spacing: 6) {
                     Text("Nail Vitals")
                         .font(.system(size: 34, weight: .bold))
-                        .foregroundColor(.primary)
+                        .foregroundColor(Theme.text)
                     Text("Finger clubbing screening aid")
                         .font(.system(size: 15, weight: .medium))
                         .foregroundColor(.primary.opacity(0.65))

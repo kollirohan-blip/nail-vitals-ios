@@ -19,6 +19,7 @@ struct LearnView: View {
                 VStack(spacing: 12) {
                     NavigationLink {
                         PoseGuideView(embedded: true)
+                            .toolbar(.hidden, for: .tabBar)
                     } label: {
                         row(icon: "hand.point.up.left.fill", title: "How to scan",
                             text: "Hold your finger so the camera sees its side.")
@@ -27,12 +28,13 @@ struct LearnView: View {
                         AboutMeasurementsContent()
                             .navigationTitle("Clubbing")
                             .navigationBarTitleDisplayMode(.inline)
+                            .toolbar(.hidden, for: .tabBar)
                     } label: {
                         row(icon: "angle", title: "Clubbing",
                             text: "The three signs, their published cut-offs, and the studies behind them.")
                     }
                     Button { showNailCheck = true } label: {
-                        row(icon: "hand.raised.fingers.spread", title: "Nail colour bands (beta)",
+                        row(icon: "hand.raised.fingers.spread", title: "Nail appearance (beta)",
                             text: "Terry's and half-and-half nails: what they are, and a test from a photo of your nails.")
                     }
                     Button { showSchamroth = true } label: {
@@ -63,7 +65,7 @@ struct LearnView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Theme.text)
                 Text(text)
                     .font(.subheadline)
                     .foregroundStyle(Theme.secondaryText)

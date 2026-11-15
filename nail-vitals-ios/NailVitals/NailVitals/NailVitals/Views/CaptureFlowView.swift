@@ -156,7 +156,7 @@ struct CaptureFlowView: View {
                     }
                     .scrollBounceBehavior(.basedOnSize)
                     HStack(spacing: 12) {
-                        Button("Scan again", action: onStartOver)
+                        Button("Assess again", action: onStartOver)
                             .buttonStyle(GhostButtonStyle())
                         Button("Done", action: onFinishSession)
                             .buttonStyle(GlowButtonStyle(color: Theme.action))
@@ -193,7 +193,7 @@ struct CaptureFlowView: View {
                         .foregroundColor(Theme.adjusting)
                     Text(message)
                         .font(.body)
-                        .foregroundColor(.primary)
+                        .foregroundColor(Theme.text)
                         .multilineTextAlignment(.center)
                     Button("Try again", action: onDismiss)
                         .buttonStyle(GlowButtonStyle(color: Theme.action))
@@ -246,9 +246,9 @@ struct CaptureFlowView: View {
         Button {
             showAssistant = true
         } label: {
-            Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")
+            Label("Ask about this assessment", systemImage: "bubble.left.and.text.bubble.right")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.text)
                 .frame(maxWidth: .infinity, minHeight: 44)
         }
         .buttonStyle(.pressableCard)
@@ -462,7 +462,7 @@ struct CaptureFlowView: View {
                 return
             }
 
-            // A background close to skin colour (a wooden table, a beige
+            // A background close to skin color (a wooden table, a beige
             // wall) makes the outline's edge wander, so it's retaken too.
             let contrast = hand.flatMap {
                 BackgroundContrast.measure(contour: silhouette.contourPoints, tip: $0.indexTip.point, dip: $0.indexDIP.point, in: pixelBuffer)
@@ -472,7 +472,7 @@ struct CaptureFlowView: View {
                 DispatchQueue.main.async {
                     displayImage = image
                     captureFolder = folder
-                    stage = .failed("The background is too close to your skin colour for the app to see the edge of your finger clearly. Hold your finger in front of something plain that's much lighter or darker than your skin, like a light wall or a sheet of white paper, and try again.")
+                    stage = .failed("The background is too close to your skin color for the app to see the edge of your finger clearly. Hold your finger in front of something plain that's much lighter or darker than your skin, like a light wall or a sheet of white paper, and try again.")
                 }
                 return
             }
@@ -590,7 +590,7 @@ private struct MeasuringView: View {
                     ProgressView().tint(.primary)
                     Text("Measuring…")
                         .font(.body.weight(.semibold))
-                        .foregroundColor(.primary)
+                        .foregroundColor(Theme.text)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 12)
@@ -622,7 +622,7 @@ private struct FingerQuestionView: View {
                 .foregroundColor(Theme.adjusting)
             Text(title)
                 .font(.title2.weight(.bold))
-                .foregroundColor(.primary)
+                .foregroundColor(Theme.text)
             Text(message)
                 .font(.body)
                 .foregroundColor(.primary.opacity(0.8))
@@ -674,7 +674,7 @@ private struct ReadingSavedView: View {
             VStack(spacing: 8) {
                 Text(count.map { "Reading \($0) of \(target) saved" } ?? "That one didn't work")
                     .font(.title.weight(.bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(Theme.text)
                 Text(count == nil
                      ? "The measurement wasn't reliable. Let's take it again."
                      : "Keep the same pose for the next one.")

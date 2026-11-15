@@ -34,8 +34,8 @@ enum ResultView {
                 : "The measured signs are in the range seen in healthy fingers."
         case .measureAgain where steady:
             detail = a.aboveCount == 1
-                ? "One sign stays above its usual range. One sign alone isn't a clear pattern, but you can mention it at your next checkup."
-                : "Two signs stay close to their cut-offs. You can mention it at your next checkup."
+                ? "One sign stays above its usual range. One sign alone isn't a clear pattern, but you can mention it at your next doctor's visit."
+                : "Two signs stay close to their cut-offs. You can mention it at your next doctor's visit."
         case .measureAgain:
             detail = a.aboveCount == 1
                 ? "One sign is above its usual range, and single photos vary. Measure again so the app can use the middle values."
@@ -49,9 +49,12 @@ enum ResultView {
     }
 }
 
-/// Semicircular dial from 140° to 220° for the profile angle, with zones
-/// around the 176° cut-off (typical, within measurement error, above) and
-/// a needle.
+/// The dial for the profile angle, from 140° to 220°: three zones around
+/// the 176° limit (typical, within measurement error of it, past it), tick
+/// labels so it reads as a scale, a shaded band for how far a scan usually
+/// moves from day to day, and a dot for the value. A dot on a scale, not a
+/// needle swinging toward a red zone: the reading is the same, without the
+/// alarm.
 struct ResultGauge: View, Animatable {
     static let minAngle = 140.0
     static let maxAngle = 220.0
@@ -59,6 +62,8 @@ struct ResultGauge: View, Animatable {
     @Environment(\.colorScheme) private var scheme
 
     var angle: Double
+    /// Half-width of the day-to-day band, in degrees (Repeatability).
+    var uncertainty: Double = 0
     var animatableData: Double {
         get { angle }
         set { angle = newValue }
@@ -66,8 +71,8 @@ struct ResultGauge: View, Animatable {
 
     var body: some View {
         GeometryReader { geo in
-            let center = CGPoint(x: geo.size.width / 2, y: geo.size.height - 12)
-            let radius = min(geo.size.width / 2, geo.size.height) - 16
+            let center = CGPoint(x: geo.size.width / 2, y: geo.size.height - 22)
+            let radius = min(geo.size.width / 2 - 34, geo.size.height - 44)
             let kind = SignKind.lovibond
             let low = kind.threshold - kind.margin, high = kind.threshold + kind.margin
             ZStack {
@@ -75,26 +80,41 @@ struct ResultGauge: View, Animatable {
                 zone(from: low, to: high, color: Theme.adjusting, center: center, radius: radius)
                 zone(from: high, to: Self.maxAngle, color: Theme.attention, center: center, radius: radius)
 
+                // Minor ticks every 10 degrees.
+                ForEach(Array(stride(from: Self.minAngle, through: Self.maxAngle, by: 10)), id: \.self) { value in
+                    Path { p in
+                        p.move(to: point(value, center, radius + 10))
+                        p.addLine(to: point(value, center, radius + 14))
+                    }
+                    .stroke(Color.primary.opacity(0.35), style: StrokeStyle(lineWidth: 1, lineCap: .round))
+                }
+                tickLabel("140°", at: Self.minAngle, center, radius)
+                tickLabel("220°", at: Self.maxAngle, center, radius)
+
+                // The published limit.
                 Path { p in
-                    p.move(to: point(kind.threshold, center, radius - 16))
-                    p.addLine(to: point(kind.threshold, center, radius + 12))
+                    p.move(to: point(kind.threshold, center, radius - 12))
+                    p.addLine(to: point(kind.threshold, center, radius + 14))
                 }
                 .stroke(Color.primary.opacity(0.8), style: StrokeStyle(lineWidth: 2, lineCap: .round))
-                Text(kind.formattedThreshold)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundColor(.primary.opacity(0.7))
-                    .position(point(kind.threshold, center, radius + 24))
+                Text("limit \(kind.formattedThreshold)")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Theme.secondaryText)
+                    .fixedSize()
+                    .position(point(kind.threshold, center, radius + 30))
 
-                let color = ResultView.color(for: kind.status(of: angle))
-                Path { p in
-                    p.move(to: center)
-                    p.addLine(to: point(angle, center, radius - 22))
+                // How far a scan usually moves from day to day.
+                if uncertainty > 0 {
+                    arc(from: angle - uncertainty, to: angle + uncertainty, center: center, radius: radius)
+                        .stroke(Color.primary.opacity(0.22), style: StrokeStyle(lineWidth: 24, lineCap: .butt))
                 }
-                .stroke(color, style: StrokeStyle(lineWidth: 4, lineCap: .round))
+
+                let color = SignState(kind.status(of: angle)).color
                 Circle()
                     .fill(color)
-                    .frame(width: 14, height: 14)
-                    .position(center)
+                    .frame(width: 20, height: 20)
+                    .overlay(Circle().stroke(Theme.card, lineWidth: 3))
+                    .position(point(angle, center, radius))
             }
         }
     }
@@ -106,16 +126,54 @@ struct ResultGauge: View, Animatable {
         return CGPoint(x: center.x + radius * CGFloat(cos(theta)), y: center.y + radius * CGFloat(sin(theta)))
     }
 
-    private func zone(from a: Double, to b: Double, color: Color, center: CGPoint, radius: CGFloat) -> some View {
+    private func arc(from a: Double, to b: Double, center: CGPoint, radius: CGFloat) -> Path {
         Path { p in
             let steps = 30
             for i in 0...steps {
-                let v = a + (b - a) * Double(i) / Double(steps)
-                let pt = point(v, center, radius)
+                let pt = point(a + (b - a) * Double(i) / Double(steps), center, radius)
                 if i == 0 { p.move(to: pt) } else { p.addLine(to: pt) }
             }
         }
-        // Stronger on white (Classic), where pale zones wash out.
-        .stroke(color.opacity(scheme == .light ? 0.55 : 0.35), style: StrokeStyle(lineWidth: 14, lineCap: .butt))
+    }
+
+    private func zone(from a: Double, to b: Double, color: Color, center: CGPoint, radius: CGFloat) -> some View {
+        // Stronger on white, where pale zones wash out.
+        arc(from: a, to: b, center: center, radius: radius)
+            .stroke(color.opacity(scheme == .light ? 0.55 : 0.45), style: StrokeStyle(lineWidth: 14, lineCap: .butt))
+    }
+
+    private func tickLabel(_ text: String, at value: Double, _ center: CGPoint, _ radius: CGFloat) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(Theme.secondaryText)
+            .fixedSize()
+            .position(x: point(value, center, radius).x, y: center.y + 14)
+    }
+}
+
+/// What the dial's and the bars' three zones mean.
+struct ZoneLegend: View {
+    var body: some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: Spacing.normal) { items }
+            VStack(alignment: .leading, spacing: 4) { items }
+        }
+        .font(.caption)
+        .foregroundStyle(Theme.secondaryText)
+        .accessibilityElement(children: .combine)
+    }
+
+    @ViewBuilder
+    private var items: some View {
+        item(Theme.aligned, "typical")
+        item(Theme.adjusting, "close to the limit")
+        item(Theme.attention, "past the limit")
+    }
+
+    private func item(_ color: Color, _ text: String) -> some View {
+        HStack(spacing: 5) {
+            RoundedRectangle(cornerRadius: 2).fill(color.opacity(0.7)).frame(width: 12, height: 6)
+            Text(text).lineLimit(1).fixedSize()
+        }
     }
 }

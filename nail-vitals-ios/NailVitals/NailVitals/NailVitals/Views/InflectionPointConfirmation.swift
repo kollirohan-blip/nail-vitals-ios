@@ -170,16 +170,16 @@ struct InflectionPointConfirmation: View {
             if let side = selectedSide, noDipNote != nil, liveAngles[side] == nil {
                 Text("No dip where the nail meets the skin")
                     .font(.title3.weight(.bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(Theme.text)
                     .multilineTextAlignment(.center)
             } else if let side = selectedSide {
                 Text("Is the dot where your nail meets the skin?")
                     .font(.body.weight(.semibold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(Theme.text)
                     .multilineTextAlignment(.center)
                 Text("\(displayAngle(for: side), specifier: "%.1f")°")
                     .font(.title.weight(.bold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(Theme.text)
                     .monospacedDigit()
                 Text("If not, drag it there.")
                     .font(.footnote.weight(.medium))
@@ -187,7 +187,7 @@ struct InflectionPointConfirmation: View {
             } else {
                 Text("Tap the dot where your nail meets the skin")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundColor(.primary)
+                    .foregroundColor(Theme.text)
                     .multilineTextAlignment(.center)
             }
 

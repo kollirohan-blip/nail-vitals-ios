@@ -48,8 +48,8 @@ final class CheckupReminder: ObservableObject {
             permissionDenied = false
             let fire = ReminderPlan.fireDate(from: Date(), days: days)
             let content = UNMutableNotificationContent()
-            content.title = "Time for your nail check-up"
-            content.body = "It takes about a minute. Checking every few weeks builds your trend."
+            content.title = "Time for your nail assessment"
+            content.body = "It takes about a minute. Assessing every few weeks builds your trend."
             content.sound = .default
             let when = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
             let request = UNNotificationRequest(identifier: Self.identifier, content: content,

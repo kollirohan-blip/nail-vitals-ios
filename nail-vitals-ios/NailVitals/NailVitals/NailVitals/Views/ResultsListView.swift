@@ -32,7 +32,7 @@ struct SessionRow: View {
             HStack(alignment: .firstTextBaseline) {
                 Text(ReportCardView.dayText(session.date))
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Theme.text)
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
@@ -73,6 +73,7 @@ struct SessionDetailView: View {
     @State private var exportError: String?
     /// The sign whose page is open.
     @State private var openSign: NailSign?
+    @Environment(\.startAssessment) private var startAssessment
 
     var body: some View {
         ScrollView {
@@ -85,6 +86,8 @@ struct SessionDetailView: View {
         .background(AppBackground())
         .navigationTitle(history.session(id)?.date.formatted(date: .abbreviated, time: .omitted) ?? "Result")
         .navigationBarTitleDisplayMode(.inline)
+        // Full screen: nothing floats over the result.
+        .toolbar(.hidden, for: .tabBar)
         .sheet(isPresented: $showAssistant) {
             if let session = history.session(id) {
                 AskAssistantView(context: AssistantContext(readings: session.signs,
@@ -111,46 +114,69 @@ struct SessionDetailView: View {
     }
 
     private func content(_ session: ScanSession) -> some View {
-        VStack(spacing: 16) {
+        let flagged = session.report.overall == .worthDiscussing
+        return VStack(spacing: Spacing.normal) {
             ReportCardView(readings: session.signs, extra: session.extraSigns ?? [],
                            hand: MeasuredHand(rawValue: session.hand) ?? .right, date: session.date,
                            offersReminder: history.latest?.id == session.id,
+                           onAssessAgain: {
+                               dismiss()
+                               startAssessment()
+                           },
+                           onShare: { share(session) },
                            onOpen: { openSign = $0 })
 
             Button { showAssistant = true } label: {
-                Label("Ask about this result", systemImage: "bubble.left.and.text.bubble.right")
+                Label("Ask about this assessment", systemImage: "bubble.left.and.text.bubble.right")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Theme.text)
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
             .buttonStyle(.pressableCard)
             .glassCard(cornerRadius: 20)
 
-            // For a doctor's record system: the result as structured data.
-            Button {
-                do {
-                    exportFile = ShareFile(url: try FHIRExport.file(for: session))
-                } catch {
-                    exportError = "Couldn't create the file. Try again."
-                }
-            } label: {
-                Label("Send to doctor (FHIR file)", systemImage: "square.and.arrow.up")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
+            // When the result is flagged, sharing is the main action on
+            // the card above; otherwise it sits here.
+            if !flagged {
+                Button { share(session) } label: {
+                    VStack(spacing: 2) {
+                        Label("Share with your doctor", systemImage: "square.and.arrow.up")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Theme.text)
+                        Text("FHIR health-record file")
+                            .font(.caption)
+                            .foregroundStyle(Theme.secondaryText)
+                    }
                     .frame(maxWidth: .infinity, minHeight: 44)
+                    .padding(.vertical, 6)
+                }
+                .buttonStyle(.pressableCard)
+                .glassCard(cornerRadius: 20)
             }
-            .buttonStyle(.pressableCard)
-            .glassCard(cornerRadius: 20)
             if let exportError {
                 Text(exportError).font(.footnote).foregroundStyle(Theme.attention)
             }
 
+            SafetyNote()
+                .padding(.top, Spacing.tight)
+
+            // Apart from everything else, so it's never tapped by mistake.
+            Divider()
+                .padding(.top, Spacing.normal)
             Button("Delete this result", role: .destructive) { confirmDelete = true }
                 .font(.footnote.weight(.medium))
-                .foregroundStyle(Theme.attention)
+                .foregroundStyle(Theme.destructive)
                 .frame(minHeight: 44)
+        }
+    }
 
-            SafetyNote()
+    /// For a doctor's record system: the result as structured data.
+    private func share(_ session: ScanSession) {
+        do {
+            exportFile = ShareFile(url: try FHIRExport.file(for: session))
+            exportError = nil
+        } catch {
+            exportError = "Couldn't create the file. Try again."
         }
     }
 }

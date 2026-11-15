@@ -91,7 +91,7 @@ struct HomeView: View {
                 Image(systemName: "ellipsis")
                     // Fixed size: the icon sits in a fixed 44-pt disc.
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(.primary)
+                    .foregroundStyle(Theme.text)
                     .frame(width: 44, height: 44)
                     .roundSurface()
             }
@@ -105,7 +105,7 @@ struct HomeView: View {
             VStack(spacing: 6) {
                 Image(systemName: "viewfinder")
                     .font(.title.weight(.medium))
-                Text("Start check-up")
+                Text("Start assessment")
                     .font(.title2.weight(.semibold))
                     .multilineTextAlignment(.center)
                 Text("3 side photos of your index finger")
@@ -121,7 +121,7 @@ struct HomeView: View {
         }
         .buttonStyle(.pressableCard)
         .modifier(ScanTransitionSource(namespace: transition))
-        .accessibilityLabel("Start check-up. 3 side photos of your index finger.")
+        .accessibilityLabel("Start assessment. 3 side photos of your index finger.")
     }
 
     /// Which index finger the check-up measures.
@@ -137,7 +137,7 @@ struct HomeView: View {
                     .imageScale(.small)
             }
             .font(.subheadline.weight(.medium))
-            .foregroundStyle(.primary)
+            .foregroundStyle(Theme.text)
             .frame(maxWidth: .infinity, minHeight: 44)
             .contentShape(.rect)
         }
@@ -172,7 +172,7 @@ struct HomeView: View {
                         .font(.footnote.weight(.semibold))
                         .foregroundStyle(Theme.secondaryText)
                 }
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.text)
                 .padding(14)
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(.rect)
@@ -186,7 +186,7 @@ struct HomeView: View {
                 ? [GridItem(.flexible())]
                 : [GridItem(.flexible(), spacing: 12), GridItem(.flexible())]
             LazyVGrid(columns: columns, spacing: 12) {
-                betaTile("Nail colour", "Liver and kidney nail patterns", icon: "hand.raised.fingers.spread") { showNailCheck = true }
+                betaTile("Nail appearance", "Terry's and half-and-half patterns", icon: "hand.raised.fingers.spread") { showNailCheck = true }
                 betaTile("Schamroth window", "The gap between two nails", icon: "rhombus") { showSchamroth = true }
             }
         }
@@ -213,7 +213,7 @@ struct HomeView: View {
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .foregroundStyle(.primary)
+            .foregroundStyle(Theme.text)
             .padding(14)
             .frame(maxWidth: .infinity, minHeight: 104, alignment: .topLeading)
             .contentShape(.rect)
@@ -234,7 +234,7 @@ struct HomeView: View {
             }
             .buttonStyle(.pressableCard)
         } else {
-            Text("Your results show up here after your first check-up.")
+            Text("Your results show up here after your first assessment.")
                 .font(.subheadline)
                 .foregroundStyle(Theme.secondaryText)
                 .multilineTextAlignment(.center)
@@ -254,8 +254,8 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Your trend")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.primary)
-                    Text("\(history.sessions.count) check-ups")
+                        .foregroundStyle(Theme.text)
+                    Text("\(history.sessions.count) assessments")
                         .font(.footnote)
                         .foregroundStyle(Theme.secondaryText)
                 }
@@ -263,12 +263,12 @@ struct HomeView: View {
                 if points.count >= 2 {
                     Chart {
                         ForEach(Array(points.enumerated()), id: \.offset) { index, point in
-                            LineMark(x: .value("Check-up", index), y: .value("Nail angle", point.value))
+                            LineMark(x: .value("Assessment", index), y: .value("Nail angle", point.value))
                                 .foregroundStyle(Theme.secondaryText)
                                 .interpolationMethod(.monotone)
                         }
                         if let last = points.last {
-                            PointMark(x: .value("Check-up", points.count - 1), y: .value("Nail angle", last.value))
+                            PointMark(x: .value("Assessment", points.count - 1), y: .value("Nail angle", last.value))
                                 .foregroundStyle(SignState(SignKind.lovibond.status(of: last.value)).color)
                                 .symbolSize(40)
                         }
@@ -290,6 +290,6 @@ struct HomeView: View {
             .glassCard(cornerRadius: 20)
         }
         .buttonStyle(.pressableCard)
-        .accessibilityLabel("Your trend: \(history.sessions.count) check-ups. Opens History.")
+        .accessibilityLabel("Your trend: \(history.sessions.count) assessments. Opens History.")
     }
 }

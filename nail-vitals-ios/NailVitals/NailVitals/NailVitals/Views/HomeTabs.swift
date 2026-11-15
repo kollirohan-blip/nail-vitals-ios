@@ -43,8 +43,7 @@ struct HomeTabs: View {
                     .id(history.latest?.id)
             }
         }
-        .tint(.primary)
-        .tabBarMinimizeBehavior(.onScrollDown)
+        .tint(Theme.accent)
     }
 }
 
@@ -70,7 +69,7 @@ struct BrandMark: View {
             .overlay(tile.stroke(Color.primary.opacity(0.1), lineWidth: 1))
             Text("Nail Vitals")
                 .font(.body.weight(.semibold))
-                .foregroundStyle(.primary)
+                .foregroundStyle(Theme.text)
         }
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isHeader)

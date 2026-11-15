@@ -153,32 +153,32 @@ func day(_ text: String) -> Date { ISO8601DateFormatter().date(from: text + "T12
 let now = day("2026-11-12")
 
 check("noCheckupsYet") {
-    CheckupWording.lastCheckupLine(date: nil, overall: nil, now: now, calendar: utc) == "No check-ups yet"
+    CheckupWording.lastCheckupLine(date: nil, overall: nil, now: now, calendar: utc) == "No assessments yet"
 }
 check("lastCheckupToday") {
     CheckupWording.lastCheckupLine(date: day("2026-11-12"), overall: .typical, now: now, calendar: utc)
-        == "Last check-up today · nothing stood out"
+        == "Last assessment today · nothing stood out"
 }
 check("lastCheckupYesterday") {
     CheckupWording.lastCheckupLine(date: day("2026-11-11"), overall: .measureAgain, now: now, calendar: utc)
-        == "Last check-up yesterday · measure again"
+        == "Last assessment yesterday · measure again"
 }
 check("lastCheckupDaysAgo") {
     CheckupWording.lastCheckupLine(date: day("2026-11-09"), overall: .typical, now: now, calendar: utc)
-        == "Last check-up 3 days ago · nothing stood out"
+        == "Last assessment 3 days ago · nothing stood out"
 }
 check("lastCheckupWeeksAgo") {
     CheckupWording.lastCheckupLine(date: day("2026-10-20"), overall: .worthDiscussing, now: now, calendar: utc)
-        == "Last check-up 3 weeks ago · worth discussing with a doctor"
+        == "Last assessment 3 weeks ago · worth discussing with a doctor"
 }
 check("lastCheckupLongAgoShowsTheDate") {
     let line = CheckupWording.lastCheckupLine(date: day("2026-08-01"), overall: .couldntCheck, now: now, calendar: utc)
-    return line.hasPrefix("Last check-up on ") && line.hasSuffix(" · couldn't check") && !line.contains("ago")
+    return line.hasPrefix("Last assessment on ") && line.hasSuffix(" · couldn't check") && !line.contains("ago")
 }
 check("aClockSetBackNeverSaysNegativeDays") {
     // The last check-up is dated after "now" (the phone's clock was changed).
     CheckupWording.lastCheckupLine(date: day("2026-11-14"), overall: .typical, now: now, calendar: utc)
-        == "Last check-up today · nothing stood out"
+        == "Last assessment today · nothing stood out"
 }
 check("greetings") {
     CheckupWording.greeting(hour: 6) == "Good morning" && CheckupWording.greeting(hour: 12) == "Good afternoon"
@@ -252,6 +252,52 @@ check("savedLooksStillLoad") {
 }
 check("noSavedLookMeansAutomatic") {
     AppAppearance.from(stored: nil) == .automatic && AppAppearance.from(stored: "neon") == .automatic
+}
+
+// MARK: - Sources, uncertainty, next action, checks (design-review pass)
+
+check("everyLimitNamesItsSource") {
+    SignKind.allCases.allSatisfy { !$0.limitSource.short.isEmpty && $0.limitSource.url.hasPrefix("https://") }
+        && SignKind.lovibond.limitSource.short == "JAMA 2001"
+}
+check("limitLabelCarriesTheSource") {
+    SignKind.lovibond.limitLabel == "limit 176° · JAMA 2001" && SignKind.depthRatio.limitLabel == "limit 1.0 · JAMA 2001"
+}
+check("healthyAveragesNameTheirStudies") {
+    Source.bentley1976.url == "https://pubmed.ncbi.nlm.nih.gov/73793/"
+        && Source.myersFarquhar2001.url == "https://pubmed.ncbi.nlm.nih.gov/11466101/"
+        && Source.all.allSatisfy { $0.url.hasPrefix("https://") && !$0.citation.isEmpty }
+}
+check("headlineCarriesItsRepeatRange") {
+    SignKind.lovibond.withUncertainty(172.2) == "172.2° ± 3°" && SignKind.hyponychial.withUncertainty(179.6) == "179.6° ± 4°"
+        && SignKind.depthRatio.withUncertainty(1.0) == "1.00 ± 0.06"
+}
+check("nextActionFollowsTheResult") {
+    NextAction(after: .typical) == .remind(days: 14) && NextAction(after: .measureAgain) == .assessAgain
+        && NextAction(after: .worthDiscussing) == .shareWithDoctor && NextAction(after: .couldntCheck) == .assessAgain
+}
+func checked(_ sharpness: Double) -> FingerSigns {
+    var r = reading(166, 179, 0.84)
+    r.quality = ReadingQuality(sharpness: sharpness, backgroundContrast: 31, dipFlexion: -3, pipFlexion: 0.5,
+                               knuckleSpread: 0.2, outline: "crop", jointsFromHandPose: true, handPoseConfidence: 0.8)
+    return r
+}
+check("checksSummaryCountsEachCheckOnce") {
+    let s = CheckSummary(readings: [checked(0.31), checked(0.28), checked(0.35)])
+    return s.rows.count == 4 && s.passedCount == 4 && s.badge == "4 of 4 checks passed"
+}
+check("aFailedCheckShowsInTheBadge") {
+    let s = CheckSummary(readings: [checked(0.31), checked(0.05)])
+    return s.passedCount == 3 && s.badge == "3 of 4 checks passed" && s.rows.first { $0.id == "sharp" }?.failed == 1
+}
+check("checksExplainTheirNumbers") {
+    // The weakest reading is the one shown against the threshold.
+    let detail = CheckSummary(readings: [checked(0.31), checked(0.28)]).rows.first { $0.id == "sharp" }?.detail ?? ""
+    return detail == "lowest sharpness 0.28 · needs 0.15 or more"
+}
+check("oldResultsHaveNoChecks") {
+    let s = CheckSummary(readings: [reading(166, 179, 0.84)])
+    return s.rows.isEmpty && s.badge == nil
 }
 
 print(failures == 0 ? "signs-harness: all checks passed" : "signs-harness: \(failures) check(s) FAILED")
